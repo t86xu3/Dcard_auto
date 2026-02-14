@@ -1,0 +1,32 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.db
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+
+# Environment
+.env
+*.key
+*.pem
+
+# Images (downloaded product images)
+backend/images/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+*.log
