@@ -1,0 +1,82 @@
+{
+    "manifest_version": 3,
+    "name": "Dcard 文章生成器",
+    "version": "1.0.0",
+    "description": "擷取蝦皮商品資料，生成 Dcard 文章",
+    "externally_connectable": {
+        "matches": [
+            "http://localhost:*/*",
+            "http://127.0.0.1:*/*"
+        ]
+    },
+    "icons": {
+        "16": "icons/icon16.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    },
+    "permissions": [
+        "storage",
+        "activeTab",
+        "clipboardWrite"
+    ],
+    "host_permissions": [
+        "https://shopee.tw/*",
+        "https://*.shopee.tw/*",
+        "https://www.dcard.tw/*",
+        "http://localhost:*/*",
+        "http://127.0.0.1:*/*"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://shopee.tw/*",
+                "https://*.shopee.tw/*"
+            ],
+            "js": [
+                "content-shopee.js"
+            ],
+            "run_at": "document_start"
+        },
+        {
+            "matches": [
+                "https://www.dcard.tw/*"
+            ],
+            "js": [
+                "content-dcard.js"
+            ],
+            "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "http://localhost:*/*",
+                "http://127.0.0.1:*/*"
+            ],
+            "js": [
+                "content-webui.js"
+            ],
+            "run_at": "document_end"
+        }
+    ],
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icons/icon16.png",
+            "48": "icons/icon48.png"
+        },
+        "default_title": "Dcard 文章生成器"
+    },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "injected.js"
+            ],
+            "matches": [
+                "https://shopee.tw/*",
+                "https://*.shopee.tw/*"
+            ]
+        }
+    ]
+}
