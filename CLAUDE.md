@@ -187,15 +187,15 @@ id, usage_date, requests, input_tokens, output_tokens
 
 ## 開發藍圖
 
-### Phase 1 - 核心功能（當前）
+### Phase 1 - 核心功能（完成）
 
-- [ ] Chrome Extension（蝦皮擷取 + Dcard 手動輔助）
-- [ ] 後端 API + DB
-- [ ] LLM 文章生成（含圖片標記）
-- [ ] 圖片下載與備份
-- [ ] SEO 分析與優化
-- [ ] 前端 Web UI
-- [ ] 手動複製貼上發文流程
+- [x] Chrome Extension（蝦皮擷取 + Dcard 手動輔助）
+- [x] 後端 API + DB
+- [x] LLM 文章生成（Mock，含圖片標記）
+- [x] 圖片下載與備份
+- [x] SEO 分析與優化
+- [x] 前端 Web UI
+- [x] 手動複製貼上發文流程
 
 ### Phase 2 - 自動化與擴展
 

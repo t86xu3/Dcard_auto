@@ -108,15 +108,15 @@ Dcard_auto/
 
 ## 開發進度
 
-### 當前階段：Phase 1 - 專案建置
+### 當前階段：Phase 1 - 核心功能（完成）
 
-- [ ] 專案骨架與目錄結構
-- [ ] Chrome Extension（蝦皮擷取 + Dcard 輔助）
-- [ ] 後端 API 骨架（FastAPI + DB + Alembic）
-- [ ] 文章生成服務（LLM Service + 圖片標記）
-- [ ] 圖片服務（下載備份 + ZIP 打包）
-- [ ] SEO 分析服務
-- [ ] 前端 Web UI 骨架
+- [x] 專案骨架與目錄結構
+- [x] Chrome Extension（蝦皮擷取 + Dcard 輔助）
+- [x] 後端 API 骨架（FastAPI + DB + Alembic）
+- [x] 文章生成服務（LLM Mock + 圖片標記）
+- [x] 圖片服務（下載備份 + ZIP 打包）
+- [x] SEO 分析服務（純演算法）
+- [x] 前端 Web UI（Dashboard + Products + Articles + Settings）
 - [ ] Chrome Extension 開發 Skill
 
 ### Phase 2 - 功能完善（待定）
