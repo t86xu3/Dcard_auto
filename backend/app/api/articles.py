@@ -88,6 +88,10 @@ async def generate_article(request: ArticleGenerateRequest, db: Session = Depend
         prompt_template_id=request.prompt_template_id,
     )
 
+    # 自動 SEO 分析（純 Python 計算，不消耗 API quota）
+    from app.services.seo_service import seo_service
+    seo_result = seo_service.analyze(title=result["title"], content=result["content"])
+
     # 儲存到資料庫
     article = Article(
         title=result["title"],
@@ -97,6 +101,8 @@ async def generate_article(request: ArticleGenerateRequest, db: Session = Depend
         target_forum=request.target_forum,
         product_ids=request.product_ids,
         image_map=result.get("image_map"),
+        seo_score=seo_result["score"],
+        seo_suggestions=seo_result,
         status="draft",
     )
     db.add(article)
@@ -163,9 +169,23 @@ async def optimize_seo(article_id: int, db: Session = Depends(get_db)):
     from app.services.seo_service import seo_service
 
     result = seo_service.optimize_with_llm(article)
-    article.content = result.get("optimized_content", article.content)
+    optimized_content = result.get("optimized_content", article.content)
+    article.content = optimized_content
+
+    # 同步更新 content_with_images：重新替換圖片標記
+    content_with_images = optimized_content
+    if article.image_map:
+        for marker, img_url in article.image_map.items():
+            content_with_images = content_with_images.replace(
+                f"{{{{{marker}}}}}",
+                f"\n\n![商品圖片]({img_url})\n\n"
+            )
+    article.content_with_images = content_with_images
+
     article.seo_score = result.get("score")
-    article.seo_suggestions = result.get("suggestions")
+    # 儲存完整分析結果（含 breakdown）
+    after_analysis = result.get("after_analysis", {})
+    article.seo_suggestions = after_analysis if after_analysis else result.get("suggestions")
     article.status = "optimized"
 
     db.commit()
@@ -175,6 +195,8 @@ async def optimize_seo(article_id: int, db: Session = Depends(get_db)):
         "article": ArticleResponse.model_validate(article),
         "before_score": result.get("before_score"),
         "after_score": result.get("score"),
+        "before_analysis": result.get("before_analysis"),
+        "after_analysis": after_analysis,
     }
 
 

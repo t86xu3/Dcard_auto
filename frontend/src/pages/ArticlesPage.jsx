@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getArticles, getArticle, updateArticle, deleteArticle, optimizeSeo, copyArticle, analyzeSeo } from '../api/client';
+import { getArticles, getArticle, updateArticle, deleteArticle, optimizeSeo, copyArticle, analyzeSeo, analyzeSeoById } from '../api/client';
+import SeoPanel from '../components/SeoPanel';
 
 // 複製圖片到剪貼簿（透過後端代理避免跨域）
 async function copyImageToClipboard(imageUrl) {
@@ -114,6 +115,9 @@ export default function ArticlesPage() {
   const [editTitle, setEditTitle] = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
   const [seoResult, setSeoResult] = useState(null);
+  const [seoBeforeAnalysis, setSeoBeforeAnalysis] = useState(null);
+  const [seoOptimized, setSeoOptimized] = useState(false);
+  const [seoBeforeScore, setSeoBeforeScore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [optimizing, setOptimizing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -138,7 +142,17 @@ export default function ArticlesPage() {
       setEditContent(article.content || '');
       setEditTitle(article.title || '');
       setEditingTitle(false);
-      setSeoResult(null);
+      setSeoBeforeAnalysis(null);
+      setSeoOptimized(false);
+      setSeoBeforeScore(null);
+
+      // 若已有 seo_suggestions 且含 breakdown，直接顯示
+      const seoData = article.seo_suggestions;
+      if (seoData && typeof seoData === 'object' && !Array.isArray(seoData) && seoData.breakdown) {
+        setSeoResult(seoData);
+      } else {
+        setSeoResult(null);
+      }
     } catch (err) {
       console.error('載入文章詳情失敗:', err);
     }
@@ -182,14 +196,11 @@ export default function ArticlesPage() {
       const resp = await optimizeSeo(selectedArticle.id);
       setSelectedArticle(resp.article);
       setEditContent(resp.article.content || '');
-      // 顯示優化前後對比
-      setSeoResult({
-        score: resp.after_score,
-        before_score: resp.before_score,
-        max_score: 100,
-        grade: resp.after_score >= 85 ? 'A' : resp.after_score >= 70 ? 'B' : resp.after_score >= 50 ? 'C' : 'D',
-        optimized: true,
-      });
+      // 顯示優化後的完整分析
+      setSeoResult(resp.after_analysis || resp.article.seo_suggestions);
+      setSeoOptimized(true);
+      setSeoBeforeScore(resp.before_score);
+      setSeoBeforeAnalysis(resp.before_analysis || null);
       await loadArticles();
     } catch (err) {
       alert('SEO 優化失敗');
@@ -201,11 +212,11 @@ export default function ArticlesPage() {
     if (!selectedArticle) return;
     setAnalyzing(true);
     try {
-      const result = await analyzeSeo({
-        title: selectedArticle.title,
-        content: selectedArticle.content || '',
-      });
+      const result = await analyzeSeoById(selectedArticle.id);
       setSeoResult(result);
+      setSeoOptimized(false);
+      setSeoBeforeScore(null);
+      setSeoBeforeAnalysis(null);
     } catch (err) {
       alert('SEO 分析失敗');
     }
@@ -344,34 +355,13 @@ export default function ArticlesPage() {
 
             {/* SEO Panel */}
             {seoResult && (
-              <div className={`mb-4 p-4 rounded-xl border ${seoResult.optimized ? 'bg-green-50 border-green-200' : 'bg-purple-50 border-purple-200'}`}>
-                <div className="flex items-center justify-between mb-3">
-                  <span className={`font-semibold ${seoResult.optimized ? 'text-green-800' : 'text-purple-800'}`}>
-                    {seoResult.optimized ? 'SEO 優化完成' : 'SEO 分析結果'}
-                  </span>
-                  <div className="text-right">
-                    {seoResult.optimized && seoResult.before_score != null && (
-                      <div className="text-sm text-gray-500 mb-1">
-                        {seoResult.before_score} → {seoResult.score}
-                        {seoResult.score > seoResult.before_score
-                          ? ` (+${(seoResult.score - seoResult.before_score).toFixed(1)})`
-                          : seoResult.score < seoResult.before_score
-                            ? ` (${(seoResult.score - seoResult.before_score).toFixed(1)})`
-                            : ' (不變)'}
-                      </div>
-                    )}
-                    <span className={`text-2xl font-bold ${seoResult.optimized ? 'text-green-600' : 'text-purple-600'}`}>
-                      {seoResult.score} / {seoResult.max_score} ({seoResult.grade})
-                    </span>
-                  </div>
-                </div>
-                {seoResult.suggestions?.length > 0 && (
-                  <ul className="text-sm text-purple-700 space-y-1">
-                    {seoResult.suggestions.map((s, i) => (
-                      <li key={i}>• {s}</li>
-                    ))}
-                  </ul>
-                )}
+              <div className="mb-4">
+                <SeoPanel
+                  data={seoResult}
+                  optimized={seoOptimized}
+                  beforeScore={seoBeforeScore}
+                  beforeAnalysis={seoBeforeAnalysis}
+                />
               </div>
             )}
 

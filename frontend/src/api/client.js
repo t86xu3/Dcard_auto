@@ -66,6 +66,9 @@ export const setDefaultPrompt = (id) =>
 export const analyzeSeo = (data) =>
   api.post('/seo/analyze', data).then(r => r.data);
 
+export const analyzeSeoById = (articleId) =>
+  api.post(`/seo/analyze/${articleId}`).then(r => r.data);
+
 // 用量
 export const getUsage = () =>
   api.get('/usage').then(r => r.data);
