@@ -19,62 +19,34 @@
             <div class="badge" id="productCount">0</div>
         </header>
 
-        <!-- Tabs -->
-        <div class="tabs">
-            <button class="tab active" data-tab="products">商品</button>
-            <button class="tab" data-tab="articles">文章</button>
+        <!-- Capture Button -->
+        <div class="capture-section">
+            <button class="btn btn-capture" id="captureBtn">
+                <span class="btn-icon">📸</span>
+                擷取當前商品
+            </button>
+            <div class="capture-hint" id="captureHint">在蝦皮商品頁面點擊擷取</div>
         </div>
 
-        <!-- Products Tab -->
-        <div class="tab-content active" id="tab-products">
-            <!-- Capture Button -->
-            <div class="capture-section">
-                <button class="btn btn-capture" id="captureBtn">
-                    <span class="btn-icon">📸</span>
-                    擷取當前商品
-                </button>
-                <div class="capture-hint" id="captureHint">在蝦皮商品頁面點擊擷取</div>
-            </div>
-
-            <!-- Product List -->
-            <div class="product-list" id="productList">
-                <div class="empty-state">
-                    <span class="empty-icon">📦</span>
-                    <p>尚未擷取任何商品</p>
-                    <small>前往蝦皮商品頁面點擊擷取</small>
-                </div>
-            </div>
-
-            <!-- Actions -->
-            <div class="actions">
-                <button class="btn btn-secondary" id="clearBtn">
-                    <span class="btn-icon">🗑️</span>
-                    清除全部
-                </button>
-                <button class="btn btn-primary" id="syncBtn">
-                    <span class="btn-icon">🔄</span>
-                    同步到後端
-                </button>
+        <!-- Product List -->
+        <div class="product-list" id="productList">
+            <div class="empty-state">
+                <span class="empty-icon">📦</span>
+                <p>尚未擷取任何商品</p>
+                <small>前往蝦皮商品頁面點擊擷取</small>
             </div>
         </div>
 
-        <!-- Articles Tab -->
-        <div class="tab-content" id="tab-articles">
-            <div class="article-actions">
-                <button class="btn btn-generate" id="generateBtn" disabled>
-                    <span class="btn-icon">✨</span>
-                    生成比較文
-                </button>
-                <div class="generate-hint" id="generateHint">選擇 2+ 商品後可生成</div>
-            </div>
-
-            <div class="article-list" id="articleList">
-                <div class="empty-state">
-                    <span class="empty-icon">📄</span>
-                    <p>尚未生成文章</p>
-                    <small>擷取商品後可生成比較文</small>
-                </div>
-            </div>
+        <!-- Actions -->
+        <div class="actions">
+            <button class="btn btn-secondary" id="clearBtn">
+                <span class="btn-icon">🗑️</span>
+                清除全部
+            </button>
+            <button class="btn btn-primary" id="syncBtn">
+                <span class="btn-icon">🔄</span>
+                同步到後端
+            </button>
         </div>
 
         <!-- Footer -->

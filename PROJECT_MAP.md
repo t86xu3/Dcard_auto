@@ -126,6 +126,7 @@ Dcard_auto/
 - [ ] 批量生成功能
 - [ ] Docker 部署配置
 - [ ] 雲端部署（AWS/GCP）
+- [ ] Chrome Extension icon 美化（設計正式 logo）
 
 ## 關鍵檔案快速索引
 

@@ -9,23 +9,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const captureHint = document.getElementById('captureHint');
     const clearBtn = document.getElementById('clearBtn');
     const syncBtn = document.getElementById('syncBtn');
-    const generateBtn = document.getElementById('generateBtn');
-    const generateHint = document.getElementById('generateHint');
-    const articleList = document.getElementById('articleList');
-
-    // Tab 切換
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            tab.classList.add('active');
-            document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
-
-            if (tab.dataset.tab === 'articles') {
-                loadArticles();
-            }
-        });
-    });
 
     await loadProducts();
 
@@ -104,54 +87,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         syncBtn.innerHTML = '<span class="btn-icon">🔄</span> 同步到後端';
     });
 
-    // 生成文章
-    generateBtn.addEventListener('click', async () => {
-        generateBtn.disabled = true;
-        generateBtn.innerHTML = '<span class="btn-icon">⏳</span> 生成中...';
-
-        try {
-            // 先同步到後端取得 DB ID
-            const syncResponse = await chrome.runtime.sendMessage({ type: 'SYNC_ALL_TO_BACKEND' });
-
-            // 取得後端商品列表以獲得 ID
-            const productsResponse = await fetch('http://localhost:8001/api/products');
-            const products = await productsResponse.json();
-
-            if (products.length < 1) {
-                generateHint.textContent = '❌ 後端沒有商品，請先同步';
-                generateHint.style.color = '#EF4444';
-            } else {
-                const productIds = products.slice(0, 5).map(p => p.id);
-
-                const response = await chrome.runtime.sendMessage({
-                    type: 'GENERATE_ARTICLE',
-                    data: {
-                        product_ids: productIds,
-                        article_type: products.length >= 2 ? 'comparison' : 'review',
-                        target_forum: 'goodthings'
-                    }
-                });
-
-                if (response && response.success) {
-                    generateHint.textContent = '✅ 文章已生成！';
-                    generateHint.style.color = '#10B981';
-                    showToast('✅ 文章已生成');
-                    // 切到文章 Tab
-                    document.querySelectorAll('.tab')[1].click();
-                } else {
-                    generateHint.textContent = `❌ ${response?.error || '生成失敗'}`;
-                    generateHint.style.color = '#EF4444';
-                }
-            }
-        } catch (error) {
-            generateHint.textContent = '❌ 請確認後端已啟動';
-            generateHint.style.color = '#EF4444';
-        }
-
-        generateBtn.disabled = false;
-        generateBtn.innerHTML = '<span class="btn-icon">✨</span> 生成比較文';
-    });
-
     /**
      * 載入商品列表
      */
@@ -160,15 +95,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const products = response.products || [];
 
         productCount.textContent = products.length;
-        generateBtn.disabled = products.length < 1;
-
-        if (products.length >= 2) {
-            generateHint.textContent = `已有 ${products.length} 個商品，可生成比較文`;
-            generateHint.style.color = '#10B981';
-        } else if (products.length === 1) {
-            generateHint.textContent = '已有 1 個商品，可生成開箱文';
-            generateHint.style.color = '#3B82F6';
-        }
 
         if (products.length === 0) {
             productList.innerHTML = `
@@ -231,50 +157,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             });
         });
-    }
-
-    /**
-     * 載入文章列表
-     */
-    async function loadArticles() {
-        try {
-            const response = await chrome.runtime.sendMessage({ type: 'GET_ARTICLES' });
-
-            if (!response || !response.success || !response.articles?.length) {
-                articleList.innerHTML = `
-                    <div class="empty-state">
-                        <span class="empty-icon">📄</span>
-                        <p>尚未生成文章</p>
-                        <small>擷取商品後可生成比較文</small>
-                    </div>
-                `;
-                return;
-            }
-
-            articleList.innerHTML = response.articles.map(article => `
-                <div class="article-item" data-id="${article.id}">
-                    <div class="article-title">${escapeHtml(article.title)}</div>
-                    <div class="article-meta">
-                        ${article.article_type} · ${article.status} · ${new Date(article.created_at).toLocaleDateString('zh-TW')}
-                    </div>
-                </div>
-            `).join('');
-
-            // 點擊文章 → 開啟 Web UI
-            articleList.querySelectorAll('.article-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    chrome.tabs.create({ url: `http://localhost:3001/articles` });
-                });
-            });
-        } catch (error) {
-            articleList.innerHTML = `
-                <div class="empty-state">
-                    <span class="empty-icon">⚠️</span>
-                    <p>無法載入文章</p>
-                    <small>請確認後端已啟動</small>
-                </div>
-            `;
-        }
     }
 
     function showToast(message) {

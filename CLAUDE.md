@@ -204,6 +204,7 @@ id, usage_date, requests, input_tokens, output_tokens
 - [ ] 批量生成
 - [ ] Docker 部署
 - [ ] 雲端部署（AWS/GCP）
+- [ ] Chrome Extension icon 美化（設計正式 logo）
 
 ## 參考來源
 
