@@ -53,9 +53,10 @@ Dcard_auto/
 │   │   │   ├── seo.py         # SEO 分析/優化
 │   │   │   └── usage.py       # 用量統計
 │   │   ├── services/
+│   │   │   ├── gemini_utils.py  # Gemini 共用工具（strip_markdown + track_usage）
 │   │   │   ├── llm_service.py # Gemini 文章生成（system_instruction 分離）
 │   │   │   ├── prompts.py     # Prompt 範本服務 + seed
-│   │   │   ├── seo_service.py # SEO 分析與優化
+│   │   │   ├── seo_service.py # SEO 8 項評分引擎 + LLM 優化
 │   │   │   ├── image_service.py # 圖片下載、備份、打包
 │   │   │   └── usage_tracker.py
 │   │   └── tasks/
@@ -70,6 +71,7 @@ Dcard_auto/
 │   ├── src/
 │   │   ├── api/               # API 客戶端
 │   │   ├── components/        # 共用元件
+│   │   │   └── SeoPanel.jsx   # SEO 分析面板（環形分數圖 + 8 項進度條）
 │   │   ├── pages/
 │   │   │   ├── DashboardPage.jsx
 │   │   │   ├── ProductsPage.jsx
@@ -99,16 +101,18 @@ Dcard_auto/
 | Service Worker | chrome-extension/background.js | 資料處理、儲存、同步 |
 | 商品 API | backend/app/api/products.py | 商品 CRUD + 圖片下載 |
 | 文章生成 API | backend/app/api/articles.py | 比較文/開箱文生成 |
-| SEO 分析 API | backend/app/api/seo.py | SEO 評分與優化建議 |
+| SEO 分析 API | backend/app/api/seo.py | SEO 評分 + 按文章 ID 分析並存入 DB |
 | Prompt 範本 API | backend/app/api/prompts.py | 範本 CRUD + 設為預設 |
 | LLM 服務 | backend/app/services/llm_service.py | Gemini 文章生成（system_instruction 分離）|
 | Prompt 範本服務 | backend/app/services/prompts.py | 內建範本 seed + 預設取得 |
-| SEO 服務 | backend/app/services/seo_service.py | SEO 分析與自動優化 |
+| Gemini 共用工具 | backend/app/services/gemini_utils.py | strip_markdown + track_usage |
+| SEO 服務 | backend/app/services/seo_service.py | 8 項 SEO 評分引擎 + LLM 優化 |
 | 圖片服務 | backend/app/services/image_service.py | 圖片下載、備份、打包 ZIP |
 | 文章任務 | backend/app/tasks/article_tasks.py | Celery 非同步生成 |
 | 儀表板 | frontend/src/pages/DashboardPage.jsx | 系統概覽 |
 | 商品管理 | frontend/src/pages/ProductsPage.jsx | 商品列表與操作 |
 | 文章管理 | frontend/src/pages/ArticlesPage.jsx | 文章編輯與發佈 |
+| SEO 面板 | frontend/src/components/SeoPanel.jsx | 環形分數圖 + 8 項進度條 + 關鍵字標籤 |
 | Extension 偵測 | frontend/src/hooks/useExtensionDetect.js | 自動偵測插件 |
 
 ## 開發進度
@@ -120,7 +124,7 @@ Dcard_auto/
 - [x] 後端 API 骨架（FastAPI + DB + Alembic）
 - [x] 文章生成服務（LLM Mock + 圖片標記）
 - [x] 圖片服務（下載備份 + ZIP 打包）
-- [x] SEO 分析服務（純演算法）
+- [x] SEO 分析服務（8 項評分引擎 + 自動分析 + 前端面板）
 - [x] 前端 Web UI（Dashboard + Products + Articles + Settings）
 - [ ] Chrome Extension 開發 Skill
 

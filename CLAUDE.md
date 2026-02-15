@@ -173,7 +173,8 @@ created_at, updated_at
 | `/api/prompts` | GET/POST | Prompt 範本列表/新增 |
 | `/api/prompts/{id}` | PUT/DELETE | 範本更新/刪除 |
 | `/api/prompts/{id}/set-default` | POST | 設為預設範本 |
-| `/api/seo/analyze` | POST | SEO 分析 |
+| `/api/seo/analyze` | POST | SEO 分析（傳入 title+content） |
+| `/api/seo/analyze/{article_id}` | POST | 按文章 ID 分析 SEO 並存入 DB |
 | `/api/usage` | GET | API 用量統計 |
 
 ## 文章生成架構
