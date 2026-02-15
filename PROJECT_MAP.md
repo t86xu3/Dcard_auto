@@ -13,11 +13,14 @@
 | ORM | SQLAlchemy | 2.x | 資料庫抽象 |
 | DB 遷移 | Alembic | latest | Schema 版本控制 |
 | 任務佇列 | Celery + Redis | latest | 非同步文章生成 |
-| 資料庫 | SQLite → PostgreSQL | - | 開發/生產 |
+| 資料庫 | SQLite → PostgreSQL | - | 開發用 SQLite / 生產用 Supabase PostgreSQL |
 | LLM | Google Gemini API | latest | 文章生成 + SEO 優化 |
 | 前端框架 | React + Vite | 19 / 6 | Web UI |
 | CSS | Tailwind CSS | 4 | 樣式 |
 | 擴充功能 | Chrome Manifest V3 | - | 商品擷取 + Dcard 輔助發文 |
+| 前端部署 | Firebase Hosting | - | 免費 CDN，/api 轉發到 Cloud Run |
+| 後端部署 | Cloud Run | - | 容器化 FastAPI，免費額度 |
+| 生產資料庫 | Supabase PostgreSQL | 免費版 | 500MB，Tokyo region |
 
 ## 目錄結構
 
@@ -63,6 +66,8 @@ Dcard_auto/
 │   │       └── article_tasks.py # Celery 非同步任務
 │   ├── alembic/               # DB 遷移
 │   ├── images/                # 下載的商品圖片
+│   ├── Dockerfile            # Cloud Run 容器化（待建）
+│   ├── .dockerignore         # Docker 建置排除（待建）
 │   ├── requirements.txt
 │   ├── .env.example
 │   └── start.sh
@@ -84,6 +89,7 @@ Dcard_auto/
 │
 ├── docs/                      # 詳細設計文檔
 │   └── IMPLEMENTATION_PLAN.md
+├── firebase.json             # Firebase Hosting + Cloud Run rewrite（待建）
 ├── CLAUDE.md
 ├── PROJECT_MAP.md
 └── skills/
@@ -133,9 +139,24 @@ Dcard_auto/
 - [ ] Dcard 自動發文（content-dcard.js 自動插入圖片）
 - [x] Prompt 範本系統（內建好物推薦文範本 + 前端管理介面）
 - [ ] 批量生成功能
-- [ ] Docker 部署配置
-- [ ] 雲端部署（AWS/GCP）
 - [ ] Chrome Extension icon 美化（設計正式 logo）
+
+### Phase 3 - 雲端部署（計畫中）
+
+架構：Firebase Hosting + Cloud Run + Supabase PostgreSQL（全免費）
+
+- [ ] 後端容器化（Dockerfile + .dockerignore）
+- [ ] config.py 新增 ENVIRONMENT / ALLOWED_ORIGINS
+- [ ] database.py 支援 SQLite / PostgreSQL 雙模式
+- [ ] main.py CORS 改用環境變數
+- [ ] alembic env.py 從環境變數讀 DATABASE_URL
+- [ ] requirements.txt 新增 psycopg2-binary + gunicorn
+- [ ] .env.example 更新生產環境範例
+- [ ] firebase.json（Hosting + Cloud Run rewrite）
+- [ ] Supabase 資料庫設定 + Alembic 遷移
+- [ ] Cloud Run 部署 + 環境變數注入
+- [ ] Firebase Hosting 部署（前端 build）
+- [ ] CORS 限制為 Firebase 域名
 
 ## 關鍵檔案快速索引
 

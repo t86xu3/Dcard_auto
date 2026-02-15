@@ -210,9 +210,42 @@ created_at, updated_at
 - [ ] Dcard 自動發文（content-dcard.js 自動插圖）
 - [x] Prompt 範本系統（內建好物推薦文 + 前端管理介面）
 - [ ] 批量生成
-- [ ] Docker 部署
-- [ ] 雲端部署（AWS/GCP）
 - [ ] Chrome Extension icon 美化（設計正式 logo）
+
+### Phase 3 - 雲端部署（計畫中）
+
+架構：Firebase Hosting + Cloud Run + Supabase PostgreSQL（全免費）
+
+- [ ] 後端容器化（Dockerfile）
+- [ ] 程式碼適配（config/database/CORS/alembic）
+- [ ] Supabase 資料庫 + Alembic 遷移
+- [ ] Cloud Run 部署
+- [ ] Firebase Hosting 部署
+
+## 部署架構
+
+```
+瀏覽器 → Firebase Hosting (React 靜態檔)
+              ├── 靜態資源 → CDN 直接回傳
+              └── /api/** → Cloud Run (FastAPI) → Supabase PostgreSQL
+```
+
+### 部署指令
+
+```bash
+# 後端部署（Cloud Run）
+cd backend
+gcloud builds submit --tag asia-east1-docker.pkg.dev/PROJECT_ID/cloud-run-source-deploy/dcard-auto-backend
+gcloud run deploy dcard-auto-backend --image IMAGE_URL --region asia-east1
+
+# 前端部署（Firebase Hosting）
+cd frontend && npm run build
+cd .. && firebase deploy --only hosting
+
+# 資料庫遷移（Supabase）
+cd backend
+DATABASE_URL="postgresql://..." alembic upgrade head
+```
 
 ## 參考來源
 
