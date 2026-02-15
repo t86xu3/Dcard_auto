@@ -15,7 +15,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 from app.db.database import Base
-from app.models import Product, ProductImage, Article, ApiUsage  # noqa: F401
+from app.models import Product, ProductImage, Article, ApiUsage, PromptTemplate  # noqa: F401
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

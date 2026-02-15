@@ -1,29 +1,72 @@
 """
-LLM 文章生成服務（Phase 1 Mock 版）
+LLM 文章生成服務 - Gemini API
 """
 import logging
-from typing import List
+from typing import Optional
+
+from google import genai
+from google.genai import types
+from sqlalchemy.orm import Session
+
+from app.config import settings
+from app.services.prompts import get_default_prompt, DEFAULT_SYSTEM_PROMPT
+from app.models.prompt_template import PromptTemplate
 
 logger = logging.getLogger(__name__)
 
 
 class LLMService:
-    """LLM 文章生成服務"""
+    """LLM 文章生成服務（Gemini API）"""
 
-    def generate_article(self, products, article_type: str = "comparison", target_forum: str = "goodthings") -> dict:
-        """生成文章（Mock 版本）"""
-        product_names = [p.name for p in products]
+    def __init__(self):
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            if not settings.GOOGLE_API_KEY:
+                raise ValueError("GOOGLE_API_KEY 未設定，請在 .env 中設定")
+            self._client = genai.Client(api_key=settings.GOOGLE_API_KEY)
+        return self._client
+
+    def generate_article(self, products, db: Session, article_type: str = "comparison", target_forum: str = "goodthings", prompt_template_id: Optional[int] = None) -> dict:
+        """生成文章"""
         product_ids = [p.id for p in products]
 
-        if article_type == "comparison":
-            title = f"【比較】{' vs '.join(product_names[:3])} 哪個值得買？"
-            content = self._mock_comparison(products)
-        elif article_type == "review":
-            title = f"【開箱】{product_names[0]} 使用心得分享"
-            content = self._mock_review(products[0])
+        # 準備商品資訊
+        products_info = self._format_products_info(products)
+
+        # 載入 system prompt（從 DB 或預設）
+        if prompt_template_id:
+            template = db.query(PromptTemplate).filter(PromptTemplate.id == prompt_template_id).first()
+            system_prompt = template.content if template else get_default_prompt(db)
         else:
-            title = f"【推薦】{product_names[0]} 完整評測與購買指南"
-            content = self._mock_seo(products[0])
+            system_prompt = get_default_prompt(db)
+
+        # 組合使用者訊息（商品資料）
+        user_message = f"目標看板：{target_forum}\n\n以下是商品資料，請根據這些資訊撰寫文章：\n\n{products_info}"
+
+        # 呼叫 Gemini API（使用 system_instruction + contents 分離）
+        try:
+            response = self.client.models.generate_content(
+                model=settings.LLM_MODEL,
+                contents=user_message,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    temperature=settings.LLM_TEMPERATURE,
+                    max_output_tokens=settings.LLM_MAX_TOKENS,
+                ),
+            )
+
+            generated_text = response.text
+            logger.info(f"Gemini API 回應成功，文字長度: {len(generated_text)}")
+
+        except Exception as e:
+            logger.error(f"Gemini API 呼叫失敗: {e}")
+            raise RuntimeError(f"文章生成失敗: {e}")
+
+        # 解析標題和內容
+        title, content = self._parse_title_content(generated_text, products, article_type)
 
         # 建立圖片標記對應
         image_map = {}
@@ -34,6 +77,9 @@ class LLMService:
                     marker = f"IMAGE:{p.id}:{idx}"
                     image_map[marker] = img_url
 
+        # 追蹤 API 用量
+        self._track_usage(response)
+
         return {
             "title": title,
             "content": content,
@@ -41,110 +87,80 @@ class LLMService:
             "image_map": image_map,
         }
 
-    def _mock_comparison(self, products) -> str:
-        """生成 mock 比較文"""
-        lines = ["## 前言", "", "最近很多人問我這幾款商品到底差在哪裡，今天就來幫大家做個詳細的比較！", ""]
-
+    def _format_products_info(self, products) -> str:
+        """格式化商品資訊供 prompt 使用"""
+        info_parts = []
         for i, p in enumerate(products):
             price_str = f"NT${p.price:,.0f}" if p.price else "價格未知"
-            lines.extend([
-                f"## {i+1}. {p.name}",
-                "",
-                f"**價格**: {price_str}",
-                f"**評分**: {p.rating or 'N/A'} / 5.0",
-                f"**銷量**: {p.sold or 'N/A'}",
-                "",
-                f"{{{{{f'IMAGE:{p.id}:0'}}}}}",
-                "",
-                f"這款商品{p.description[:100] if p.description else '整體表現不錯'}...",
-                "",
-            ])
-
-        lines.extend([
-            "## 比較總結",
-            "",
-            "| 項目 | " + " | ".join([p.name[:15] for p in products]) + " |",
-            "|------|" + "|".join(["---" for _ in products]) + "|",
-            "| 價格 | " + " | ".join([f"NT${p.price:,.0f}" if p.price else "N/A" for p in products]) + " |",
-            "| 評分 | " + " | ".join([f"{p.rating or 'N/A'}" for p in products]) + " |",
-            "",
-            "## 結論",
-            "",
-            "以上就是這幾款商品的詳細比較，希望對大家有幫助！",
-        ])
-
-        return "\n".join(lines)
-
-    def _mock_review(self, product) -> str:
-        """生成 mock 開箱文"""
-        price_str = f"NT${product.price:,.0f}" if product.price else "價格未知"
-        return f"""## 開箱！{product.name}
-
-大家好，今天要來開箱這款 **{product.name}**！
-
-{{{{{f'IMAGE:{product.id}:0'}}}}}
-
-### 基本資訊
-- **價格**: {price_str}
-- **評分**: {product.rating or 'N/A'} / 5.0
-- **店家**: {product.shop_name or '未知'}
-
-### 外觀與包裝
-
-收到包裹的時候蠻驚喜的，包裝很用心。
-
-{{{{{f'IMAGE:{product.id}:1'}}}}}
-
-### 使用心得
-
-{product.description[:200] if product.description else '整體使用體驗很不錯，推薦給大家！'}
-
-### 優缺點
-
-**優點**:
-- 性價比高
-- 品質不錯
-- 出貨速度快
-
-**缺點**:
-- 等了比較久
-
-### 總結
-
-整體來說我給這款商品 **{product.rating or 4.0}** 分，推薦給需要的朋友！
+            original_price_str = f"NT${p.original_price:,.0f}" if p.original_price else ""
+            info = f"""---
+商品 {i+1}:
+- 商品 ID: {p.id}
+- 名稱: {p.name}
+- 價格: {price_str}
+- 原價: {original_price_str or '無折扣'}
+- 折扣: {p.discount or '無'}
+- 評分: {p.rating or 'N/A'} / 5.0
+- 銷量: {p.sold or 'N/A'}
+- 店家: {p.shop_name or '未知'}
+- 商品描述: {(p.description or '')[:500]}
+- 可用圖片標記: {', '.join([f'{{{{IMAGE:{p.id}:{idx}}}}}' for idx in range(min(3, len(p.images) if p.images else 0))])}
 """
+            info_parts.append(info)
+        return "\n".join(info_parts)
 
-    def _mock_seo(self, product) -> str:
-        """生成 mock SEO 文章"""
-        price_str = f"NT${product.price:,.0f}" if product.price else "價格未知"
-        return f"""## {product.name} 評測：值得購買嗎？【2024最新】
+    def _parse_title_content(self, text: str, products, article_type: str) -> tuple:
+        """從生成文字中解析標題和內容"""
+        lines = text.strip().split('\n')
+        title = ""
+        content_start = 0
 
-### 什麼是 {product.name[:20]}？
+        # 嘗試從第一行提取標題
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped:
+                # 移除 markdown 標題符號
+                if stripped.startswith('#'):
+                    title = stripped.lstrip('#').strip()
+                else:
+                    title = stripped
+                content_start = i + 1
+                break
 
-{product.name} 是一款在蝦皮上熱銷的商品，售價 {price_str}。
+        # 如果標題太長或沒提取到，用預設
+        if not title or len(title) > 80:
+            product_names = [p.name for p in products]
+            if article_type == "comparison":
+                title = f"【比較】{' vs '.join([n[:15] for n in product_names[:3]])} 哪個值得買？"
+            elif article_type == "review":
+                title = f"【開箱】{product_names[0][:30]} 使用心得分享"
+            else:
+                title = f"【推薦】{product_names[0][:30]} 完整評測與購買指南"
 
-{{{{{f'IMAGE:{product.id}:0'}}}}}
+        content = '\n'.join(lines[content_start:]).strip()
 
-### {product.name[:20]} 規格與特色
+        return title, content
 
-| 項目 | 內容 |
-|------|------|
-| 價格 | {price_str} |
-| 評分 | {product.rating or 'N/A'} |
-| 銷量 | {product.sold or 'N/A'} |
+    def _track_usage(self, response):
+        """追蹤 API 用量"""
+        try:
+            from app.services.usage_tracker import usage_tracker
 
-### 購買建議
+            input_tokens = 0
+            output_tokens = 0
 
-推薦給正在尋找類似商品的消費者。
+            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                input_tokens = getattr(response.usage_metadata, 'prompt_token_count', 0) or 0
+                output_tokens = getattr(response.usage_metadata, 'candidates_token_count', 0) or 0
 
-### 常見問題 FAQ
-
-**Q: {product.name[:20]} 值得買嗎？**
-A: 以這個價位來說，性價比相當不錯。
-
-**Q: 在哪裡買最便宜？**
-A: 目前蝦皮上有最優惠的價格。
-"""
+            usage_tracker.track(
+                requests=1,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+            )
+            logger.info(f"API 用量: input={input_tokens}, output={output_tokens}")
+        except Exception as e:
+            logger.warning(f"用量追蹤失敗: {e}")
 
 
 # 單例

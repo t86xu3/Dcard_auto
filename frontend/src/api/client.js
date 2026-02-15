@@ -46,6 +46,22 @@ export const copyArticle = (id) =>
 export const getArticleImages = (id) =>
   api.get(`/articles/${id}/images`).then(r => r.data);
 
+// Prompt 範本
+export const getPrompts = () =>
+  api.get('/prompts').then(r => r.data);
+
+export const createPrompt = (data) =>
+  api.post('/prompts', data).then(r => r.data);
+
+export const updatePrompt = (id, data) =>
+  api.put(`/prompts/${id}`, data).then(r => r.data);
+
+export const deletePrompt = (id) =>
+  api.delete(`/prompts/${id}`).then(r => r.data);
+
+export const setDefaultPrompt = (id) =>
+  api.post(`/prompts/${id}/set-default`).then(r => r.data);
+
 // SEO
 export const analyzeSeo = (data) =>
   api.post('/seo/analyze', data).then(r => r.data);

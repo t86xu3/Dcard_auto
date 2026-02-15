@@ -19,6 +19,7 @@ class ArticleGenerateRequest(BaseModel):
     product_ids: List[int]
     article_type: str = "comparison"  # comparison / review / seo
     target_forum: str = "goodthings"
+    prompt_template_id: Optional[int] = None
 
 
 class ArticleUpdateRequest(BaseModel):
@@ -62,8 +63,10 @@ async def generate_article(request: ArticleGenerateRequest, db: Session = Depend
     # 生成文章
     result = llm_service.generate_article(
         products=products,
+        db=db,
         article_type=request.article_type,
         target_forum=request.target_forum,
+        prompt_template_id=request.prompt_template_id,
     )
 
     # 儲存到資料庫

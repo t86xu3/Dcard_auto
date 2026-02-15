@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { getProducts, deleteProduct, batchDeleteProducts, downloadProductImages, generateArticle } from '../api/client';
+import { getProducts, deleteProduct, batchDeleteProducts, downloadProductImages, generateArticle, getPrompts } from '../api/client';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [loading, setLoading] = useState(true);
+  const [promptTemplates, setPromptTemplates] = useState([]);
+  const [selectedPromptId, setSelectedPromptId] = useState(null);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -17,7 +19,18 @@ export default function ProductsPage() {
     setLoading(false);
   };
 
-  useEffect(() => { loadProducts(); }, []);
+  const loadPrompts = async () => {
+    try {
+      const data = await getPrompts();
+      setPromptTemplates(data);
+      const defaultOne = data.find(t => t.is_default);
+      if (defaultOne) setSelectedPromptId(defaultOne.id);
+    } catch (err) {
+      console.error('載入範本失敗:', err);
+    }
+  };
+
+  useEffect(() => { loadProducts(); loadPrompts(); }, []);
 
   const toggleSelect = (id) => {
     setSelected(prev => {
@@ -55,11 +68,15 @@ export default function ProductsPage() {
     if (selected.size < 1) return;
     try {
       const type = selected.size >= 2 ? 'comparison' : 'review';
-      await generateArticle({
+      const payload = {
         product_ids: [...selected],
         article_type: type,
         target_forum: 'goodthings',
-      });
+      };
+      if (selectedPromptId) {
+        payload.prompt_template_id = selectedPromptId;
+      }
+      await generateArticle(payload);
       alert('文章已生成！請到文章管理頁面查看。');
     } catch (err) {
       alert('生成失敗: ' + (err.response?.data?.detail || err.message));
@@ -82,6 +99,19 @@ export default function ProductsPage() {
         <div className="flex gap-3">
           {selected.size > 0 && (
             <>
+              {promptTemplates.length > 0 && (
+                <select
+                  value={selectedPromptId || ''}
+                  onChange={(e) => setSelectedPromptId(e.target.value ? Number(e.target.value) : null)}
+                  className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                >
+                  {promptTemplates.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}{t.is_default ? ' (預設)' : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button
                 onClick={handleGenerate}
                 className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600"

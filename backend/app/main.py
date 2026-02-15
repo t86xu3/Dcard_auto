@@ -9,8 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.db.database import create_tables
-from app.api import products, articles, seo, usage
+from app.db.database import create_tables, SessionLocal
+from app.api import products, articles, seo, usage, prompts
 
 
 @asynccontextmanager
@@ -18,6 +18,15 @@ async def lifespan(app: FastAPI):
     """應用程式生命週期管理"""
     create_tables()
     settings.IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Seed 內建 prompt 範本
+    from app.services.prompts import seed_default_prompts
+    db = SessionLocal()
+    try:
+        seed_default_prompts(db)
+    finally:
+        db.close()
+
     yield
 
 
@@ -47,6 +56,7 @@ app.include_router(products.router, prefix="/api/products", tags=["商品管理"
 app.include_router(articles.router, prefix="/api/articles", tags=["文章管理"])
 app.include_router(seo.router, prefix="/api/seo", tags=["SEO 分析"])
 app.include_router(usage.router, prefix="/api/usage", tags=["使用量統計"])
+app.include_router(prompts.router, prefix="/api/prompts", tags=["Prompt 範本"])
 
 
 @app.get("/")
