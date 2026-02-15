@@ -1,7 +1,11 @@
 """
 API 使用量記錄模型
 """
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
+
+
+def _taipei_now():
+    return datetime.now(timezone(timedelta(hours=8)))
 
 from sqlalchemy import Column, Integer, DateTime, Date
 
@@ -18,8 +22,8 @@ class ApiUsage(Base):
     requests = Column(Integer, default=0)
     input_tokens = Column(Integer, default=0)
     output_tokens = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_taipei_now)
+    updated_at = Column(DateTime, default=_taipei_now, onupdate=_taipei_now)
 
     def __repr__(self):
         return f"<ApiUsage {self.usage_date}: {self.requests} requests>"

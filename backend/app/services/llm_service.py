@@ -2,6 +2,7 @@
 LLM 文章生成服務 - Gemini API
 """
 import logging
+import re
 from typing import Optional
 
 from google import genai
@@ -9,7 +10,7 @@ from google.genai import types
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.services.prompts import get_default_prompt, DEFAULT_SYSTEM_PROMPT
+from app.services.prompts import get_default_prompt, DEFAULT_SYSTEM_PROMPT, SYSTEM_INSTRUCTIONS
 from app.models.prompt_template import PromptTemplate
 
 logger = logging.getLogger(__name__)
@@ -46,13 +47,16 @@ class LLMService:
         # 組合使用者訊息（商品資料）
         user_message = f"目標看板：{target_forum}\n\n以下是商品資料，請根據這些資訊撰寫文章：\n\n{products_info}"
 
+        # 組合系統指示（程式碼層級）+ 使用者範本
+        full_system_prompt = f"{SYSTEM_INSTRUCTIONS}\n\n---\n\n以下是使用者的寫作風格範本：\n\n{system_prompt}"
+
         # 呼叫 Gemini API（使用 system_instruction + contents 分離）
         try:
             response = self.client.models.generate_content(
                 model=settings.LLM_MODEL,
                 contents=user_message,
                 config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
+                    system_instruction=full_system_prompt,
                     temperature=settings.LLM_TEMPERATURE,
                     max_output_tokens=settings.LLM_MAX_TOKENS,
                 ),
@@ -65,10 +69,13 @@ class LLMService:
             logger.error(f"Gemini API 呼叫失敗: {e}")
             raise RuntimeError(f"文章生成失敗: {e}")
 
+        # 清除 Markdown 語法（Dcard 不支援）
+        generated_text = self._strip_markdown(generated_text)
+
         # 解析標題和內容
         title, content = self._parse_title_content(generated_text, products, article_type)
 
-        # 建立圖片標記對應
+        # 建立圖片標記對應，並在 content_with_images 中嵌入實際圖片
         image_map = {}
         content_with_images = content
         for p in products:
@@ -76,6 +83,11 @@ class LLMService:
                 for idx, img_url in enumerate(p.images[:3]):
                     marker = f"IMAGE:{p.id}:{idx}"
                     image_map[marker] = img_url
+                    # 替換標記為 markdown 圖片語法
+                    content_with_images = content_with_images.replace(
+                        f"{{{{{marker}}}}}",
+                        f"\n\n![商品圖片]({img_url})\n\n"
+                    )
 
         # 追蹤 API 用量
         self._track_usage(response)
@@ -115,20 +127,22 @@ class LLMService:
         title = ""
         content_start = 0
 
-        # 嘗試從第一行提取標題
+        # 跳過分隔線（---、===、***），找第一個有意義的標題行
+        skip_patterns = {'---', '===', '***', '- - -', '* * *'}
         for i, line in enumerate(lines):
             stripped = line.strip()
-            if stripped:
-                # 移除 markdown 標題符號
-                if stripped.startswith('#'):
-                    title = stripped.lstrip('#').strip()
-                else:
-                    title = stripped
-                content_start = i + 1
-                break
+            if not stripped or stripped in skip_patterns:
+                continue
+            # 找到 markdown 標題或實質內容
+            if stripped.startswith('#'):
+                title = stripped.lstrip('#').strip()
+            else:
+                title = stripped
+            content_start = i + 1
+            break
 
-        # 如果標題太長或沒提取到，用預設
-        if not title or len(title) > 80:
+        # 如果沒提取到標題，用預設
+        if not title:
             product_names = [p.name for p in products]
             if article_type == "comparison":
                 title = f"【比較】{' vs '.join([n[:15] for n in product_names[:3]])} 哪個值得買？"
@@ -140,6 +154,22 @@ class LLMService:
         content = '\n'.join(lines[content_start:]).strip()
 
         return title, content
+
+    @staticmethod
+    def _strip_markdown(text: str) -> str:
+        """清除 Markdown 語法，保留純文字（Dcard 不支援 Markdown）"""
+        # 移除標題符號 ### ## #（保留文字）
+        text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+        # 移除粗體 **text** 或 __text__（保留文字）
+        text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+        text = re.sub(r'__(.+?)__', r'\1', text)
+        # 移除斜體 *text* 或 _text_（但保留表情符號旁的 *，如 *加入可愛的表情符號*）
+        # 只移除被空白包圍的斜體標記
+        text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'\1', text)
+        # 移除 markdown 列表符號 - item（但保留 --- 分隔線）
+        text = re.sub(r'^- (?!-)', '', text, flags=re.MULTILINE)
+        # 保留圖片標記 {{IMAGE:...}} 不動
+        return text
 
     def _track_usage(self, response):
         """追蹤 API 用量"""

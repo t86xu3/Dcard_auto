@@ -4,9 +4,11 @@
 from typing import List, Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+import httpx
 
 from app.db.database import get_db
 from app.models.article import Article
@@ -39,7 +41,7 @@ class ArticleResponse(BaseModel):
     product_ids: Optional[List[int]] = None
     image_map: Optional[dict] = None
     seo_score: Optional[float] = None
-    seo_suggestions: Optional[dict] = None
+    seo_suggestions: Optional[dict | list] = None
     status: str
     published_url: Optional[str] = None
     created_at: datetime
@@ -47,6 +49,23 @@ class ArticleResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+@router.get("/image-proxy")
+async def image_proxy(url: str = Query(..., description="圖片 URL")):
+    """代理下載外部圖片（解決跨域問題，供前端複製圖片到剪貼簿）"""
+    if not url.startswith("https://"):
+        raise HTTPException(status_code=400, detail="僅支援 HTTPS URL")
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"圖片下載失敗: {e}")
+
+    content_type = resp.headers.get("content-type", "image/jpeg")
+    return Response(content=resp.content, media_type=content_type)
 
 
 @router.post("/generate", response_model=ArticleResponse)
@@ -134,7 +153,7 @@ async def delete_article(article_id: int, db: Session = Depends(get_db)):
     return {"message": "文章已刪除"}
 
 
-@router.post("/{article_id}/optimize-seo", response_model=ArticleResponse)
+@router.post("/{article_id}/optimize-seo")
 async def optimize_seo(article_id: int, db: Session = Depends(get_db)):
     """SEO 優化文章"""
     article = db.query(Article).filter(Article.id == article_id).first()
@@ -151,7 +170,12 @@ async def optimize_seo(article_id: int, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(article)
-    return article
+
+    return {
+        "article": ArticleResponse.model_validate(article),
+        "before_score": result.get("before_score"),
+        "after_score": result.get("score"),
+    }
 
 
 @router.get("/{article_id}/copy")
@@ -210,3 +234,5 @@ async def download_article_images(article_id: int, db: Session = Depends(get_db)
         media_type="application/zip",
         filename=f"article_{article_id}_images.zip",
     )
+
+

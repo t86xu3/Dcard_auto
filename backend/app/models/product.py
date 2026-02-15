@@ -1,7 +1,11 @@
 """
 商品資料模型
 """
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+
+def _taipei_now():
+    return datetime.now(timezone(timedelta(hours=8)))
 
 from sqlalchemy import Column, Integer, String, Float, Text, DateTime, JSON
 from sqlalchemy.orm import relationship
@@ -29,7 +33,7 @@ class Product(Base):
     shop_name = Column(String(200))
     product_url = Column(String(1000))
     captured_at = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_taipei_now)
 
     # 關聯
     product_images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan")

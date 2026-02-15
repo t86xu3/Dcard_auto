@@ -44,14 +44,17 @@ Dcard_auto/
 │   │   │   ├── product.py     # 商品模型
 │   │   │   ├── product_image.py # 圖片備份模型
 │   │   │   ├── article.py     # 文章模型
-│   │   │   └── api_usage.py   # API 用量追蹤
+│   │   │   ├── api_usage.py   # API 用量追蹤
+│   │   │   └── prompt_template.py # Prompt 範本模型
 │   │   ├── api/
 │   │   │   ├── products.py    # 商品 CRUD
 │   │   │   ├── articles.py    # 文章生成/管理
+│   │   │   ├── prompts.py     # Prompt 範本 CRUD
 │   │   │   ├── seo.py         # SEO 分析/優化
 │   │   │   └── usage.py       # 用量統計
 │   │   ├── services/
-│   │   │   ├── llm_service.py # Gemini 文章生成
+│   │   │   ├── llm_service.py # Gemini 文章生成（system_instruction 分離）
+│   │   │   ├── prompts.py     # Prompt 範本服務 + seed
 │   │   │   ├── seo_service.py # SEO 分析與優化
 │   │   │   ├── image_service.py # 圖片下載、備份、打包
 │   │   │   └── usage_tracker.py
@@ -97,7 +100,9 @@ Dcard_auto/
 | 商品 API | backend/app/api/products.py | 商品 CRUD + 圖片下載 |
 | 文章生成 API | backend/app/api/articles.py | 比較文/開箱文生成 |
 | SEO 分析 API | backend/app/api/seo.py | SEO 評分與優化建議 |
-| LLM 服務 | backend/app/services/llm_service.py | Gemini 文章生成 |
+| Prompt 範本 API | backend/app/api/prompts.py | 範本 CRUD + 設為預設 |
+| LLM 服務 | backend/app/services/llm_service.py | Gemini 文章生成（system_instruction 分離）|
+| Prompt 範本服務 | backend/app/services/prompts.py | 內建範本 seed + 預設取得 |
 | SEO 服務 | backend/app/services/seo_service.py | SEO 分析與自動優化 |
 | 圖片服務 | backend/app/services/image_service.py | 圖片下載、備份、打包 ZIP |
 | 文章任務 | backend/app/tasks/article_tasks.py | Celery 非同步生成 |
@@ -122,7 +127,7 @@ Dcard_auto/
 ### Phase 2 - 功能完善（待定）
 
 - [ ] Dcard 自動發文（content-dcard.js 自動插入圖片）
-- [ ] 文章模板系統（不同看板格式）
+- [x] Prompt 範本系統（內建好物推薦文範本 + 前端管理介面）
 - [ ] 批量生成功能
 - [ ] Docker 部署配置
 - [ ] 雲端部署（AWS/GCP）

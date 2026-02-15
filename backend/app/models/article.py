@@ -1,7 +1,11 @@
 """
 文章模型
 """
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+
+def _taipei_now():
+    return datetime.now(timezone(timedelta(hours=8)))
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Float
 
@@ -25,8 +29,8 @@ class Article(Base):
     seo_suggestions = Column(JSON)
     status = Column(String(20), default="draft")  # draft / optimized / published
     published_url = Column(String(1000))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_taipei_now)
+    updated_at = Column(DateTime, default=_taipei_now, onupdate=_taipei_now)
 
     def __repr__(self):
         return f"<Article {self.id}: {self.title[:30]}>"

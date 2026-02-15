@@ -7,6 +7,8 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [promptTemplates, setPromptTemplates] = useState([]);
   const [selectedPromptId, setSelectedPromptId] = useState(null);
+  const [generating, setGenerating] = useState(false);
+  const [toast, setToast] = useState(null); // { type: 'success'|'error', message }
 
   const loadProducts = async () => {
     setLoading(true);
@@ -64,8 +66,14 @@ export default function ProductsPage() {
     await loadProducts();
   };
 
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  };
+
   const handleGenerate = async () => {
     if (selected.size < 1) return;
+    setGenerating(true);
     try {
       const type = selected.size >= 2 ? 'comparison' : 'review';
       const payload = {
@@ -77,10 +85,11 @@ export default function ProductsPage() {
         payload.prompt_template_id = selectedPromptId;
       }
       await generateArticle(payload);
-      alert('文章已生成！請到文章管理頁面查看。');
+      showToast('success', '文章已生成！請到文章管理頁面查看。');
     } catch (err) {
-      alert('生成失敗: ' + (err.response?.data?.detail || err.message));
+      showToast('error', '生成失敗: ' + (err.response?.data?.detail || err.message));
     }
+    setGenerating(false);
   };
 
   const handleDownloadImages = async (id) => {
@@ -93,7 +102,27 @@ export default function ProductsPage() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-8 relative">
+      {/* 生成中 Overlay */}
+      {generating && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 shadow-xl flex flex-col items-center gap-4">
+            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <div className="text-lg font-semibold text-gray-800">文章生成中...</div>
+            <div className="text-sm text-gray-400">LLM 正在撰寫文章，請稍候</div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast 通知 */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium transition-all ${
+          toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`}>
+          {toast.message}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-800">商品管理</h2>
         <div className="flex gap-3">
@@ -114,9 +143,12 @@ export default function ProductsPage() {
               )}
               <button
                 onClick={handleGenerate}
-                className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600"
+                disabled={generating}
+                className={`px-4 py-2 text-white rounded-lg text-sm font-medium ${
+                  generating ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
+                }`}
               >
-                ✨ 生成{selected.size >= 2 ? '比較文' : '開箱文'} ({selected.size})
+                {generating ? '生成中...' : `✨ 生成${selected.size >= 2 ? '比較文' : '開箱文'} (${selected.size})`}
               </button>
               <button
                 onClick={handleBatchDelete}

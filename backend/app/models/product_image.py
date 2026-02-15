@@ -1,7 +1,11 @@
 """
 商品圖片備份模型
 """
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+
+def _taipei_now():
+    return datetime.now(timezone(timedelta(hours=8)))
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
@@ -19,7 +23,7 @@ class ProductImage(Base):
     original_url = Column(String(1000), nullable=False)
     local_path = Column(String(500))
     image_type = Column(String(20), default="main")  # main / description
-    downloaded_at = Column(DateTime, default=datetime.utcnow)
+    downloaded_at = Column(DateTime, default=_taipei_now)
 
     # 關聯
     product = relationship("Product", back_populates="product_images")

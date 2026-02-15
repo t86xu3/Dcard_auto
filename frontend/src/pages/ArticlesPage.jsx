@@ -1,13 +1,122 @@
 import { useState, useEffect } from 'react';
 import { getArticles, getArticle, updateArticle, deleteArticle, optimizeSeo, copyArticle, analyzeSeo } from '../api/client';
 
+// 複製圖片到剪貼簿（透過後端代理避免跨域）
+async function copyImageToClipboard(imageUrl) {
+  try {
+    const proxyUrl = `/api/articles/image-proxy?url=${encodeURIComponent(imageUrl)}`;
+    const resp = await fetch(proxyUrl);
+    if (!resp.ok) throw new Error(`代理回應 ${resp.status}`);
+    const blob = await resp.blob();
+    const pngBlob = await convertToPng(blob);
+    await navigator.clipboard.write([
+      new ClipboardItem({ 'image/png': pngBlob })
+    ]);
+    return true;
+  } catch (err) {
+    console.error('複製圖片失敗:', err);
+    alert(`複製圖片失敗: ${err.message}`);
+    return false;
+  }
+}
+
+// 將圖片 blob 轉為 PNG
+function convertToPng(blob) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob((pngBlob) => {
+          URL.revokeObjectURL(url);
+          if (pngBlob) resolve(pngBlob);
+          else reject(new Error('canvas.toBlob 失敗'));
+        }, 'image/png');
+      } catch (e) {
+        URL.revokeObjectURL(url);
+        reject(e);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('圖片載入失敗'));
+    };
+    img.src = url;
+  });
+}
+
+// 單張圖片元件（含複製按鈕）
+function ArticleImage({ src, alt }) {
+  const [copying, setCopying] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e) => {
+    e.stopPropagation();
+    setCopying(true);
+    const ok = await copyImageToClipboard(src);
+    setCopying(false);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <div className="relative inline-block my-3 group">
+      <img
+        src={src}
+        alt={alt}
+        className="max-w-md rounded-lg border border-gray-200"
+        loading="lazy"
+      />
+      <button
+        onClick={handleCopy}
+        disabled={copying}
+        className={`absolute top-2 right-2 px-2.5 py-1.5 rounded-lg text-xs font-medium shadow-md transition-all ${
+          copied
+            ? 'bg-green-500 text-white'
+            : 'bg-white/90 text-gray-700 hover:bg-blue-500 hover:text-white opacity-0 group-hover:opacity-100'
+        }`}
+      >
+        {copying ? '複製中...' : copied ? '已複製!' : '📋 複製圖片'}
+      </button>
+    </div>
+  );
+}
+
+// 將含圖片 markdown 的文字渲染為 React 元素
+function RenderContent({ text }) {
+  if (!text) return <span className="text-gray-400">（無內容）</span>;
+
+  // 拆分 markdown 圖片語法 ![alt](url) 和一般文字
+  const parts = text.split(/(!\[.*?\]\(.*?\))/g);
+
+  return parts.map((part, i) => {
+    const imgMatch = part.match(/^!\[(.*?)\]\((.*?)\)$/);
+    if (imgMatch) {
+      return <ArticleImage key={i} src={imgMatch[2]} alt={imgMatch[1]} />;
+    }
+    // 一般文字，保留換行
+    return <span key={i}>{part}</span>;
+  });
+}
+
 export default function ArticlesPage() {
   const [articles, setArticles] = useState([]);
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
+  const [editTitle, setEditTitle] = useState('');
+  const [editingTitle, setEditingTitle] = useState(false);
   const [seoResult, setSeoResult] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [optimizing, setOptimizing] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const loadArticles = async () => {
     setLoading(true);
@@ -27,6 +136,8 @@ export default function ArticlesPage() {
       const article = await getArticle(id);
       setSelectedArticle(article);
       setEditContent(article.content || '');
+      setEditTitle(article.title || '');
+      setEditingTitle(false);
       setSeoResult(null);
     } catch (err) {
       console.error('載入文章詳情失敗:', err);
@@ -45,6 +156,18 @@ export default function ArticlesPage() {
     }
   };
 
+  const handleSaveTitle = async () => {
+    if (!selectedArticle || !editTitle.trim()) return;
+    try {
+      const updated = await updateArticle(selectedArticle.id, { title: editTitle });
+      setSelectedArticle(updated);
+      setEditingTitle(false);
+      await loadArticles();
+    } catch (err) {
+      alert('標題儲存失敗');
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!confirm('確定刪除此文章？')) return;
     await deleteArticle(id);
@@ -54,18 +177,29 @@ export default function ArticlesPage() {
 
   const handleOptimizeSeo = async () => {
     if (!selectedArticle) return;
+    setOptimizing(true);
     try {
-      const result = await optimizeSeo(selectedArticle.id);
-      setSelectedArticle(result);
-      alert(`SEO 優化完成！分數: ${result.seo_score}`);
+      const resp = await optimizeSeo(selectedArticle.id);
+      setSelectedArticle(resp.article);
+      setEditContent(resp.article.content || '');
+      // 顯示優化前後對比
+      setSeoResult({
+        score: resp.after_score,
+        before_score: resp.before_score,
+        max_score: 100,
+        grade: resp.after_score >= 85 ? 'A' : resp.after_score >= 70 ? 'B' : resp.after_score >= 50 ? 'C' : 'D',
+        optimized: true,
+      });
       await loadArticles();
     } catch (err) {
       alert('SEO 優化失敗');
     }
+    setOptimizing(false);
   };
 
   const handleAnalyzeSeo = async () => {
     if (!selectedArticle) return;
+    setAnalyzing(true);
     try {
       const result = await analyzeSeo({
         title: selectedArticle.title,
@@ -75,6 +209,7 @@ export default function ArticlesPage() {
     } catch (err) {
       alert('SEO 分析失敗');
     }
+    setAnalyzing(false);
   };
 
   const handleCopy = async () => {
@@ -94,11 +229,20 @@ export default function ArticlesPage() {
     published: 'bg-blue-100 text-blue-600',
   };
 
+  const statusLabels = {
+    draft: '草稿',
+    optimized: '已優化',
+    published: '已發佈',
+  };
+
   const typeLabels = {
     comparison: '比較文',
     review: '開箱文',
     seo: 'SEO 文章',
   };
+
+  // 決定要顯示的內容：優先使用 content_with_images（含圖片）
+  const displayContent = selectedArticle?.content_with_images || selectedArticle?.content || '';
 
   return (
     <div className="flex h-full">
@@ -128,7 +272,7 @@ export default function ArticlesPage() {
               <div className="font-medium text-gray-800 text-sm truncate">{article.title}</div>
               <div className="flex items-center gap-2 mt-2">
                 <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[article.status] || ''}`}>
-                  {article.status}
+                  {statusLabels[article.status] || article.status}
                 </span>
                 <span className="text-xs text-gray-400">{typeLabels[article.article_type]}</span>
                 {article.seo_score && (
@@ -147,33 +291,79 @@ export default function ArticlesPage() {
       <div className="flex-1 overflow-y-auto">
         {selectedArticle ? (
           <div className="p-6">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-800">{selectedArticle.title}</h3>
-              <div className="flex gap-2">
-                <button onClick={handleCopy} className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-                  📋 複製
-                </button>
-                <button onClick={handleAnalyzeSeo} className="px-3 py-1.5 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600">
-                  📊 SEO 分析
-                </button>
-                <button onClick={handleOptimizeSeo} className="px-3 py-1.5 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600">
-                  ✨ SEO 優化
-                </button>
-                <button onClick={() => handleDelete(selectedArticle.id)} className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600">
-                  🗑️
-                </button>
-              </div>
+            {/* Title (editable) */}
+            <div className="mb-3">
+              {editingTitle ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-blue-300 rounded-lg text-lg font-bold focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
+                  />
+                  <button onClick={handleSaveTitle} className="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">儲存</button>
+                  <button onClick={() => { setEditingTitle(false); setEditTitle(selectedArticle.title); }} className="px-3 py-2 bg-gray-200 rounded-lg text-sm hover:bg-gray-300">取消</button>
+                </div>
+              ) : (
+                <h3
+                  className="text-xl font-bold text-gray-800 cursor-pointer hover:text-blue-600 transition-colors group"
+                  onClick={() => { setEditTitle(selectedArticle.title); setEditingTitle(true); }}
+                  title="點擊編輯標題"
+                >
+                  {selectedArticle.title}
+                  <span className="text-sm text-gray-300 ml-2 opacity-0 group-hover:opacity-100">✏️</span>
+                </h3>
+              )}
             </div>
+
+            {/* Toolbar */}
+            <div className="flex gap-2 mb-4">
+              <button onClick={handleCopy} className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                📋 複製
+              </button>
+              <button onClick={handleAnalyzeSeo} disabled={analyzing || optimizing} className="px-3 py-1.5 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                {analyzing ? '分析中...' : '📊 SEO 分析'}
+              </button>
+              <button onClick={handleOptimizeSeo} disabled={optimizing || analyzing} className="px-3 py-1.5 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                {optimizing ? '優化中...' : '✨ SEO 優化'}
+              </button>
+              <button onClick={() => handleDelete(selectedArticle.id)} className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600">
+                🗑️ 刪除
+              </button>
+            </div>
+
+            {/* Optimizing Overlay */}
+            {optimizing && (
+              <div className="mb-4 p-4 bg-green-50 rounded-xl border border-green-200 flex items-center gap-3">
+                <div className="animate-spin h-5 w-5 border-2 border-green-500 border-t-transparent rounded-full" />
+                <span className="text-green-700 font-medium">SEO 優化中，請稍候（約 30-60 秒）...</span>
+              </div>
+            )}
 
             {/* SEO Panel */}
             {seoResult && (
-              <div className="mb-4 p-4 bg-purple-50 rounded-xl border border-purple-200">
+              <div className={`mb-4 p-4 rounded-xl border ${seoResult.optimized ? 'bg-green-50 border-green-200' : 'bg-purple-50 border-purple-200'}`}>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="font-semibold text-purple-800">SEO 分析結果</span>
-                  <span className="text-2xl font-bold text-purple-600">
-                    {seoResult.score} / {seoResult.max_score} ({seoResult.grade})
+                  <span className={`font-semibold ${seoResult.optimized ? 'text-green-800' : 'text-purple-800'}`}>
+                    {seoResult.optimized ? 'SEO 優化完成' : 'SEO 分析結果'}
                   </span>
+                  <div className="text-right">
+                    {seoResult.optimized && seoResult.before_score != null && (
+                      <div className="text-sm text-gray-500 mb-1">
+                        {seoResult.before_score} → {seoResult.score}
+                        {seoResult.score > seoResult.before_score
+                          ? ` (+${(seoResult.score - seoResult.before_score).toFixed(1)})`
+                          : seoResult.score < seoResult.before_score
+                            ? ` (${(seoResult.score - seoResult.before_score).toFixed(1)})`
+                            : ' (不變)'}
+                      </div>
+                    )}
+                    <span className={`text-2xl font-bold ${seoResult.optimized ? 'text-green-600' : 'text-purple-600'}`}>
+                      {seoResult.score} / {seoResult.max_score} ({seoResult.grade})
+                    </span>
+                  </div>
                 </div>
                 {seoResult.suggestions?.length > 0 && (
                   <ul className="text-sm text-purple-700 space-y-1">
@@ -205,10 +395,10 @@ export default function ArticlesPage() {
                     onClick={() => setEditing(true)}
                     className="mb-3 text-sm text-blue-500 hover:underline"
                   >
-                    ✏️ 編輯
+                    ✏️ 編輯內文
                   </button>
                   <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-700">
-                    {selectedArticle.content || '（無內容）'}
+                    <RenderContent text={displayContent} />
                   </div>
                 </div>
               )}
@@ -218,9 +408,8 @@ export default function ArticlesPage() {
             <div className="mt-4 p-4 bg-gray-50 rounded-xl text-sm text-gray-500">
               <div className="grid grid-cols-2 gap-2">
                 <div>類型: {typeLabels[selectedArticle.article_type]}</div>
-                <div>看板: {selectedArticle.target_forum}</div>
-                <div>狀態: {selectedArticle.status}</div>
-                <div>建立: {new Date(selectedArticle.created_at).toLocaleString('zh-TW')}</div>
+                <div>狀態: {statusLabels[selectedArticle.status] || selectedArticle.status}</div>
+                <div>建立: {new Date(selectedArticle.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</div>
               </div>
             </div>
           </div>

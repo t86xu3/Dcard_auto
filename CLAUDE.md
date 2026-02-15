@@ -150,6 +150,12 @@ created_at, updated_at
 id, usage_date, requests, input_tokens, output_tokens
 ```
 
+### PromptTemplate
+```
+id, name, content (Text), is_default (Boolean), is_builtin (Boolean),
+created_at, updated_at
+```
+
 ## API 端點
 
 | 端點 | 方法 | 說明 |
@@ -164,16 +170,17 @@ id, usage_date, requests, input_tokens, output_tokens
 | `/api/articles/{id}/copy` | GET | Dcard 格式化內容 |
 | `/api/articles/{id}/images` | GET | 文章圖片列表 |
 | `/api/articles/{id}/images/download` | GET | 打包下載 ZIP |
+| `/api/prompts` | GET/POST | Prompt 範本列表/新增 |
+| `/api/prompts/{id}` | PUT/DELETE | 範本更新/刪除 |
+| `/api/prompts/{id}/set-default` | POST | 設為預設範本 |
 | `/api/seo/analyze` | POST | SEO 分析 |
 | `/api/usage` | GET | API 用量統計 |
 
-## 文章生成類型
+## 文章生成架構
 
-| 類型 | Prompt 策略 | 用途 |
-|------|------------|------|
-| `comparison` | 多商品對比、優缺點分析、推薦結論 + 圖片 | 比較文 |
-| `review` | 單品深度評測、使用心得風格 + 商品圖 | 開箱文 |
-| `seo` | 關鍵字佈局、長尾詞、結構化標題 + ALT | SEO 文章 |
+使用 Gemini `system_instruction`（固定 prompt 範本）+ `contents`（商品資料）分離架構。
+預設內建「Dcard 好物推薦文」範本，可在設定頁管理多個範本。
+生成文章時可指定 `prompt_template_id`，否則使用預設範本。
 
 ## Dcard 目標看板
 
@@ -200,7 +207,7 @@ id, usage_date, requests, input_tokens, output_tokens
 ### Phase 2 - 自動化與擴展
 
 - [ ] Dcard 自動發文（content-dcard.js 自動插圖）
-- [ ] 文章模板系統
+- [x] Prompt 範本系統（內建好物推薦文 + 前端管理介面）
 - [ ] 批量生成
 - [ ] Docker 部署
 - [ ] 雲端部署（AWS/GCP）
