@@ -248,12 +248,12 @@ Celery broker 用 db 2，result backend 用 db 3（避免與其他專案衝突�
 - [ ] 批量生成
 - [ ] Chrome Extension icon 美化（設計正式 logo）
 
-### Phase 3 - 雲端部署（計畫中）
+### Phase 3 - 雲端部署（程式碼就緒，待部署操作）
 
 架構：Firebase Hosting + Cloud Run + Supabase PostgreSQL（全免費）
 
-- [ ] 後端容器化（Dockerfile）
-- [ ] 程式碼適配（config/database/CORS/alembic）
+- [x] 後端容器化（Dockerfile）
+- [x] 程式碼適配（config/database/CORS/alembic）
 - [ ] Supabase 資料庫 + Alembic 遷移
 - [ ] Cloud Run 部署
 - [ ] Firebase Hosting 部署

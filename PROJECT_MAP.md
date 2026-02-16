@@ -66,8 +66,8 @@ Dcard_auto/
 │   │       └── article_tasks.py # Celery 非同步任務
 │   ├── alembic/               # DB 遷移
 │   ├── images/                # 下載的商品圖片
-│   ├── Dockerfile            # Cloud Run 容器化（待建）
-│   ├── .dockerignore         # Docker 建置排除（待建）
+│   ├── Dockerfile            # Cloud Run 容器化
+│   ├── .dockerignore         # Docker 建置排除
 │   ├── requirements.txt
 │   ├── .env.example
 │   └── start.sh
@@ -89,7 +89,8 @@ Dcard_auto/
 │
 ├── docs/                      # 詳細設計文檔
 │   └── IMPLEMENTATION_PLAN.md
-├── firebase.json             # Firebase Hosting + Cloud Run rewrite（待建）
+├── firebase.json             # Firebase Hosting + Cloud Run rewrite
+├── .firebaserc               # Firebase 專案設定
 ├── CLAUDE.md
 ├── PROJECT_MAP.md
 └── skills/
@@ -141,18 +142,19 @@ Dcard_auto/
 - [ ] 批量生成功能
 - [ ] Chrome Extension icon 美化（設計正式 logo）
 
-### Phase 3 - 雲端部署（計畫中）
+### Phase 3 - 雲端部署（程式碼就緒，待部署操作）
 
 架構：Firebase Hosting + Cloud Run + Supabase PostgreSQL（全免費）
 
-- [ ] 後端容器化（Dockerfile + .dockerignore）
-- [ ] config.py 新增 ENVIRONMENT / ALLOWED_ORIGINS
-- [ ] database.py 支援 SQLite / PostgreSQL 雙模式
-- [ ] main.py CORS 改用環境變數
-- [ ] alembic env.py 從環境變數讀 DATABASE_URL
-- [ ] requirements.txt 新增 psycopg2-binary + gunicorn
-- [ ] .env.example 更新生產環境範例
-- [ ] firebase.json（Hosting + Cloud Run rewrite）
+- [x] 後端容器化（Dockerfile + .dockerignore）
+- [x] config.py 新增 ENVIRONMENT / ALLOWED_ORIGINS
+- [x] database.py 支援 SQLite / PostgreSQL 雙模式
+- [x] main.py CORS 改用環境變數
+- [x] alembic env.py 從環境變數讀 DATABASE_URL
+- [x] requirements.txt 新增 psycopg2-binary + gunicorn
+- [x] .env.example 更新生產環境範例
+- [x] firebase.json（Hosting + Cloud Run rewrite）
+- [x] 圖片下載端點生產環境防護
 - [ ] Supabase 資料庫設定 + Alembic 遷移
 - [ ] Cloud Run 部署 + 環境變數注入
 - [ ] Firebase Hosting 部署（前端 build）
