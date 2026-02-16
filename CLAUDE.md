@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## 專案概述
 
@@ -64,6 +64,15 @@ celery -A app.celery_app worker --loglevel=info --concurrency=2
 cd frontend
 npm install
 npm run dev          # 開發伺服器 http://localhost:3001
+npm run lint         # ESLint 檢查
+npm run build        # 生產建置
+```
+
+### 一鍵啟動（tmux）
+
+```bash
+./start.sh           # 同時啟動後端 + 前端（tmux session: dcard_auto）
+tmux attach -t dcard_auto  # 重新連接
 ```
 
 ### Chrome Extension
@@ -102,6 +111,10 @@ npm run dev          # 開發伺服器 http://localhost:3001
 - `/api/v*/pdp/get_pc`
 - `/api/v*/pdp/get`
 - `/api/v*/item_detail`
+
+### 開發 Proxy
+
+Vite dev server（port 3001）自動代理 `/api` 請求到後端（port 8001），開發時前後端可直接互通。
 
 ### 價格處理
 
@@ -177,11 +190,34 @@ created_at, updated_at
 | `/api/seo/analyze/{article_id}` | POST | 按文章 ID 分析 SEO 並存入 DB |
 | `/api/usage` | GET | API 用量統計 |
 
-## 文章生成架構
+## 重要架構模式
+
+### Gemini SDK
+
+使用新版 `google.genai`（`from google import genai`），非舊版 `google.generativeai`。
+
+### 文章生成架構
 
 使用 Gemini `system_instruction`（固定 prompt 範本）+ `contents`（商品資料）分離架構。
-預設內建「Dcard 好物推薦文」範本，可在設定頁管理多個範本。
+Prompt 為雙層結構：`SYSTEM_INSTRUCTIONS`（程式碼層級，不可修改）+ 使用者範本（存 DB，可在設定頁管理）。
 生成文章時可指定 `prompt_template_id`，否則使用預設範本。
+
+### Dcard 不支援 Markdown
+
+所有 LLM 生成內容經 `strip_markdown()`（`gemini_utils.py`）清除 Markdown 語法後才存入 DB。
+
+### DB Session 雙模式
+
+- `get_db()`：FastAPI 依賴注入用（generator）
+- `get_db_session()`：Celery 等非 FastAPI 環境用（context manager）
+
+### 服務單例
+
+`llm_service` 和 `seo_service` 在模組層級實例化為單例，直接 import 使用。
+
+### Redis
+
+Celery broker 用 db 2，result backend 用 db 3（避免與其他專案衝突）。
 
 ## Dcard 目標看板
 
