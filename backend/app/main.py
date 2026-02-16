@@ -2,7 +2,6 @@
 Dcard 自動文章生成系統 - FastAPI 後端
 """
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +16,10 @@ from app.api import products, articles, seo, usage, prompts
 async def lifespan(app: FastAPI):
     """應用程式生命週期管理"""
     create_tables()
-    settings.IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+
+    # 本地開發時才建立圖片目錄
+    if not settings.is_production:
+        settings.IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
     # Seed 內建 prompt 範本
     from app.services.prompts import seed_default_prompts
@@ -37,19 +39,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS 設定
+# CORS 設定（生產環境限制來源）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 靜態檔案（圖片）
-images_dir = Path("./images")
-images_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/images", StaticFiles(directory=str(images_dir)), name="images")
+# 靜態檔案（圖片）- 僅本地開發時掛載
+if not settings.is_production:
+    images_dir = settings.IMAGES_DIR
+    images_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/images", StaticFiles(directory=str(images_dir)), name="images")
 
 # 註冊路由
 app.include_router(products.router, prefix="/api/products", tags=["商品管理"])

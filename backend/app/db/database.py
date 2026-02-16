@@ -8,9 +8,15 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 from app.config import settings
 
+# SQLite 需要 check_same_thread=False，PostgreSQL 不需要
+connect_args = {}
+if settings.DATABASE_URL.startswith("sqlite"):
+    connect_args["check_same_thread"] = False
+
 engine = create_engine(
     settings.DATABASE_URL,
-    connect_args={"check_same_thread": False}  # SQLite 專用
+    connect_args=connect_args,
+    pool_pre_ping=True,  # 處理 Supabase 閒置斷線
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

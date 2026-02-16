@@ -2,6 +2,8 @@
 應用程式設定
 """
 from pathlib import Path
+from typing import List
+
 from pydantic_settings import BaseSettings
 
 
@@ -10,6 +12,11 @@ class Settings(BaseSettings):
 
     # 專案路徑
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
+
+    # 環境設定
+    ENVIRONMENT: str = "development"
+    ALLOWED_ORIGINS: str = "*"
+    PORT: int = 8001
 
     # 資料庫設定
     DATABASE_URL: str = "sqlite:///./dcard_auto.db"
@@ -31,6 +38,16 @@ class Settings(BaseSettings):
 
     # Dcard 預設看板
     DEFAULT_FORUM: str = "goodthings"
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT == "production"
+
+    @property
+    def cors_origins(self) -> List[str]:
+        if self.ALLOWED_ORIGINS == "*":
+            return ["*"]
+        return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
 
     class Config:
         env_file = ".env"
