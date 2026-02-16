@@ -81,7 +81,8 @@ Dcard_auto/
 │   │   │   ├── DashboardPage.jsx
 │   │   │   ├── ProductsPage.jsx
 │   │   │   ├── ArticlesPage.jsx   # 文章管理
-│   │   │   └── SettingsPage.jsx
+│   │   │   ├── SettingsPage.jsx
+│   │   │   └── GuidePage.jsx     # 測試人員使用說明
 │   │   └── hooks/
 │   │       └── useExtensionDetect.js
 │   ├── package.json
@@ -121,6 +122,7 @@ Dcard_auto/
 | 文章管理 | frontend/src/pages/ArticlesPage.jsx | 文章編輯與發佈 |
 | SEO 面板 | frontend/src/components/SeoPanel.jsx | 環形分數圖 + 8 項進度條 + 關鍵字標籤 |
 | Extension 偵測 | frontend/src/hooks/useExtensionDetect.js | 自動偵測插件 |
+| 使用說明 | frontend/src/pages/GuidePage.jsx | 測試人員操作指南 |
 
 ## 開發進度
 

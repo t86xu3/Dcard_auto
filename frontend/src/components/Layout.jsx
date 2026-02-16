@@ -5,6 +5,7 @@ const navItems = [
   { to: '/products', label: '商品管理', icon: '🛒' },
   { to: '/articles', label: '文章管理', icon: '📝' },
   { to: '/settings', label: '設定', icon: '⚙️' },
+  { to: '/guide', label: '使用說明', icon: '📖' },
 ];
 
 export default function Layout() {
