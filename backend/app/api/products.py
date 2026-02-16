@@ -115,6 +115,13 @@ async def batch_delete_products(request: BatchDeleteRequest, db: Session = Depen
 @router.post("/{product_id}/download-images")
 async def download_product_images(product_id: int, db: Session = Depends(get_db)):
     """下載商品圖片到本地"""
+    from app.config import settings
+    if settings.is_production:
+        raise HTTPException(
+            status_code=501,
+            detail="生產環境不支援本地圖片下載，請直接使用蝦皮 CDN URL"
+        )
+
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="商品不存在")
