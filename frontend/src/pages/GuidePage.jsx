@@ -24,11 +24,22 @@ export default function GuidePage() {
       {/* 前置準備 */}
       <section className="bg-white rounded-xl border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-3">前置準備</h2>
-        <h3 className="text-sm font-medium text-gray-700 mb-2">安裝 Chrome Extension</h3>
+        <h3 className="text-sm font-medium text-gray-700 mb-2">下載 Chrome Extension</h3>
+        <a
+          href="https://github.com/t86xu3/Dcard_auto/archive/refs/heads/main.zip"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors mb-4"
+        >
+          <span>⬇️</span> 下載專案 ZIP
+        </a>
+
+        <h3 className="text-sm font-medium text-gray-700 mb-2">安裝步驟</h3>
         <ol className="list-decimal list-inside text-sm text-gray-600 space-y-2 ml-1">
+          <li>點擊上方按鈕下載 ZIP，解壓縮後找到 <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">chrome-extension/</code> 資料夾</li>
           <li>開啟 Chrome，前往 <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">chrome://extensions/</code></li>
           <li>右上角開啟<strong>「開發者模式」</strong></li>
-          <li>點擊<strong>「載入未封裝項目」</strong>，選擇專案中的 <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">chrome-extension/</code> 資料夾</li>
+          <li>點擊<strong>「載入未封裝項目」</strong>，選擇剛才解壓的 <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">chrome-extension/</code> 資料夾</li>
           <li>載入成功後，工具列會出現 Extension 圖示</li>
         </ol>
         <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3">
