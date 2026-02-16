@@ -144,7 +144,7 @@ Dcard_auto/
 - [ ] 批量生成功能
 - [ ] Chrome Extension icon 美化（設計正式 logo）
 
-### Phase 3 - 雲端部署（部分完成）
+### Phase 3 - 雲端部署（完成）
 
 架構：Firebase Hosting + Cloud Run + Supabase PostgreSQL（全免費）
 
@@ -160,9 +160,9 @@ Dcard_auto/
 - [x] Firebase Hosting 部署（https://dcard-auto.web.app）
 - [x] Chrome Extension 雲端/本地 API 切換
 - [x] 測試人員使用說明頁面（/guide）
-- [ ] Supabase 資料庫設定 + Alembic 遷移
-- [ ] Cloud Run 部署 + 環境變數注入
-- [ ] CORS 限制為 Firebase 域名
+- [x] Supabase 資料庫設定 + Alembic 遷移
+- [x] Cloud Run 部署 + 環境變數注入
+- [x] CORS 限制為 Firebase 域名
 
 ## 關鍵檔案快速索引
 
