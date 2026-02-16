@@ -10,6 +10,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     const clearBtn = document.getElementById('clearBtn');
     const syncBtn = document.getElementById('syncBtn');
 
+    // API 模式切換
+    const apiSwitch = document.getElementById('apiSwitch');
+    const apiLabel = document.getElementById('apiLabel');
+    const apiLabelRight = document.getElementById('apiLabelRight');
+    const webUiLink = document.getElementById('webUiLink');
+
+    const modeResponse = await chrome.runtime.sendMessage({ type: 'GET_API_MODE' });
+    updateApiDisplay(modeResponse.mode);
+
+    apiSwitch.addEventListener('change', async () => {
+        const newMode = apiSwitch.checked ? 'local' : 'cloud';
+        const response = await chrome.runtime.sendMessage({ type: 'SET_API_MODE', mode: newMode });
+        if (response.success) {
+            updateApiDisplay(response.mode);
+            showToast(`已切換至${response.mode === 'local' ? '本地' : '雲端'}模式`);
+        }
+    });
+
+    function updateApiDisplay(mode) {
+        apiSwitch.checked = mode === 'local';
+        if (mode === 'local') {
+            apiLabel.style.opacity = '0.4';
+            apiLabelRight.style.opacity = '1';
+            webUiLink.innerHTML = '💡 Web UI: <a href="http://localhost:3001" target="_blank" style="color: #3B82F6;">localhost:3001</a>';
+        } else {
+            apiLabel.style.opacity = '1';
+            apiLabelRight.style.opacity = '0.4';
+            webUiLink.innerHTML = '💡 Web UI: <a href="https://dcard-auto.web.app" target="_blank" style="color: #3B82F6;">dcard-auto.web.app</a>';
+        }
+    }
+
     await loadProducts();
 
     // 擷取當前商品

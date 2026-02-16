@@ -3,8 +3,20 @@
  * 資料處理、儲存、後端同步
  */
 
-// 本地開發用 localhost，生產環境用 Cloud Run
-const API_BASE_URL = 'https://dcard-auto-backend-230731433779.asia-east1.run.app/api';
+// API 端點設定（可在 popup 切換）
+const API_URLS = {
+    cloud: 'https://dcard-auto-backend-230731433779.asia-east1.run.app/api',
+    local: 'http://localhost:8001/api'
+};
+
+let API_BASE_URL = API_URLS.cloud; // 預設雲端
+
+// 啟動時從 storage 讀取設定
+chrome.storage.local.get('apiMode').then(({ apiMode }) => {
+    if (apiMode && API_URLS[apiMode]) {
+        API_BASE_URL = API_URLS[apiMode];
+    }
+});
 
 // 外部訊息監聽（Web UI 偵測用）
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
@@ -90,6 +102,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         chrome.storage.local.get('pendingArticle').then(data => {
             sendResponse({ article: data.pendingArticle || null });
         });
+        return true;
+    }
+
+    // 切換 API 模式
+    if (message.type === 'SET_API_MODE') {
+        const mode = message.mode;
+        if (API_URLS[mode]) {
+            API_BASE_URL = API_URLS[mode];
+            chrome.storage.local.set({ apiMode: mode });
+            sendResponse({ success: true, mode, url: API_BASE_URL });
+        } else {
+            sendResponse({ success: false, error: '無效的模式' });
+        }
+        return true;
+    }
+
+    // 取得當前 API 模式
+    if (message.type === 'GET_API_MODE') {
+        const currentMode = API_BASE_URL === API_URLS.local ? 'local' : 'cloud';
+        sendResponse({ mode: currentMode, url: API_BASE_URL });
         return true;
     }
 });

@@ -51,7 +51,15 @@
 
         <!-- Footer -->
         <footer class="footer">
-            <small>💡 Web UI: <a href="http://localhost:3001" target="_blank" style="color: #3B82F6;">localhost:3001</a></small>
+            <div class="api-toggle">
+                <span class="api-label" id="apiLabel">☁️ 雲端</span>
+                <label class="switch">
+                    <input type="checkbox" id="apiSwitch">
+                    <span class="slider"></span>
+                </label>
+                <span class="api-label" id="apiLabelRight">🖥️ 本地</span>
+            </div>
+            <small id="webUiLink">💡 Web UI: <a href="https://dcard-auto.web.app" target="_blank" style="color: #3B82F6;">dcard-auto.web.app</a></small>
         </footer>
     </div>
 
