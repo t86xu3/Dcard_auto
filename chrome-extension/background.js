@@ -3,7 +3,8 @@
  * 資料處理、儲存、後端同步
  */
 
-const API_BASE_URL = 'http://localhost:8001/api';
+// 本地開發用 localhost，生產環境用 Cloud Run
+const API_BASE_URL = 'https://dcard-auto-backend-230731433779.asia-east1.run.app/api';
 
 // 外部訊息監聽（Web UI 偵測用）
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
