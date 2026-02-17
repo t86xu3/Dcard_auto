@@ -5,7 +5,7 @@
 
 // API 端點設定（可在 popup 切換）
 const API_URLS = {
-    cloud: 'https://dcard-auto-backend-230731433779.asia-east1.run.app/api',
+    cloud: 'https://dcard-auto.web.app/api',
     local: 'http://localhost:8001/api'
 };
 
