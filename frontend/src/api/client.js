@@ -152,4 +152,7 @@ export const analyzeSeoById = (articleId) =>
 export const getUsage = () =>
   api.get('/usage').then(r => r.data);
 
+export const getAdminUsage = () =>
+  api.get('/admin/usage').then(r => r.data);
+
 export default api;

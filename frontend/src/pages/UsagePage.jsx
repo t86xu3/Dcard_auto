@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getUsage } from '../api/client';
+import { getUsage, getAdminUsage } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 
 const MODEL_COLORS = {
   'google/gemini-2.5-flash': { bg: 'bg-blue-50', text: 'text-blue-700', bar: 'bg-blue-500', badge: 'bg-blue-100 text-blue-700' },
@@ -22,15 +23,20 @@ function formatTokens(n) {
 }
 
 export default function UsagePage() {
+  const { user } = useAuth();
+  const isAdmin = user?.is_admin;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('my'); // 'my' | 'all'
 
   useEffect(() => {
-    getUsage()
+    setLoading(true);
+    const fetcher = (isAdmin && viewMode === 'all') ? getAdminUsage : getUsage;
+    fetcher()
       .then(setData)
       .catch(err => console.error('載入用量失敗:', err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [viewMode, isAdmin]);
 
   if (loading) {
     return (
@@ -56,7 +62,29 @@ export default function UsagePage() {
 
   return (
     <div className="p-8 max-w-5xl">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">費用追蹤</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">費用追蹤</h2>
+        {isAdmin && (
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('my')}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'my' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              我的用量
+            </button>
+            <button
+              onClick={() => setViewMode('all')}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'all' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              全站總覽
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* 總花費摘要 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -201,6 +229,41 @@ export default function UsagePage() {
               )}
             </tbody>
           </table>
+        </section>
+      )}
+      {/* 管理員：用戶分組統計 */}
+      {viewMode === 'all' && data.by_user && data.by_user.length > 0 && (
+        <section className="bg-white rounded-xl border border-gray-200 overflow-hidden mt-6">
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-800">各用戶費用</h3>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {data.by_user.map((u) => (
+              <div key={u.user_id} className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-800">{u.username}</span>
+                    <span className="text-xs text-gray-400">ID: {u.user_id}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-lg font-bold text-gray-800">${u.total_cost_usd.toFixed(4)}</span>
+                    <span className="text-sm text-gray-400 ml-2">NT${u.total_cost_twd.toFixed(2)}</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {u.models.map((m) => {
+                    const color = getColor(m.provider, m.model);
+                    return (
+                      <div key={`${m.provider}/${m.model}`} className={`${color.bg} rounded-lg px-3 py-2 text-xs`}>
+                        <span className={`font-medium ${color.text}`}>{m.model}</span>
+                        <span className="text-gray-500 ml-2">{m.requests} 次 · ${m.cost_usd.toFixed(4)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
     </div>

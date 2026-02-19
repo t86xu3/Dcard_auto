@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.user import User
 from app.auth import get_current_admin
+from app.services.usage_tracker import usage_tracker
 
 router = APIRouter()
 
@@ -89,3 +90,9 @@ async def toggle_user_active(
     db.commit()
     status = "啟用" if user.is_active else "停用"
     return {"message": f"已{status}用戶 {user.username}"}
+
+
+@router.get("/usage")
+async def get_all_usage(_admin: User = Depends(get_current_admin)):
+    """全站費用統計（僅管理員）：含全局總覽 + 按用戶分組"""
+    return usage_tracker.get_all_users_usage()

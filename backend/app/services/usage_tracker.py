@@ -2,7 +2,7 @@
 API 使用量追蹤服務（可擴充多供應商/多模型）
 """
 from datetime import date, timedelta
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 import logging
 
 from sqlalchemy import func
@@ -153,6 +153,75 @@ class UsageTracker:
             }
         finally:
             db.close()
+
+
+    def get_all_users_usage(self, db_session=None) -> Dict:
+        """管理員用：取得所有用戶的費用總覽"""
+        from app.models.user import User
+
+        db = db_session or SessionLocal()
+        try:
+            # 全站總計（復用 get_usage 不帶 user_id）
+            global_stats = self.get_usage(user_id=None)
+
+            # 按用戶分組統計
+            user_stats_raw = db.query(
+                UsageRecord.user_id,
+                func.sum(UsageRecord.requests).label("requests"),
+                func.sum(UsageRecord.input_tokens).label("input_tokens"),
+                func.sum(UsageRecord.output_tokens).label("output_tokens"),
+            ).group_by(UsageRecord.user_id).all()
+
+            # 取得用戶名對照
+            user_ids = [r.user_id for r in user_stats_raw if r.user_id is not None]
+            users_map = {}
+            if user_ids:
+                users = db.query(User.id, User.username).filter(User.id.in_(user_ids)).all()
+                users_map = {u.id: u.username for u in users}
+
+            # 每用戶的模型明細
+            per_user_model = db.query(
+                UsageRecord.user_id,
+                UsageRecord.provider,
+                UsageRecord.model,
+                func.sum(UsageRecord.requests).label("requests"),
+                func.sum(UsageRecord.input_tokens).label("input_tokens"),
+                func.sum(UsageRecord.output_tokens).label("output_tokens"),
+            ).group_by(UsageRecord.user_id, UsageRecord.provider, UsageRecord.model).all()
+
+            # 組裝每用戶資料
+            by_user = {}
+            for row in per_user_model:
+                uid = row.user_id or 0
+                if uid not in by_user:
+                    by_user[uid] = {
+                        "user_id": row.user_id,
+                        "username": users_map.get(row.user_id, "未知"),
+                        "models": [],
+                        "total_cost_usd": 0.0,
+                    }
+                cost = self._calc_cost(row.provider, row.model, row.input_tokens, row.output_tokens)
+                by_user[uid]["models"].append({
+                    "provider": row.provider,
+                    "model": row.model,
+                    "requests": row.requests,
+                    "input_tokens": row.input_tokens,
+                    "output_tokens": row.output_tokens,
+                    "cost_usd": round(cost, 6),
+                })
+                by_user[uid]["total_cost_usd"] = round(by_user[uid]["total_cost_usd"] + cost, 6)
+
+            users_list = sorted(by_user.values(), key=lambda x: x["total_cost_usd"], reverse=True)
+            for u in users_list:
+                u["total_cost_twd"] = round(u["total_cost_usd"] * USD_TO_TWD, 2)
+
+            return {
+                **global_stats,
+                "by_user": users_list,
+            }
+        finally:
+            if not db_session:
+                db.close()
 
 
 usage_tracker = UsageTracker()
