@@ -40,11 +40,14 @@ def upgrade() -> None:
     op.execute(
         sa.text(
             "INSERT INTO users (username, email, hashed_password, is_active, is_admin, is_approved) "
-            "VALUES (:username, :email, :hashed_password, 1, 1, 1)"
+            "VALUES (:username, :email, :hashed_password, :is_active, :is_admin, :is_approved)"
         ).bindparams(
             username="t86xu3",
             email="t86xu3@dcard-auto.local",
             hashed_password="$2b$12$L1KTKl2ZPr6WZmq/nCHtmO8ksQE3ixjiSoPspUTcHySLE6//nkQku",
+            is_active=True,
+            is_admin=True,
+            is_approved=True,
         )
     )
 
