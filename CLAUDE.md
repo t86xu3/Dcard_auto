@@ -165,6 +165,7 @@ Vite dev server（port 3001）自動代理 `/api` 請求到後端（port 8001）
 | `/api/admin/usage` | GET | 全站費用總覽 + 按用戶分組（管理員） |
 | `/api/admin/system-prompts` | GET | 系統層級提示詞（管理員） |
 | `/api/products` | GET/POST | 商品 CRUD |
+| `/api/products/{id}` | GET/PATCH | 商品詳情/更新（目前 PATCH 僅支援 product_url） |
 | `/api/products/batch-delete` | POST | 批量刪除 |
 | `/api/products/{id}/download-images` | POST | 下載圖片到本地 |
 | `/api/articles/generate` | POST | 生成比較文（支援 include_images 多模態圖片輸入） |
