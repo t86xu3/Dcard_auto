@@ -17,6 +17,7 @@ MODEL_PRICING = {
     "google": {
         "gemini-2.5-flash": {"input": 0.15, "output": 0.60},
         "gemini-2.5-pro":   {"input": 1.25, "output": 10.00},
+        "gemini-3-pro-preview": {"input": 2.00, "output": 12.00},
     },
     # 未來擴充：
     # "openai": {
