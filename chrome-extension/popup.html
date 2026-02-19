@@ -16,37 +16,56 @@
                 <span class="logo-icon">📝</span>
                 <h1>Dcard 文章生成器</h1>
             </div>
-            <div class="badge" id="productCount">0</div>
+            <div class="header-right">
+                <div class="badge" id="productCount">0</div>
+                <button class="auth-status-btn" id="authStatusBtn" title="帳號"></button>
+            </div>
         </header>
 
-        <!-- Capture Button -->
-        <div class="capture-section">
-            <button class="btn btn-capture" id="captureBtn">
-                <span class="btn-icon">📸</span>
-                擷取當前商品
-            </button>
-            <div class="capture-hint" id="captureHint">在蝦皮商品頁面點擊擷取</div>
-        </div>
-
-        <!-- Product List -->
-        <div class="product-list" id="productList">
-            <div class="empty-state">
-                <span class="empty-icon">📦</span>
-                <p>尚未擷取任何商品</p>
-                <small>前往蝦皮商品頁面點擊擷取</small>
+        <!-- Login Section -->
+        <div class="login-section" id="loginSection" style="display: none;">
+            <div class="login-card">
+                <span class="login-icon">🔐</span>
+                <p class="login-title">登入後才能同步商品</p>
+                <input type="text" class="login-input" id="loginUsername" placeholder="帳號" autocomplete="username">
+                <input type="password" class="login-input" id="loginPassword" placeholder="密碼" autocomplete="current-password">
+                <div class="login-error" id="loginError"></div>
+                <button class="btn btn-primary login-btn" id="loginBtn">登入</button>
+                <small class="login-hint">使用 Web UI 的帳號密碼</small>
             </div>
         </div>
 
-        <!-- Actions -->
-        <div class="actions">
-            <button class="btn btn-secondary" id="clearBtn">
-                <span class="btn-icon">🗑️</span>
-                清除全部
-            </button>
-            <button class="btn btn-primary" id="syncBtn">
-                <span class="btn-icon">🔄</span>
-                同步到後端
-            </button>
+        <!-- Main Content (需登入後顯示) -->
+        <div id="mainContent" style="display: none;">
+            <!-- Capture Button -->
+            <div class="capture-section">
+                <button class="btn btn-capture" id="captureBtn">
+                    <span class="btn-icon">📸</span>
+                    擷取當前商品
+                </button>
+                <div class="capture-hint" id="captureHint">在蝦皮商品頁面點擊擷取</div>
+            </div>
+
+            <!-- Product List -->
+            <div class="product-list" id="productList">
+                <div class="empty-state">
+                    <span class="empty-icon">📦</span>
+                    <p>尚未擷取任何商品</p>
+                    <small>前往蝦皮商品頁面點擊擷取</small>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="actions">
+                <button class="btn btn-secondary" id="clearBtn">
+                    <span class="btn-icon">🗑️</span>
+                    清除全部
+                </button>
+                <button class="btn btn-primary" id="syncBtn">
+                    <span class="btn-icon">🔄</span>
+                    同步到後端
+                </button>
+            </div>
         </div>
 
         <!-- Footer -->

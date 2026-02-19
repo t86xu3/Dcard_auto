@@ -9,6 +9,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const captureHint = document.getElementById('captureHint');
     const clearBtn = document.getElementById('clearBtn');
     const syncBtn = document.getElementById('syncBtn');
+    const loginSection = document.getElementById('loginSection');
+    const mainContent = document.getElementById('mainContent');
+    const authStatusBtn = document.getElementById('authStatusBtn');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginUsername = document.getElementById('loginUsername');
+    const loginPassword = document.getElementById('loginPassword');
+    const loginError = document.getElementById('loginError');
 
     // API 模式切換
     const apiSwitch = document.getElementById('apiSwitch');
@@ -25,6 +32,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (response.success) {
             updateApiDisplay(response.mode);
             showToast(`已切換至${response.mode === 'local' ? '本地' : '雲端'}模式`);
+            // 切換模式後重新檢查登入狀態
+            await checkAuth();
         }
     });
 
@@ -41,7 +50,86 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    await loadProducts();
+    // === 認證邏輯 ===
+
+    async function checkAuth() {
+        const result = await chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' });
+        if (result.loggedIn) {
+            showMainContent(result.username);
+        } else {
+            showLoginSection();
+        }
+    }
+
+    function showMainContent(username) {
+        loginSection.style.display = 'none';
+        mainContent.style.display = 'block';
+        authStatusBtn.textContent = '👤';
+        authStatusBtn.className = 'auth-status-btn logged-in';
+        authStatusBtn.title = `${username}（點擊登出）`;
+        loadProducts();
+    }
+
+    function showLoginSection() {
+        loginSection.style.display = 'block';
+        mainContent.style.display = 'none';
+        authStatusBtn.textContent = '🔒';
+        authStatusBtn.className = 'auth-status-btn logged-out';
+        authStatusBtn.title = '未登入';
+    }
+
+    // 登入
+    loginBtn.addEventListener('click', async () => {
+        const username = loginUsername.value.trim();
+        const password = loginPassword.value.trim();
+        loginError.textContent = '';
+
+        if (!username || !password) {
+            loginError.textContent = '請輸入帳號和密碼';
+            return;
+        }
+
+        loginBtn.disabled = true;
+        loginBtn.textContent = '登入中...';
+
+        const result = await chrome.runtime.sendMessage({
+            type: 'LOGIN',
+            username,
+            password
+        });
+
+        if (result.success) {
+            showToast(`✅ 歡迎，${result.username}`);
+            showMainContent(result.username);
+            loginPassword.value = '';
+        } else {
+            loginError.textContent = result.error;
+        }
+
+        loginBtn.disabled = false;
+        loginBtn.textContent = '登入';
+    });
+
+    // Enter 鍵登入
+    loginPassword.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') loginBtn.click();
+    });
+    loginUsername.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') loginPassword.focus();
+    });
+
+    // 登出
+    authStatusBtn.addEventListener('click', async () => {
+        if (authStatusBtn.classList.contains('logged-in')) {
+            if (!confirm('確定要登出嗎？')) return;
+            await chrome.runtime.sendMessage({ type: 'LOGOUT' });
+            showLoginSection();
+            showToast('已登出');
+        }
+    });
+
+    // 初始化：檢查登入狀態
+    await checkAuth();
 
     // 擷取當前商品
     captureBtn.addEventListener('click', async () => {

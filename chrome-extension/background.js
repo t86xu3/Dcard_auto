@@ -10,13 +10,28 @@ const API_URLS = {
 };
 
 let API_BASE_URL = API_URLS.cloud; // 預設雲端
+let authToken = null;
 
 // 啟動時從 storage 讀取設定
-chrome.storage.local.get('apiMode').then(({ apiMode }) => {
+chrome.storage.local.get(['apiMode', 'authToken']).then(({ apiMode, authToken: token }) => {
     if (apiMode && API_URLS[apiMode]) {
         API_BASE_URL = API_URLS[apiMode];
     }
+    if (token) {
+        authToken = token;
+    }
 });
+
+/**
+ * 取得帶認證的 headers
+ */
+function getAuthHeaders() {
+    const headers = { 'Content-Type': 'application/json' };
+    if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    return headers;
+}
 
 // 外部訊息監聽（Web UI 偵測用）
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
@@ -101,6 +116,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'GET_PENDING_ARTICLE') {
         chrome.storage.local.get('pendingArticle').then(data => {
             sendResponse({ article: data.pendingArticle || null });
+        });
+        return true;
+    }
+
+    // 登入
+    if (message.type === 'LOGIN') {
+        loginToBackend(message.username, message.password).then(result => {
+            sendResponse(result);
+        });
+        return true;
+    }
+
+    // 登出
+    if (message.type === 'LOGOUT') {
+        authToken = null;
+        chrome.storage.local.remove('authToken');
+        sendResponse({ success: true });
+        return true;
+    }
+
+    // 取得認證狀態
+    if (message.type === 'GET_AUTH_STATUS') {
+        getAuthStatus().then(result => {
+            sendResponse(result);
         });
         return true;
     }
@@ -219,7 +258,7 @@ async function syncToBackend(product) {
 
         const response = await fetch(`${API_BASE_URL}/products`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify(payload)
         });
 
@@ -227,6 +266,8 @@ async function syncToBackend(product) {
             console.log(`✅ 已同步到後端: ${product.name}`);
         } else if (response.status === 400) {
             console.log(`⏭️ 商品已存在: ${product.name}`);
+        } else if (response.status === 401) {
+            console.log('⚠️ 未登入或 Token 過期');
         }
     } catch (error) {
         console.log('⚠️ 後端未啟動，僅儲存本地');
@@ -265,12 +306,13 @@ async function syncAllToBackend() {
 
             const response = await fetch(`${API_BASE_URL}/products`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify(payload)
             });
 
             if (response.ok) successCount++;
-            else if (response.status === 400) skipCount++;
+            else if (response.status === 409 || response.status === 400) skipCount++;
+            else if (response.status === 401) return { success: false, error: '請先登入' };
             else failCount++;
         } catch (error) {
             failCount++;
@@ -317,7 +359,7 @@ async function generateArticle(data) {
     try {
         const response = await fetch(`${API_BASE_URL}/articles/generate`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify(data)
         });
 
@@ -338,7 +380,9 @@ async function generateArticle(data) {
  */
 async function fetchArticles() {
     try {
-        const response = await fetch(`${API_BASE_URL}/articles`);
+        const response = await fetch(`${API_BASE_URL}/articles`, {
+            headers: getAuthHeaders()
+        });
         if (response.ok) {
             const articles = await response.json();
             return { success: true, articles };
@@ -354,7 +398,9 @@ async function fetchArticles() {
  */
 async function copyArticle(articleId) {
     try {
-        const response = await fetch(`${API_BASE_URL}/articles/${articleId}/copy`);
+        const response = await fetch(`${API_BASE_URL}/articles/${articleId}/copy`, {
+            headers: getAuthHeaders()
+        });
         if (response.ok) {
             const data = await response.json();
             return { success: true, data };
@@ -385,6 +431,56 @@ async function pasteToActiveDcardTab(articleData) {
         return { success: false, error: '請先開啟 Dcard 頁面' };
     } catch (error) {
         return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 登入後端
+ */
+async function loginToBackend(username, password) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            authToken = data.access_token;
+            await chrome.storage.local.set({ authToken });
+            return { success: true, username: data.username || username };
+        } else {
+            const error = await response.json().catch(() => ({}));
+            return { success: false, error: error.detail || '帳號或密碼錯誤' };
+        }
+    } catch (error) {
+        return { success: false, error: '無法連線到後端' };
+    }
+}
+
+/**
+ * 檢查認證狀態（用 /auth/me 驗證 token 是否有效）
+ */
+async function getAuthStatus() {
+    if (!authToken) return { loggedIn: false };
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth/me`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (response.ok) {
+            const user = await response.json();
+            return { loggedIn: true, username: user.username };
+        } else {
+            // Token 過期或無效
+            authToken = null;
+            await chrome.storage.local.remove('authToken');
+            return { loggedIn: false };
+        }
+    } catch (error) {
+        return { loggedIn: false, error: '無法連線' };
     }
 }
 
