@@ -1,10 +1,12 @@
 """
-LLM 文章生成服務 - 支援 Gemini + Anthropic Claude
+LLM 文章生成服務 - 支援 Gemini + Anthropic Claude（含多模態圖片輸入）
 """
+import base64
 import logging
 import re
 from typing import Optional
 
+import httpx
 from google import genai
 from google.genai import types
 from sqlalchemy.orm import Session
@@ -41,11 +43,53 @@ class LLMService:
             self._anthropic_client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         return self._anthropic_client
 
-    def _call_gemini(self, use_model: str, system_prompt: str, user_message: str) -> tuple:
+    def _download_images(self, products, image_sources: list[str]) -> list[tuple[bytes, str]]:
+        """下載商品圖片供 LLM 多模態分析
+
+        Args:
+            products: 商品列表
+            image_sources: ["main", "description"] 指定要下載哪類圖片
+
+        Returns:
+            list of (image_bytes, mime_type)
+        """
+        image_urls = []
+        for p in products:
+            if "main" in image_sources and p.images:
+                for url in p.images[:3]:
+                    image_urls.append(url)
+            if "description" in image_sources and p.description_images:
+                for url in p.description_images[:5]:
+                    image_urls.append(url)
+
+        image_parts = []
+        with httpx.Client(timeout=10.0) as client:
+            for url in image_urls:
+                try:
+                    resp = client.get(url)
+                    resp.raise_for_status()
+                    content_type = resp.headers.get("content-type", "image/jpeg")
+                    mime_type = content_type.split(";")[0].strip()
+                    if not mime_type.startswith("image/"):
+                        mime_type = "image/jpeg"
+                    image_parts.append((resp.content, mime_type))
+                    logger.debug(f"圖片下載成功: {url[:80]}...")
+                except Exception as e:
+                    logger.warning(f"圖片下載失敗（跳過）: {url[:80]}... - {e}")
+
+        logger.info(f"共下載 {len(image_parts)}/{len(image_urls)} 張圖片供 LLM 分析")
+        return image_parts
+
+    def _call_gemini(self, use_model: str, system_prompt: str, user_message: str, image_parts: list[tuple[bytes, str]] | None = None) -> tuple:
         """呼叫 Gemini API，回傳 (generated_text, response)"""
+        contents = [user_message]
+        if image_parts:
+            for img_bytes, mime_type in image_parts:
+                contents.append(types.Part.from_bytes(data=img_bytes, mime_type=mime_type))
+
         response = self.gemini_client.models.generate_content(
             model=use_model,
-            contents=user_message,
+            contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 temperature=settings.LLM_TEMPERATURE,
@@ -54,18 +98,30 @@ class LLMService:
         )
         return response.text, response
 
-    def _call_anthropic(self, use_model: str, system_prompt: str, user_message: str) -> tuple:
+    def _call_anthropic(self, use_model: str, system_prompt: str, user_message: str, image_parts: list[tuple[bytes, str]] | None = None) -> tuple:
         """呼叫 Anthropic Claude API，回傳 (generated_text, response)"""
+        content = [{"type": "text", "text": user_message}]
+        if image_parts:
+            for img_bytes, mime_type in image_parts:
+                content.append({
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": mime_type,
+                        "data": base64.b64encode(img_bytes).decode("utf-8"),
+                    },
+                })
+
         response = self.anthropic_client.messages.create(
             model=use_model,
             max_tokens=settings.LLM_MAX_TOKENS,
             system=system_prompt,
-            messages=[{"role": "user", "content": user_message}],
+            messages=[{"role": "user", "content": content}],
         )
         generated_text = response.content[0].text
         return generated_text, response
 
-    def generate_article(self, products, db: Session, article_type: str = "comparison", target_forum: str = "goodthings", prompt_template_id: Optional[int] = None, model: Optional[str] = None, user_id: Optional[int] = None) -> dict:
+    def generate_article(self, products, db: Session, article_type: str = "comparison", target_forum: str = "goodthings", prompt_template_id: Optional[int] = None, model: Optional[str] = None, user_id: Optional[int] = None, include_images: bool = False, image_sources: list[str] | None = None) -> dict:
         """生成文章"""
         product_ids = [p.id for p in products]
 
@@ -85,14 +141,24 @@ class LLMService:
         # 組合系統指示（程式碼層級）+ 使用者範本
         full_system_prompt = f"{SYSTEM_INSTRUCTIONS}\n\n---\n\n以下是使用者的寫作風格範本：\n\n{system_prompt}"
 
+        # 下載圖片供 LLM 多模態分析
+        image_parts = None
+        if include_images:
+            sources = image_sources or ["description"]
+            image_parts = self._download_images(products, sources)
+            if image_parts:
+                user_message += "\n\n（以下附有商品圖片，請仔細閱讀圖片中的文字資訊，融入文章內容）"
+            else:
+                logger.warning("所有圖片下載失敗，將以純文字模式生成")
+
         use_model = model or settings.LLM_MODEL
         try:
             if is_anthropic_model(use_model):
-                generated_text, response = self._call_anthropic(use_model, full_system_prompt, user_message)
+                generated_text, response = self._call_anthropic(use_model, full_system_prompt, user_message, image_parts=image_parts)
                 logger.info(f"Claude API 回應成功，文字長度: {len(generated_text)}")
                 track_anthropic_usage(response, model=use_model, user_id=user_id)
             else:
-                generated_text, response = self._call_gemini(use_model, full_system_prompt, user_message)
+                generated_text, response = self._call_gemini(use_model, full_system_prompt, user_message, image_parts=image_parts)
                 logger.info(f"Gemini API 回應成功，文字長度: {len(generated_text)}")
                 track_gemini_usage(response, model=use_model, user_id=user_id)
 

@@ -25,6 +25,8 @@ class ArticleGenerateRequest(BaseModel):
     target_forum: str = "goodthings"
     prompt_template_id: Optional[int] = None
     model: Optional[str] = None  # "gemini-2.5-flash" / "gemini-2.5-pro"
+    include_images: bool = False  # 是否附圖給 LLM 分析
+    image_sources: List[str] = ["description"]  # "main" / "description" / 兩者
 
 
 class ArticleUpdateRequest(BaseModel):
@@ -100,6 +102,8 @@ async def generate_article(
         prompt_template_id=request.prompt_template_id,
         model=request.model,
         user_id=current_user.id,
+        include_images=request.include_images,
+        image_sources=request.image_sources,
     )
 
     # 自動 SEO 分析（純 Python 計算，不消耗 API quota）
