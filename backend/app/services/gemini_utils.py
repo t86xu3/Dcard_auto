@@ -1,6 +1,6 @@
 """
-Gemini API 共用工具函數
-從 llm_service.py 和 seo_service.py 提取的重複程式碼
+LLM API 共用工具函數
+支援 Gemini 和 Anthropic Claude 的用量追蹤
 """
 import re
 import logging
@@ -44,3 +44,31 @@ def track_gemini_usage(response, model: str = "gemini-2.5-flash"):
         logger.info(f"API 用量 ({model}): input={input_tokens}, output={output_tokens}")
     except Exception as e:
         logger.warning(f"用量追蹤失敗: {e}")
+
+
+def track_anthropic_usage(response, model: str):
+    """追蹤 Anthropic Claude API 用量"""
+    try:
+        from app.services.usage_tracker import usage_tracker
+
+        input_tokens = 0
+        output_tokens = 0
+
+        if hasattr(response, 'usage') and response.usage:
+            input_tokens = getattr(response.usage, 'input_tokens', 0) or 0
+            output_tokens = getattr(response.usage, 'output_tokens', 0) or 0
+
+        usage_tracker.record_usage(
+            provider="anthropic",
+            model=model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+        logger.info(f"API 用量 ({model}): input={input_tokens}, output={output_tokens}")
+    except Exception as e:
+        logger.warning(f"用量追蹤失敗: {e}")
+
+
+def is_anthropic_model(model: str) -> bool:
+    """判斷是否為 Anthropic Claude 模型"""
+    return model.startswith("claude-")

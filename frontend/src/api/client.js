@@ -37,8 +37,8 @@ export const updateArticle = (id, data) =>
 export const deleteArticle = (id) =>
   api.delete(`/articles/${id}`).then(r => r.data);
 
-export const optimizeSeo = (id) =>
-  api.post(`/articles/${id}/optimize-seo`, null, { timeout: 180000 }).then(r => r.data);
+export const optimizeSeo = (id, model) =>
+  api.post(`/articles/${id}/optimize-seo`, null, { params: model ? { model } : {}, timeout: 180000 }).then(r => r.data);
 
 export const copyArticle = (id) =>
   api.get(`/articles/${id}/copy`).then(r => r.data);

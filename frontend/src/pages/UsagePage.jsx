@@ -5,6 +5,8 @@ const MODEL_COLORS = {
   'google/gemini-2.5-flash': { bg: 'bg-blue-50', text: 'text-blue-700', bar: 'bg-blue-500', badge: 'bg-blue-100 text-blue-700' },
   'google/gemini-2.5-pro': { bg: 'bg-purple-50', text: 'text-purple-700', bar: 'bg-purple-500', badge: 'bg-purple-100 text-purple-700' },
   'google/gemini-3-pro-preview': { bg: 'bg-amber-50', text: 'text-amber-700', bar: 'bg-amber-500', badge: 'bg-amber-100 text-amber-700' },
+  'anthropic/claude-sonnet-4-5': { bg: 'bg-orange-50', text: 'text-orange-700', bar: 'bg-orange-500', badge: 'bg-orange-100 text-orange-700' },
+  'anthropic/claude-haiku-4-5': { bg: 'bg-teal-50', text: 'text-teal-700', bar: 'bg-teal-500', badge: 'bg-teal-100 text-teal-700' },
 };
 
 const DEFAULT_COLOR = { bg: 'bg-gray-50', text: 'text-gray-700', bar: 'bg-gray-500', badge: 'bg-gray-100 text-gray-700' };

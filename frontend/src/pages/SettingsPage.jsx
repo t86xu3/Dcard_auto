@@ -142,14 +142,20 @@ export default function SettingsPage() {
               onChange={(e) => handleModelChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
             >
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-              <option value="gemini-3-pro-preview">Gemini 3 Pro (Preview)</option>
+              <optgroup label="Google Gemini">
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                <option value="gemini-3-pro-preview">Gemini 3 Pro (Preview)</option>
+              </optgroup>
+              <optgroup label="Anthropic Claude">
+                <option value="claude-sonnet-4-5">Claude Sonnet 4.5</option>
+                <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
+              </optgroup>
             </select>
           </div>
 
           {/* 右側：價格比較表 */}
-          <div className="w-80 shrink-0">
+          <div className="w-96 shrink-0">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-gray-400 text-left">
@@ -160,23 +166,37 @@ export default function SettingsPage() {
                 </tr>
               </thead>
               <tbody className="text-gray-600">
+                <tr><td colSpan="4" className="pt-1 pb-0.5 text-[10px] text-gray-400 font-medium">Google Gemini</td></tr>
                 <tr className={`border-t border-gray-50 ${llmModel === 'gemini-2.5-flash' ? 'bg-blue-50/50' : ''}`}>
-                  <td className="py-1.5"><span className={`inline-block w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5`}/>Flash</td>
+                  <td className="py-1.5"><span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"/>Flash</td>
                   <td className="py-1.5 text-right font-mono">$0.15</td>
                   <td className="py-1.5 text-right font-mono">$0.60</td>
                   <td className="py-1.5 text-right text-green-600">便宜快速</td>
                 </tr>
                 <tr className={`border-t border-gray-50 ${llmModel === 'gemini-2.5-pro' ? 'bg-purple-50/50' : ''}`}>
-                  <td className="py-1.5"><span className={`inline-block w-1.5 h-1.5 rounded-full bg-purple-500 mr-1.5`}/>2.5 Pro</td>
+                  <td className="py-1.5"><span className="inline-block w-1.5 h-1.5 rounded-full bg-purple-500 mr-1.5"/>2.5 Pro</td>
                   <td className="py-1.5 text-right font-mono">$1.25</td>
                   <td className="py-1.5 text-right font-mono">$10.00</td>
                   <td className="py-1.5 text-right text-purple-600">高品質</td>
                 </tr>
                 <tr className={`border-t border-gray-50 ${llmModel === 'gemini-3-pro-preview' ? 'bg-amber-50/50' : ''}`}>
-                  <td className="py-1.5"><span className={`inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5`}/>3 Pro</td>
+                  <td className="py-1.5"><span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"/>3 Pro</td>
                   <td className="py-1.5 text-right font-mono">$2.00</td>
                   <td className="py-1.5 text-right font-mono">$12.00</td>
-                  <td className="py-1.5 text-right text-amber-600">最強</td>
+                  <td className="py-1.5 text-right text-amber-600">最新旗艦</td>
+                </tr>
+                <tr><td colSpan="4" className="pt-2 pb-0.5 text-[10px] text-gray-400 font-medium">Anthropic Claude</td></tr>
+                <tr className={`border-t border-gray-50 ${llmModel === 'claude-sonnet-4-5' ? 'bg-orange-50/50' : ''}`}>
+                  <td className="py-1.5"><span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 mr-1.5"/>Sonnet 4.5</td>
+                  <td className="py-1.5 text-right font-mono">$3.00</td>
+                  <td className="py-1.5 text-right font-mono">$15.00</td>
+                  <td className="py-1.5 text-right text-orange-600">寫作最強</td>
+                </tr>
+                <tr className={`border-t border-gray-50 ${llmModel === 'claude-haiku-4-5' ? 'bg-teal-50/50' : ''}`}>
+                  <td className="py-1.5"><span className="inline-block w-1.5 h-1.5 rounded-full bg-teal-500 mr-1.5"/>Haiku 4.5</td>
+                  <td className="py-1.5 text-right font-mono">$1.00</td>
+                  <td className="py-1.5 text-right font-mono">$5.00</td>
+                  <td className="py-1.5 text-right text-teal-600">性價比高</td>
                 </tr>
               </tbody>
             </table>

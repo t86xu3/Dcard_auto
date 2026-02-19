@@ -193,7 +193,7 @@ export default function ArticlesPage() {
     if (!selectedArticle) return;
     setOptimizing(true);
     try {
-      const resp = await optimizeSeo(selectedArticle.id);
+      const resp = await optimizeSeo(selectedArticle.id, localStorage.getItem('llmModel'));
       setSelectedArticle(resp.article);
       setEditContent(resp.article.content || '');
       // 顯示優化後的完整分析

@@ -162,7 +162,7 @@ async def delete_article(article_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{article_id}/optimize-seo")
-async def optimize_seo(article_id: int, db: Session = Depends(get_db)):
+async def optimize_seo(article_id: int, model: Optional[str] = None, db: Session = Depends(get_db)):
     """SEO 優化文章"""
     article = db.query(Article).filter(Article.id == article_id).first()
     if not article:
@@ -170,7 +170,7 @@ async def optimize_seo(article_id: int, db: Session = Depends(get_db)):
 
     from app.services.seo_service import seo_service
 
-    result = seo_service.optimize_with_llm(article)
+    result = seo_service.optimize_with_llm(article, model=model)
     optimized_content = result.get("optimized_content", article.content)
     article.content = optimized_content
 

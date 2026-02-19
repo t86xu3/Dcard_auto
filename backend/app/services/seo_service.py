@@ -10,7 +10,7 @@ from google import genai
 from google.genai import types
 
 from app.config import settings
-from app.services.gemini_utils import strip_markdown, track_gemini_usage
+from app.services.gemini_utils import strip_markdown, track_gemini_usage, track_anthropic_usage, is_anthropic_model
 
 logger = logging.getLogger(__name__)
 
@@ -65,15 +65,25 @@ class SeoService:
     }
 
     def __init__(self):
-        self._client = None
+        self._gemini_client = None
+        self._anthropic_client = None
 
     @property
-    def client(self):
-        if self._client is None:
+    def gemini_client(self):
+        if self._gemini_client is None:
             if not settings.GOOGLE_API_KEY:
-                raise ValueError("GOOGLE_API_KEY 未設定")
-            self._client = genai.Client(api_key=settings.GOOGLE_API_KEY)
-        return self._client
+                raise ValueError("GOOGLE_API_KEY 未設定，請在 .env 中設定")
+            self._gemini_client = genai.Client(api_key=settings.GOOGLE_API_KEY)
+        return self._gemini_client
+
+    @property
+    def anthropic_client(self):
+        if self._anthropic_client is None:
+            if not settings.ANTHROPIC_API_KEY:
+                raise ValueError("ANTHROPIC_API_KEY 未設定，請在 .env 中設定")
+            import anthropic
+            self._anthropic_client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        return self._anthropic_client
 
     @staticmethod
     def _extract_keywords_from_title(title: str) -> list:
@@ -583,27 +593,35 @@ class SeoService:
 
         use_model = model or settings.LLM_MODEL
         try:
-            response = self.client.models.generate_content(
-                model=use_model,
-                contents=user_message,
-                config=types.GenerateContentConfig(
-                    system_instruction=SEO_OPTIMIZE_PROMPT,
-                    temperature=0.5,
-                    max_output_tokens=settings.LLM_MAX_TOKENS,
-                ),
-            )
-
-            optimized_content = response.text
-            logger.info(f"SEO LLM 優化完成，文字長度: {len(optimized_content)}")
+            if is_anthropic_model(use_model):
+                response = self.anthropic_client.messages.create(
+                    model=use_model,
+                    max_tokens=settings.LLM_MAX_TOKENS,
+                    system=SEO_OPTIMIZE_PROMPT,
+                    messages=[{"role": "user", "content": user_message}],
+                )
+                optimized_content = response.content[0].text
+                logger.info(f"Claude SEO 優化完成，文字長度: {len(optimized_content)}")
+                track_anthropic_usage(response, model=use_model)
+            else:
+                response = self.gemini_client.models.generate_content(
+                    model=use_model,
+                    contents=user_message,
+                    config=types.GenerateContentConfig(
+                        system_instruction=SEO_OPTIMIZE_PROMPT,
+                        temperature=0.5,
+                        max_output_tokens=settings.LLM_MAX_TOKENS,
+                    ),
+                )
+                optimized_content = response.text
+                logger.info(f"Gemini SEO 優化完成，文字長度: {len(optimized_content)}")
+                track_gemini_usage(response, model=use_model)
 
             # 清除可能殘留的 Markdown
             optimized_content = strip_markdown(optimized_content)
 
             # 優化後重新分析
             after_analysis = self.analyze(title=article.title, content=optimized_content)
-
-            # 追蹤用量
-            track_gemini_usage(response, model=use_model)
 
             return {
                 "optimized_content": optimized_content,
@@ -615,7 +633,7 @@ class SeoService:
             }
 
         except Exception as e:
-            logger.error(f"SEO LLM 優化失敗: {e}")
+            logger.error(f"SEO LLM 優化失敗 ({use_model}): {e}")
             raise RuntimeError(f"SEO 優化失敗: {e}")
 
 

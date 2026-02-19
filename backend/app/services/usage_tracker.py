@@ -19,10 +19,10 @@ MODEL_PRICING = {
         "gemini-2.5-pro":   {"input": 1.25, "output": 10.00},
         "gemini-3-pro-preview": {"input": 2.00, "output": 12.00},
     },
-    # 未來擴充：
-    # "openai": {
-    #     "gpt-4o": {"input": 2.50, "output": 10.00},
-    # },
+    "anthropic": {
+        "claude-sonnet-4-5":  {"input": 3.00, "output": 15.00},
+        "claude-haiku-4-5":   {"input": 1.00, "output": 5.00},
+    },
 }
 
 USD_TO_TWD = 32.5

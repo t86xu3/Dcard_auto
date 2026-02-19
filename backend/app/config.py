@@ -21,8 +21,9 @@ class Settings(BaseSettings):
     # 資料庫設定
     DATABASE_URL: str = "sqlite:///./dcard_auto.db"
 
-    # LLM 設定 (Gemini)
+    # LLM 設定
     GOOGLE_API_KEY: str = ""
+    ANTHROPIC_API_KEY: str = ""
     LLM_MODEL: str = "gemini-2.5-flash"
     LLM_TEMPERATURE: float = 0.7
     LLM_MAX_TOKENS: int = 16384
