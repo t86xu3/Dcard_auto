@@ -22,6 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 資料庫 | SQLite (開發) / PostgreSQL (生產) |
 | LLM | Google Gemini API + Anthropic Claude API |
 | 前端 | React 19 + Vite + Tailwind CSS 4 |
+| 認證 | JWT (python-jose + bcrypt) |
 | 擴充功能 | Chrome Manifest V3 |
 
 ## 開發指令
@@ -135,6 +136,11 @@ Vite dev server（port 3001）自動代理 `/api` 請求到後端（port 8001）
 
 ## 資料模型
 
+### User
+```
+id, username, email, hashed_password, is_active, is_admin, is_approved, created_at
+```
+
 ### Product
 ```
 id, item_id, shop_id, name, price, original_price, discount,
@@ -179,8 +185,18 @@ UniqueConstraint: provider + model + usage_date + user_id
 
 ## API 端點
 
+所有端點（除 auth）需 Bearer Token 認證。LLM 相關端點需 `is_approved`。
+
 | 端點 | 方法 | 說明 |
 |------|------|------|
+| `/api/auth/register` | POST | 註冊新用戶 |
+| `/api/auth/login` | POST | 登入取得 Token |
+| `/api/auth/refresh` | POST | 刷新 Token |
+| `/api/auth/me` | GET | 取得當前用戶資訊 |
+| `/api/admin/users` | GET | 用戶列表（管理員） |
+| `/api/admin/users/{id}/approve` | POST | 核准用戶（管理員） |
+| `/api/admin/users/{id}/revoke` | POST | 撤回核准（管理員） |
+| `/api/admin/users/{id}/toggle-active` | POST | 啟用/停用（管理員） |
 | `/api/products` | GET/POST | 商品 CRUD |
 | `/api/products/batch-delete` | POST | 批量刪除 |
 | `/api/products/{id}/download-images` | POST | 下載圖片到本地 |
@@ -199,6 +215,13 @@ UniqueConstraint: provider + model + usage_date + user_id
 | `/api/usage` | GET | API 用量統計（按 provider/model 分組 + 費用 + 30天歷史）|
 
 ## 重要架構模式
+
+### 認證架構
+
+JWT 認證（python-jose + bcrypt），前端 token 存 localStorage。
+三層權限依賴注入：`get_current_user`（基本認證）→ `get_current_admin`（管理員）→ `get_approved_user`（已核准，可用 LLM）。
+Token sub claim 為字串型 user_id（`str(user.id)`），解碼時轉回 `int`。
+管理員帳號 `t86xu3` / `tread1996`，lifespan 自動 seed。
 
 ### Gemini SDK
 
@@ -271,15 +294,16 @@ Celery broker 用 db 2，result backend 用 db 3（避免與其他專案衝突�
 - [x] Cloud Run 部署
 - [x] CORS 限制為 Firebase 域名
 
-### Phase 4 - 多用戶帳號系統
+### Phase 4 - 多用戶帳號系統（完成）
 
-- [ ] 用戶模型（users 表：email、密碼雜湊、角色）
-- [ ] 登入/註冊 API（JWT Token 驗證）
-- [ ] 前端登入頁面 + 路由保護
-- [ ] API 請求帶入 user_id（文章生成、SEO 優化）
-- [ ] usage_records 按 user_id 分別記錄用量
-- [ ] 費用追蹤頁面支援「我的 / 全部」篩選
-- [ ] 管理員角色（可查看所有用戶費用）
+- [x] 用戶模型 + JWT 認證（python-jose + bcrypt）
+- [x] 登入/註冊 API + Refresh Token
+- [x] 前端登入頁面 + AuthContext + 路由守衛
+- [x] 所有 API 端點加認證 + user_id 資料隔離
+- [x] is_approved 機制（管理員核准才能使用 LLM）
+- [x] 管理員 API + 前端用戶管理頁面
+- [x] user_id 傳遞鏈（API → Service → Usage Tracker）
+- [x] 前端 axios interceptor（自動帶 token + 401 refresh）
 
 ## 部署架構
 

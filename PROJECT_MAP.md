@@ -16,6 +16,7 @@
 | 資料庫 | SQLite → PostgreSQL | - | 開發用 SQLite / 生產用 Supabase PostgreSQL |
 | LLM | Google Gemini API | 2.5 Flash/Pro, 3 Pro | 文章生成 + SEO 優化 |
 | LLM | Anthropic Claude API | Sonnet 4.5, Haiku 4.5 | 文章生成 + SEO 優化 |
+| 認證 | python-jose + bcrypt | 3.4.0 / 5.0.0 | JWT Token 認證 |
 | 前端框架 | React + Vite | 19 / 6 | Web UI |
 | CSS | Tailwind CSS | 4 | 樣式 |
 | 擴充功能 | Chrome Manifest V3 | - | 商品擷取 + Dcard 輔助發文 |
@@ -45,18 +46,22 @@ Dcard_auto/
 │   │   ├── db/
 │   │   │   └── database.py    # SQLAlchemy（SQLite→PostgreSQL）
 │   │   ├── models/
-│   │   │   ├── product.py     # 商品模型
+│   │   │   ├── user.py        # 用戶模型（含 is_approved）
+│   │   │   ├── product.py     # 商品模型（+user_id FK）
 │   │   │   ├── product_image.py # 圖片備份模型
-│   │   │   ├── article.py     # 文章模型
+│   │   │   ├── article.py     # 文章模型（+user_id FK）
 │   │   │   ├── api_usage.py   # API 用量追蹤（舊，保留）
 │   │   │   ├── usage_record.py # 多供應商/多模型用量追蹤
-│   │   │   └── prompt_template.py # Prompt 範本模型
+│   │   │   └── prompt_template.py # Prompt 範本模型（+user_id FK）
+│   │   ├── auth.py            # JWT 認證模組
 │   │   ├── api/
-│   │   │   ├── products.py    # 商品 CRUD
-│   │   │   ├── articles.py    # 文章生成/管理
-│   │   │   ├── prompts.py     # Prompt 範本 CRUD
-│   │   │   ├── seo.py         # SEO 分析/優化
-│   │   │   └── usage.py       # 用量統計
+│   │   │   ├── auth.py        # 認證 API（register/login/refresh/me）
+│   │   │   ├── admin.py       # 管理員 API（用戶列表/核准）
+│   │   │   ├── products.py    # 商品 CRUD（+認證+資料隔離）
+│   │   │   ├── articles.py    # 文章生成/管理（+認證+資料隔離）
+│   │   │   ├── prompts.py     # Prompt 範本 CRUD（+認證）
+│   │   │   ├── seo.py         # SEO 分析/優化（+認證）
+│   │   │   └── usage.py       # 用量統計（+認證+user過濾）
 │   │   ├── services/
 │   │   │   ├── gemini_utils.py  # Gemini 共用工具（strip_markdown + track_usage）
 │   │   │   ├── llm_service.py # Gemini 文章生成（system_instruction 分離）
@@ -76,10 +81,16 @@ Dcard_auto/
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── api/               # API 客戶端
+│   │   ├── api/               # API 客戶端（含 token interceptor）
+│   │   ├── contexts/
+│   │   │   └── AuthContext.jsx # 認證 Context + useAuth hook
 │   │   ├── components/        # 共用元件
+│   │   │   ├── Layout.jsx     # 側邊欄（含用戶資訊+登出+管理員導航）
+│   │   │   ├── ProtectedRoute.jsx # 路由守衛
 │   │   │   └── SeoPanel.jsx   # SEO 分析面板（環形分數圖 + 8 項進度條）
 │   │   ├── pages/
+│   │   │   ├── LoginPage.jsx      # 登入/註冊頁
+│   │   │   ├── AdminPage.jsx      # 管理員：用戶管理
 │   │   │   ├── DashboardPage.jsx
 │   │   │   ├── ProductsPage.jsx
 │   │   │   ├── ArticlesPage.jsx   # 文章管理
@@ -110,10 +121,13 @@ Dcard_auto/
 | Dcard 發文輔助 | chrome-extension/content-dcard.js | 偵測編輯器、自動填入 |
 | Web UI 偵測 | chrome-extension/content-webui.js | 廣播 Extension ID |
 | Service Worker | chrome-extension/background.js | 資料處理、儲存、同步 |
-| 商品 API | backend/app/api/products.py | 商品 CRUD + 圖片下載 |
-| 文章生成 API | backend/app/api/articles.py | 比較文/開箱文生成 |
-| SEO 分析 API | backend/app/api/seo.py | SEO 評分 + 按文章 ID 分析並存入 DB |
-| Prompt 範本 API | backend/app/api/prompts.py | 範本 CRUD + 設為預設 |
+| JWT 認證模組 | backend/app/auth.py | 密碼雜湊 + Token 簽發/驗證 + 依賴注入 |
+| 認證 API | backend/app/api/auth.py | 註冊/登入/刷新 Token/取得用戶資訊 |
+| 管理員 API | backend/app/api/admin.py | 用戶列表/核准/停用 |
+| 商品 API | backend/app/api/products.py | 商品 CRUD + 圖片下載（+認證+資料隔離）|
+| 文章生成 API | backend/app/api/articles.py | 比較文/開箱文生成（+認證+資料隔離）|
+| SEO 分析 API | backend/app/api/seo.py | SEO 評分 + 按文章 ID 分析並存入 DB（+認證）|
+| Prompt 範本 API | backend/app/api/prompts.py | 範本 CRUD + 設為預設（+認證）|
 | LLM 服務 | backend/app/services/llm_service.py | Gemini 文章生成（system_instruction 分離）|
 | Prompt 範本服務 | backend/app/services/prompts.py | 內建範本 seed + 預設取得 |
 | Gemini 共用工具 | backend/app/services/gemini_utils.py | strip_markdown + track_usage |
@@ -127,6 +141,10 @@ Dcard_auto/
 | Extension 偵測 | frontend/src/hooks/useExtensionDetect.js | 自動偵測插件 |
 | 費用追蹤 | frontend/src/pages/UsagePage.jsx | 按模型分組的費用統計 + 30天趨勢 |
 | 使用說明 | frontend/src/pages/GuidePage.jsx | 測試人員操作指南 |
+| 認證 Context | frontend/src/contexts/AuthContext.jsx | AuthProvider + useAuth hook |
+| 路由守衛 | frontend/src/components/ProtectedRoute.jsx | 未登入導向 /login |
+| 登入頁 | frontend/src/pages/LoginPage.jsx | 登入/註冊 Tab 切換 |
+| 管理員頁 | frontend/src/pages/AdminPage.jsx | 用戶列表 + 核准/停用 |
 
 ## 開發進度
 
@@ -171,15 +189,18 @@ Dcard_auto/
 - [x] Cloud Run 部署 + 環境變數注入
 - [x] CORS 限制為 Firebase 域名
 
-### Phase 4 - 多用戶帳號系統（下一步）
+### Phase 4 - 多用戶帳號系統（完成）
 
-- [ ] 用戶模型（users 表：email、密碼雜湊、角色）
-- [ ] 登入/註冊 API（JWT Token 驗證）
-- [ ] 前端登入頁面 + 路由保護
-- [ ] API 請求帶入 user_id（文章生成、SEO 優化）
-- [ ] usage_records 按 user_id 分別記錄用量
-- [ ] 費用追蹤頁面支援「我的 / 全部」篩選
-- [ ] 管理員角色（可查看所有用戶費用）
+- [x] 用戶模型（users 表 + user_id FK 到 products/articles/prompts）
+- [x] JWT 認證系統（python-jose + bcrypt，Access 24h / Refresh 7d）
+- [x] 登入/註冊 API + Refresh Token
+- [x] 前端登入頁面 + AuthContext + 路由守衛
+- [x] 所有 API 端點加認證 + user_id 資料隔離
+- [x] is_approved 機制（未核准禁用 LLM 功能）
+- [x] 管理員 API（用戶列表 / 核准 / 撤回 / 停用）
+- [x] 管理員前端頁面（用戶管理 + 核准/停用操作）
+- [x] user_id 傳遞鏈：API → Service → Usage Tracker
+- [x] 前端 axios interceptor（自動帶 token + 401 自動 refresh）
 
 ## 關鍵檔案快速索引
 
