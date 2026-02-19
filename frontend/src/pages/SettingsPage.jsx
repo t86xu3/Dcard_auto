@@ -133,21 +133,54 @@ export default function SettingsPage() {
       {/* LLM */}
       <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">LLM 設定</h3>
-        <div className="space-y-4">
-          <div>
+        <div className="flex gap-6">
+          {/* 左側：模型選擇 */}
+          <div className="flex-1">
             <label className="block text-sm font-medium text-gray-600 mb-1">模型</label>
             <select
               value={llmModel}
               onChange={(e) => handleModelChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
             >
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash (快速，便宜)</option>
-              <option value="gemini-2.5-pro">Gemini 2.5 Pro (高品質)</option>
-              <option value="gemini-3-pro-preview">Gemini 3 Pro (最強，Preview)</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+              <option value="gemini-3-pro-preview">Gemini 3 Pro (Preview)</option>
             </select>
-            <p className="text-xs text-gray-400 mt-1">
-              Flash: $0.15/$0.60 · 2.5 Pro: $1.25/$10.00 · 3 Pro: $2.00/$12.00 (per 1M tokens)
-            </p>
+          </div>
+
+          {/* 右側：價格比較表 */}
+          <div className="w-80 shrink-0">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-gray-400 text-left">
+                  <th className="pb-1.5 font-medium">模型</th>
+                  <th className="pb-1.5 font-medium text-right">輸入</th>
+                  <th className="pb-1.5 font-medium text-right">輸出</th>
+                  <th className="pb-1.5 font-medium text-right">特性</th>
+                </tr>
+              </thead>
+              <tbody className="text-gray-600">
+                <tr className={`border-t border-gray-50 ${llmModel === 'gemini-2.5-flash' ? 'bg-blue-50/50' : ''}`}>
+                  <td className="py-1.5"><span className={`inline-block w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5`}/>Flash</td>
+                  <td className="py-1.5 text-right font-mono">$0.15</td>
+                  <td className="py-1.5 text-right font-mono">$0.60</td>
+                  <td className="py-1.5 text-right text-green-600">便宜快速</td>
+                </tr>
+                <tr className={`border-t border-gray-50 ${llmModel === 'gemini-2.5-pro' ? 'bg-purple-50/50' : ''}`}>
+                  <td className="py-1.5"><span className={`inline-block w-1.5 h-1.5 rounded-full bg-purple-500 mr-1.5`}/>2.5 Pro</td>
+                  <td className="py-1.5 text-right font-mono">$1.25</td>
+                  <td className="py-1.5 text-right font-mono">$10.00</td>
+                  <td className="py-1.5 text-right text-purple-600">高品質</td>
+                </tr>
+                <tr className={`border-t border-gray-50 ${llmModel === 'gemini-3-pro-preview' ? 'bg-amber-50/50' : ''}`}>
+                  <td className="py-1.5"><span className={`inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5`}/>3 Pro</td>
+                  <td className="py-1.5 text-right font-mono">$2.00</td>
+                  <td className="py-1.5 text-right font-mono">$12.00</td>
+                  <td className="py-1.5 text-right text-amber-600">最強</td>
+                </tr>
+              </tbody>
+            </table>
+            <div className="text-[10px] text-gray-300 mt-1 text-right">USD / 1M tokens</div>
           </div>
         </div>
       </section>
