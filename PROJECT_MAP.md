@@ -166,6 +166,7 @@ Dcard_auto/
 - [x] 多模型支援（Gemini Flash/Pro/3Pro + Claude Sonnet/Haiku）
 - [x] 費用追蹤頁面（按模型分組 + 30天趨勢圖）
 - [x] 用量追蹤 Bug 修復（usage_tracker.track → record_usage）
+- [x] LLM 多模態圖片輸入（附圖給 LLM 分析商品規格/成分/尺寸）
 - [ ] 批量生成功能
 - [ ] Chrome Extension icon 美化（設計正式 logo）
 

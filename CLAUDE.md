@@ -124,9 +124,13 @@ Vite dev server（port 3001）自動代理 `/api` 請求到後端（port 8001）
 ### 圖片處理流程
 
 ```
-擷取商品 → 儲存蝦皮 CDN URL
+擷取商品 → 儲存蝦皮 CDN URL（images + description_images）
               ├── 可選：下載到 backend/images/{product_id}/
-              └── 文章生成時：
+              ├── 文章生成時（多模態）：
+              │   ├── 使用者勾選「附圖給 LLM」→ 下載圖片 → 傳入 LLM 分析
+              │   ├── Gemini: types.Part.from_bytes() / Claude: base64 編碼
+              │   └── 圖片來源可選：主圖(max 3)、描述圖(max 5)
+              └── 文章生成時（標記）：
                   ├── LLM 插入 {{IMAGE:product_id:index}} 標記
                   ├── 後端替換為實際圖片 URL
                   └── 匯出時：
@@ -163,7 +167,7 @@ Vite dev server（port 3001）自動代理 `/api` 請求到後端（port 8001）
 | `/api/products` | GET/POST | 商品 CRUD |
 | `/api/products/batch-delete` | POST | 批量刪除 |
 | `/api/products/{id}/download-images` | POST | 下載圖片到本地 |
-| `/api/articles/generate` | POST | 生成比較文 |
+| `/api/articles/generate` | POST | 生成比較文（支援 include_images 多模態圖片輸入） |
 | `/api/articles` | GET | 文章列表 |
 | `/api/articles/{id}` | GET/PUT/DELETE | 文章 CRUD |
 | `/api/articles/{id}/optimize-seo` | POST | SEO 優化 |
@@ -205,6 +209,7 @@ from jwt import InvalidTokenError as JWTError
 Prompt 為雙層結構：`SYSTEM_INSTRUCTIONS`（程式碼層級，不可修改）+ 使用者範本（存 DB，可在設定頁管理）。
 生成文章時可指定 `prompt_template_id` 和 `model`，否則使用預設範本和預設模型。
 前端透過 localStorage 持久化使用者選擇的模型。
+支援多模態圖片輸入：`include_images=True` 時下載商品圖片（主圖/描述圖）傳入 LLM 分析。
 
 ### Dcard 不支援 Markdown
 
@@ -249,6 +254,7 @@ Phase 1（核心功能）、Phase 3（雲端部署）、Phase 4（多用戶帳�
 - [x] Prompt 範本系統（內建好物推薦文 + 前端管理介面）
 - [x] 多模型支援（Gemini Flash/Pro/3Pro + Claude Sonnet/Haiku）
 - [x] 費用追蹤頁面（按模型分組統計 + 30 天趨勢圖 + 管理員全站總覽）
+- [x] LLM 多模態圖片輸入（附圖給 LLM 分析商品規格/成分/尺寸）
 - [ ] 批量生成
 - [ ] Chrome Extension icon 美化（設計正式 logo）
 
