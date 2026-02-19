@@ -39,8 +39,7 @@ packaging==26.0
 prompt_toolkit==3.0.52
 proto-plus==1.27.1
 protobuf==5.29.6
-pyasn1==0.6.2
-pyasn1_modules==0.4.2
+pyasn1-modules==0.4.2
 pycparser==3.0
 pydantic==2.12.5
 pydantic-settings==2.12.0
@@ -69,5 +68,5 @@ psycopg2-binary==2.9.10
 gunicorn==23.0.0
 wcwidth==0.6.0
 websockets==15.0.1
-python-jose[cryptography]==3.4.0
+PyJWT==2.10.1
 bcrypt==5.0.0

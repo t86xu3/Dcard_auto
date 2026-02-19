@@ -19,7 +19,8 @@ from app.auth import (
     ALGORITHM,
 )
 from app.config import settings
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError as JWTError
 
 router = APIRouter()
 
