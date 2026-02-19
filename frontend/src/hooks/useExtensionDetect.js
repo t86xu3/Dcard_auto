@@ -72,6 +72,8 @@ export function useExtensionDetect() {
         setStatus('installed');
         setError(null);
         localStorage.setItem(STORAGE_KEY, id);
+        // 回送 ACK 讓 content script 停止廣播
+        window.postMessage({ type: 'EXTENSION_ACK' }, '*');
       }
     };
 
