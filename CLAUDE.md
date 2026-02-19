@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 後端 | FastAPI + SQLAlchemy + Alembic |
 | 任務佇列 | Celery + Redis |
 | 資料庫 | SQLite (開發) / PostgreSQL (生產) |
-| LLM | Google Gemini API (2.5 Flash/Pro) |
+| LLM | Google Gemini API + Anthropic Claude API |
 | 前端 | React 19 + Vite + Tailwind CSS 4 |
 | 擴充功能 | Chrome Manifest V3 |
 
@@ -204,11 +204,12 @@ UniqueConstraint: provider + model + usage_date + user_id
 
 使用新版 `google.genai`（`from google import genai`），非舊版 `google.generativeai`。
 
-### 文章生成架構
+### 文章生成架構（多供應商）
 
-使用 Gemini `system_instruction`（固定 prompt 範本）+ `contents`（商品資料）分離架構。
+支援 Gemini + Anthropic Claude 雙供應商。透過 `is_anthropic_model()` 判斷 model 前綴自動路由。
 Prompt 為雙層結構：`SYSTEM_INSTRUCTIONS`（程式碼層級，不可修改）+ 使用者範本（存 DB，可在設定頁管理）。
-生成文章時可指定 `prompt_template_id`，否則使用預設範本。
+生成文章時可指定 `prompt_template_id` 和 `model`，否則使用預設範本和預設模型。
+前端透過 localStorage 持久化使用者選擇的模型。
 
 ### Dcard 不支援 Markdown
 
@@ -254,7 +255,7 @@ Celery broker 用 db 2，result backend 用 db 3（避免與其他專案衝突�
 
 - [ ] Dcard 自動發文（content-dcard.js 自動插圖）
 - [x] Prompt 範本系統（內建好物推薦文 + 前端管理介面）
-- [x] 多模型支援（Gemini 2.5 Flash / Pro，可擴充其他供應商）
+- [x] 多模型支援（Gemini Flash/Pro/3Pro + Claude Sonnet/Haiku）
 - [x] 費用追蹤頁面（按模型分組統計 + 30 天趨勢圖）
 - [ ] 批量生成
 - [ ] Chrome Extension icon 美化（設計正式 logo）
@@ -269,6 +270,16 @@ Celery broker 用 db 2，result backend 用 db 3（避免與其他專案衝突�
 - [x] Supabase 資料庫 + Alembic 遷移
 - [x] Cloud Run 部署
 - [x] CORS 限制為 Firebase 域名
+
+### Phase 4 - 多用戶帳號系統
+
+- [ ] 用戶模型（users 表：email、密碼雜湊、角色）
+- [ ] 登入/註冊 API（JWT Token 驗證）
+- [ ] 前端登入頁面 + 路由保護
+- [ ] API 請求帶入 user_id（文章生成、SEO 優化）
+- [ ] usage_records 按 user_id 分別記錄用量
+- [ ] 費用追蹤頁面支援「我的 / 全部」篩選
+- [ ] 管理員角色（可查看所有用戶費用）
 
 ## 部署架構
 

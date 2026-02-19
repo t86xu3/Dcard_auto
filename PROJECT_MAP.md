@@ -14,7 +14,8 @@
 | DB 遷移 | Alembic | latest | Schema 版本控制 |
 | 任務佇列 | Celery + Redis | latest | 非同步文章生成 |
 | 資料庫 | SQLite → PostgreSQL | - | 開發用 SQLite / 生產用 Supabase PostgreSQL |
-| LLM | Google Gemini API | 2.5 Flash/Pro | 文章生成 + SEO 優化（多模型可選）|
+| LLM | Google Gemini API | 2.5 Flash/Pro, 3 Pro | 文章生成 + SEO 優化 |
+| LLM | Anthropic Claude API | Sonnet 4.5, Haiku 4.5 | 文章生成 + SEO 優化 |
 | 前端框架 | React + Vite | 19 / 6 | Web UI |
 | CSS | Tailwind CSS | 4 | 樣式 |
 | 擴充功能 | Chrome Manifest V3 | - | 商品擷取 + Dcard 輔助發文 |
@@ -144,7 +145,7 @@ Dcard_auto/
 
 - [ ] Dcard 自動發文（content-dcard.js 自動插入圖片）
 - [x] Prompt 範本系統（內建好物推薦文範本 + 前端管理介面）
-- [x] 多模型支援（Gemini 2.5 Flash / Pro 可選）
+- [x] 多模型支援（Gemini Flash/Pro/3Pro + Claude Sonnet/Haiku）
 - [x] 費用追蹤頁面（按模型分組 + 30天趨勢圖）
 - [x] 用量追蹤 Bug 修復（usage_tracker.track → record_usage）
 - [ ] 批量生成功能
@@ -169,6 +170,16 @@ Dcard_auto/
 - [x] Supabase 資料庫設定 + Alembic 遷移
 - [x] Cloud Run 部署 + 環境變數注入
 - [x] CORS 限制為 Firebase 域名
+
+### Phase 4 - 多用戶帳號系統（下一步）
+
+- [ ] 用戶模型（users 表：email、密碼雜湊、角色）
+- [ ] 登入/註冊 API（JWT Token 驗證）
+- [ ] 前端登入頁面 + 路由保護
+- [ ] API 請求帶入 user_id（文章生成、SEO 優化）
+- [ ] usage_records 按 user_id 分別記錄用量
+- [ ] 費用追蹤頁面支援「我的 / 全部」篩選
+- [ ] 管理員角色（可查看所有用戶費用）
 
 ## 關鍵檔案快速索引
 
