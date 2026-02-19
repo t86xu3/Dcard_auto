@@ -197,6 +197,7 @@ UniqueConstraint: provider + model + usage_date + user_id
 | `/api/admin/users/{id}/approve` | POST | 核准用戶（管理員） |
 | `/api/admin/users/{id}/revoke` | POST | 撤回核准（管理員） |
 | `/api/admin/users/{id}/toggle-active` | POST | 啟用/停用（管理員） |
+| `/api/admin/usage` | GET | 全站費用總覽 + 按用戶分組（管理員） |
 | `/api/products` | GET/POST | 商品 CRUD |
 | `/api/products/batch-delete` | POST | 批量刪除 |
 | `/api/products/{id}/download-images` | POST | 下載圖片到本地 |
