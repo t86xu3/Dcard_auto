@@ -45,6 +45,10 @@ class ProductResponse(ProductBase):
         from_attributes = True
 
 
+class ProductUpdateRequest(BaseModel):
+    product_url: Optional[str] = None
+
+
 class BatchDeleteRequest(BaseModel):
     ids: List[int]
 
@@ -83,6 +87,26 @@ async def get_product(
     product = db.query(Product).filter(Product.id == product_id, Product.user_id == current_user.id).first()
     if not product:
         raise HTTPException(status_code=404, detail="商品不存在")
+    return product
+
+
+@router.patch("/{product_id}", response_model=ProductResponse)
+async def update_product(
+    product_id: int,
+    request: ProductUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """更新商品資訊（目前僅支援 product_url）"""
+    product = db.query(Product).filter(Product.id == product_id, Product.user_id == current_user.id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="商品不存在")
+
+    if request.product_url is not None:
+        product.product_url = request.product_url
+
+    db.commit()
+    db.refresh(product)
     return product
 
 

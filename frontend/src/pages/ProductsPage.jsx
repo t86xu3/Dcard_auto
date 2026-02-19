@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getProducts, deleteProduct, batchDeleteProducts, downloadProductImages, generateArticle, getPrompts } from '../api/client';
+import { getProducts, deleteProduct, batchDeleteProducts, downloadProductImages, generateArticle, getPrompts, updateProduct } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function ProductsPage() {
@@ -13,6 +13,8 @@ export default function ProductsPage() {
   const [toast, setToast] = useState(null); // { type: 'success'|'error', message }
   const [includeImages, setIncludeImages] = useState(false);
   const [imageSources, setImageSources] = useState(['description']);
+  const [editingUrlId, setEditingUrlId] = useState(null);
+  const [editingUrlValue, setEditingUrlValue] = useState('');
 
   const loadProducts = async () => {
     setLoading(true);
@@ -108,6 +110,28 @@ export default function ProductsPage() {
     } catch (err) {
       alert('下載失敗: ' + (err.response?.data?.detail || err.message));
     }
+  };
+
+  const startEditUrl = (product) => {
+    setEditingUrlId(product.id);
+    setEditingUrlValue(product.product_url || '');
+  };
+
+  const cancelEditUrl = () => {
+    setEditingUrlId(null);
+    setEditingUrlValue('');
+  };
+
+  const handleSaveUrl = async (productId) => {
+    try {
+      const updated = await updateProduct(productId, { product_url: editingUrlValue.trim() || null });
+      setProducts(prev => prev.map(p => p.id === productId ? { ...p, product_url: updated.product_url } : p));
+      showToast('success', '連結已更新');
+    } catch (err) {
+      showToast('error', '更新失敗: ' + (err.response?.data?.detail || err.message));
+    }
+    setEditingUrlId(null);
+    setEditingUrlValue('');
   };
 
   return (
@@ -269,6 +293,60 @@ export default function ProductsPage() {
                           {product.name}
                         </div>
                         <div className="text-xs text-gray-400">{product.shop_name}</div>
+                        {editingUrlId === product.id ? (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <input
+                              type="text"
+                              value={editingUrlValue}
+                              onChange={(e) => setEditingUrlValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveUrl(product.id);
+                                if (e.key === 'Escape') cancelEditUrl();
+                              }}
+                              placeholder="https://shopee.tw/..."
+                              className="flex-1 text-xs px-2 py-1 border border-gray-300 rounded focus:outline-none focus:border-blue-400 min-w-0"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => handleSaveUrl(product.id)}
+                              className="text-xs text-green-600 hover:text-green-700 whitespace-nowrap"
+                            >
+                              儲存
+                            </button>
+                            <button
+                              onClick={cancelEditUrl}
+                              className="text-xs text-gray-400 hover:text-gray-600 whitespace-nowrap"
+                            >
+                              取消
+                            </button>
+                          </div>
+                        ) : product.product_url ? (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <a
+                              href={product.product_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-400 hover:text-blue-600 truncate max-w-[200px]"
+                              title={product.product_url}
+                            >
+                              {product.product_url.replace(/^https?:\/\//, '').slice(0, 35)}...
+                            </a>
+                            <button
+                              onClick={() => startEditUrl(product)}
+                              className="text-xs text-gray-400 hover:text-gray-600"
+                              title="編輯連結"
+                            >
+                              ✏️
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => startEditUrl(product)}
+                            className="text-xs text-gray-400 hover:text-blue-500 mt-0.5"
+                          >
+                            + 新增連結
+                          </button>
+                        )}
                       </div>
                     </div>
                   </td>

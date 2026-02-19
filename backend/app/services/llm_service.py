@@ -209,6 +209,7 @@ class LLMService:
 - 評分: {p.rating or 'N/A'} / 5.0
 - 銷量: {p.sold or 'N/A'}
 - 店家: {p.shop_name or '未知'}
+- 商品連結: {p.product_url or '無'}
 - 商品描述: {(p.description or '')[:500]}
 - 可用圖片標記: {', '.join([f'{{{{IMAGE:{p.id}:{idx}}}}}' for idx in range(min(3, len(p.images) if p.images else 0))])}
 """
