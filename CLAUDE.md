@@ -22,7 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 資料庫 | SQLite (開發) / PostgreSQL (生產) |
 | LLM | Google Gemini API + Anthropic Claude API |
 | 前端 | React 19 + Vite + Tailwind CSS 4 |
-| 認證 | JWT (python-jose + bcrypt) |
+| 認證 | JWT (PyJWT + bcrypt) |
 | 擴充功能 | Chrome Manifest V3 |
 
 ## 開發指令
@@ -218,7 +218,7 @@ UniqueConstraint: provider + model + usage_date + user_id
 
 ### 認證架構
 
-JWT 認證（python-jose + bcrypt），前端 token 存 localStorage。
+JWT 認證（PyJWT + bcrypt），前端 token 存 localStorage。
 三層權限依賴注入：`get_current_user`（基本認證）→ `get_current_admin`（管理員）→ `get_approved_user`（已核准，可用 LLM）。
 Token sub claim 為字串型 user_id（`str(user.id)`），解碼時轉回 `int`。
 管理員帳號 `t86xu3` / `tread1996`，lifespan 自動 seed。
@@ -296,7 +296,7 @@ Celery broker 用 db 2，result backend 用 db 3（避免與其他專案衝突�
 
 ### Phase 4 - 多用戶帳號系統（完成）
 
-- [x] 用戶模型 + JWT 認證（python-jose + bcrypt）
+- [x] 用戶模型 + JWT 認證（PyJWT + bcrypt）
 - [x] 登入/註冊 API + Refresh Token
 - [x] 前端登入頁面 + AuthContext + 路由守衛
 - [x] 所有 API 端點加認證 + user_id 資料隔離
