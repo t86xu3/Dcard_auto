@@ -79,25 +79,25 @@ class UsageTracker:
         output_cost = (output_tokens / 1_000_000) * pricing["output"]
         return input_cost + output_cost
 
-    def get_usage(self) -> Dict:
-        """取得完整使用統計（按模型分組 + 30 天歷史）"""
+    def get_usage(self, user_id: Optional[int] = None) -> Dict:
+        """取得完整使用統計（按模型分組 + 30 天歷史），可按 user_id 過濾"""
         db = SessionLocal()
         try:
             # 按模型分組的累計統計
             by_model = []
             total_cost_usd = 0.0
 
-            model_stats = (
-                db.query(
-                    UsageRecord.provider,
-                    UsageRecord.model,
-                    func.sum(UsageRecord.requests).label("requests"),
-                    func.sum(UsageRecord.input_tokens).label("input_tokens"),
-                    func.sum(UsageRecord.output_tokens).label("output_tokens"),
-                )
-                .group_by(UsageRecord.provider, UsageRecord.model)
-                .all()
+            base_query = db.query(
+                UsageRecord.provider,
+                UsageRecord.model,
+                func.sum(UsageRecord.requests).label("requests"),
+                func.sum(UsageRecord.input_tokens).label("input_tokens"),
+                func.sum(UsageRecord.output_tokens).label("output_tokens"),
             )
+            if user_id is not None:
+                base_query = base_query.filter(UsageRecord.user_id == user_id)
+
+            model_stats = base_query.group_by(UsageRecord.provider, UsageRecord.model).all()
 
             for stat in model_stats:
                 cost = self._calc_cost(stat.provider, stat.model, stat.input_tokens, stat.output_tokens)
@@ -113,19 +113,18 @@ class UsageTracker:
 
             # 30 天每日歷史
             thirty_days_ago = date.today() - timedelta(days=30)
-            daily_records = (
-                db.query(
-                    UsageRecord.usage_date,
-                    UsageRecord.provider,
-                    UsageRecord.model,
-                    UsageRecord.requests,
-                    UsageRecord.input_tokens,
-                    UsageRecord.output_tokens,
-                )
-                .filter(UsageRecord.usage_date >= thirty_days_ago)
-                .order_by(UsageRecord.usage_date.desc())
-                .all()
-            )
+            history_query = db.query(
+                UsageRecord.usage_date,
+                UsageRecord.provider,
+                UsageRecord.model,
+                UsageRecord.requests,
+                UsageRecord.input_tokens,
+                UsageRecord.output_tokens,
+            ).filter(UsageRecord.usage_date >= thirty_days_ago)
+            if user_id is not None:
+                history_query = history_query.filter(UsageRecord.user_id == user_id)
+
+            daily_records = history_query.order_by(UsageRecord.usage_date.desc()).all()
 
             # 按日期聚合
             history_map = {}

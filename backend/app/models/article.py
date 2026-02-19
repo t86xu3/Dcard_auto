@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 def _taipei_now():
     return datetime.now(timezone(timedelta(hours=8)))
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Float
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Float, ForeignKey
 
 from app.db.database import Base
 
@@ -18,6 +18,7 @@ class Article(Base):
     __tablename__ = "articles"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     title = Column(String(500), nullable=False)
     content = Column(Text)  # 純文字內容
     content_with_images = Column(Text)  # 含圖片標記的內容

@@ -12,6 +12,8 @@ import httpx
 
 from app.db.database import get_db
 from app.models.article import Article
+from app.models.user import User
+from app.auth import get_current_user, get_approved_user
 
 router = APIRouter()
 
@@ -70,15 +72,24 @@ async def image_proxy(url: str = Query(..., description="圖片 URL")):
 
 
 @router.post("/generate", response_model=ArticleResponse)
-async def generate_article(request: ArticleGenerateRequest, db: Session = Depends(get_db)):
-    """生成文章"""
+async def generate_article(
+    request: ArticleGenerateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_approved_user),
+):
+    """生成文章（需已核准用戶）"""
     from app.services.llm_service import llm_service
     from app.models.product import Product
 
-    # 取得商品資料
-    products = db.query(Product).filter(Product.id.in_(request.product_ids)).all()
+    # 驗證 product_ids 屬於當前用戶
+    products = db.query(Product).filter(
+        Product.id.in_(request.product_ids),
+        Product.user_id == current_user.id,
+    ).all()
     if not products:
         raise HTTPException(status_code=404, detail="找不到指定的商品")
+    if len(products) != len(request.product_ids):
+        raise HTTPException(status_code=403, detail="部分商品不屬於你")
 
     # 生成文章
     result = llm_service.generate_article(
@@ -88,6 +99,7 @@ async def generate_article(request: ArticleGenerateRequest, db: Session = Depend
         target_forum=request.target_forum,
         prompt_template_id=request.prompt_template_id,
         model=request.model,
+        user_id=current_user.id,
     )
 
     # 自動 SEO 分析（純 Python 計算，不消耗 API quota）
@@ -106,6 +118,7 @@ async def generate_article(request: ArticleGenerateRequest, db: Session = Depend
         seo_score=seo_result["score"],
         seo_suggestions=seo_result,
         status="draft",
+        user_id=current_user.id,
     )
     db.add(article)
     db.commit()
@@ -117,26 +130,43 @@ async def generate_article(request: ArticleGenerateRequest, db: Session = Depend
 async def list_articles(
     skip: int = 0,
     limit: int = 50,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """列出所有文章"""
-    articles = db.query(Article).order_by(Article.created_at.desc()).offset(skip).limit(limit).all()
+    """列出當前用戶的文章"""
+    articles = (
+        db.query(Article)
+        .filter(Article.user_id == current_user.id)
+        .order_by(Article.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
     return articles
 
 
 @router.get("/{article_id}", response_model=ArticleResponse)
-async def get_article(article_id: int, db: Session = Depends(get_db)):
+async def get_article(
+    article_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """取得單篇文章"""
-    article = db.query(Article).filter(Article.id == article_id).first()
+    article = db.query(Article).filter(Article.id == article_id, Article.user_id == current_user.id).first()
     if not article:
         raise HTTPException(status_code=404, detail="文章不存在")
     return article
 
 
 @router.put("/{article_id}", response_model=ArticleResponse)
-async def update_article(article_id: int, request: ArticleUpdateRequest, db: Session = Depends(get_db)):
+async def update_article(
+    article_id: int,
+    request: ArticleUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """更新文章"""
-    article = db.query(Article).filter(Article.id == article_id).first()
+    article = db.query(Article).filter(Article.id == article_id, Article.user_id == current_user.id).first()
     if not article:
         raise HTTPException(status_code=404, detail="文章不存在")
 
@@ -150,9 +180,13 @@ async def update_article(article_id: int, request: ArticleUpdateRequest, db: Ses
 
 
 @router.delete("/{article_id}")
-async def delete_article(article_id: int, db: Session = Depends(get_db)):
+async def delete_article(
+    article_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """刪除文章"""
-    article = db.query(Article).filter(Article.id == article_id).first()
+    article = db.query(Article).filter(Article.id == article_id, Article.user_id == current_user.id).first()
     if not article:
         raise HTTPException(status_code=404, detail="文章不存在")
 
@@ -162,15 +196,20 @@ async def delete_article(article_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{article_id}/optimize-seo")
-async def optimize_seo(article_id: int, model: Optional[str] = None, db: Session = Depends(get_db)):
-    """SEO 優化文章"""
-    article = db.query(Article).filter(Article.id == article_id).first()
+async def optimize_seo(
+    article_id: int,
+    model: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_approved_user),
+):
+    """SEO 優化文章（需已核准用戶）"""
+    article = db.query(Article).filter(Article.id == article_id, Article.user_id == current_user.id).first()
     if not article:
         raise HTTPException(status_code=404, detail="文章不存在")
 
     from app.services.seo_service import seo_service
 
-    result = seo_service.optimize_with_llm(article, model=model)
+    result = seo_service.optimize_with_llm(article, model=model, user_id=current_user.id)
     optimized_content = result.get("optimized_content", article.content)
     article.content = optimized_content
 
@@ -203,9 +242,13 @@ async def optimize_seo(article_id: int, model: Optional[str] = None, db: Session
 
 
 @router.get("/{article_id}/copy")
-async def copy_article(article_id: int, db: Session = Depends(get_db)):
+async def copy_article(
+    article_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """取得 Dcard 格式化內容（供複製貼上）"""
-    article = db.query(Article).filter(Article.id == article_id).first()
+    article = db.query(Article).filter(Article.id == article_id, Article.user_id == current_user.id).first()
     if not article:
         raise HTTPException(status_code=404, detail="文章不存在")
 
@@ -228,9 +271,13 @@ async def copy_article(article_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{article_id}/images")
-async def get_article_images(article_id: int, db: Session = Depends(get_db)):
+async def get_article_images(
+    article_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """取得文章圖片清單"""
-    article = db.query(Article).filter(Article.id == article_id).first()
+    article = db.query(Article).filter(Article.id == article_id, Article.user_id == current_user.id).first()
     if not article:
         raise HTTPException(status_code=404, detail="文章不存在")
 
@@ -240,9 +287,13 @@ async def get_article_images(article_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{article_id}/images/download")
-async def download_article_images(article_id: int, db: Session = Depends(get_db)):
+async def download_article_images(
+    article_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """打包下載文章圖片 ZIP"""
-    article = db.query(Article).filter(Article.id == article_id).first()
+    article = db.query(Article).filter(Article.id == article_id, Article.user_id == current_user.id).first()
     if not article:
         raise HTTPException(status_code=404, detail="文章不存在")
 
@@ -258,5 +309,3 @@ async def download_article_images(article_id: int, db: Session = Depends(get_db)
         media_type="application/zip",
         filename=f"article_{article_id}_images.zip",
     )
-
-

@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models.product import Product
+from app.models.user import User
+from app.auth import get_current_user
 
 router = APIRouter()
 
@@ -56,30 +58,49 @@ class BatchDeleteResponse(BaseModel):
 async def list_products(
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """列出所有商品"""
-    products = db.query(Product).order_by(Product.created_at.desc()).offset(skip).limit(limit).all()
+    """列出當前用戶的商品"""
+    products = (
+        db.query(Product)
+        .filter(Product.user_id == current_user.id)
+        .order_by(Product.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
     return products
 
 
 @router.get("/{product_id}", response_model=ProductResponse)
-async def get_product(product_id: int, db: Session = Depends(get_db)):
+async def get_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """取得單一商品詳情"""
-    product = db.query(Product).filter(Product.id == product_id).first()
+    product = db.query(Product).filter(Product.id == product_id, Product.user_id == current_user.id).first()
     if not product:
         raise HTTPException(status_code=404, detail="商品不存在")
     return product
 
 
 @router.post("", response_model=ProductResponse)
-async def create_product(product: ProductCreate, db: Session = Depends(get_db)):
+async def create_product(
+    product: ProductCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """新增商品（Chrome Extension 呼叫）"""
-    existing = db.query(Product).filter(Product.item_id == product.item_id).first()
+    existing = db.query(Product).filter(
+        Product.user_id == current_user.id,
+        Product.item_id == product.item_id,
+    ).first()
     if existing:
         raise HTTPException(status_code=400, detail="商品已存在")
 
-    db_product = Product(**product.model_dump())
+    db_product = Product(**product.model_dump(), user_id=current_user.id)
     db.add(db_product)
     db.commit()
     db.refresh(db_product)
@@ -87,9 +108,13 @@ async def create_product(product: ProductCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/{product_id}")
-async def delete_product(product_id: int, db: Session = Depends(get_db)):
+async def delete_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """刪除商品"""
-    product = db.query(Product).filter(Product.id == product_id).first()
+    product = db.query(Product).filter(Product.id == product_id, Product.user_id == current_user.id).first()
     if not product:
         raise HTTPException(status_code=404, detail="商品不存在")
 
@@ -99,11 +124,15 @@ async def delete_product(product_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/batch-delete", response_model=BatchDeleteResponse)
-async def batch_delete_products(request: BatchDeleteRequest, db: Session = Depends(get_db)):
-    """批量刪除商品"""
+async def batch_delete_products(
+    request: BatchDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """批量刪除商品（只刪自己的）"""
     deleted_ids = []
     for product_id in request.ids:
-        product = db.query(Product).filter(Product.id == product_id).first()
+        product = db.query(Product).filter(Product.id == product_id, Product.user_id == current_user.id).first()
         if product:
             db.delete(product)
             deleted_ids.append(product_id)
@@ -113,7 +142,11 @@ async def batch_delete_products(request: BatchDeleteRequest, db: Session = Depen
 
 
 @router.post("/{product_id}/download-images")
-async def download_product_images(product_id: int, db: Session = Depends(get_db)):
+async def download_product_images(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """下載商品圖片到本地"""
     from app.config import settings
     if settings.is_production:
@@ -122,7 +155,7 @@ async def download_product_images(product_id: int, db: Session = Depends(get_db)
             detail="生產環境不支援本地圖片下載，請直接使用蝦皮 CDN URL"
         )
 
-    product = db.query(Product).filter(Product.id == product_id).first()
+    product = db.query(Product).filter(Product.id == product_id, Product.user_id == current_user.id).first()
     if not product:
         raise HTTPException(status_code=404, detail="商品不存在")
 

@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     CELERY_TASK_TIMEOUT: int = 300
     CELERY_WORKER_CONCURRENCY: int = 2
 
+    # JWT 認證
+    JWT_SECRET_KEY: str = "change-me-in-production-use-a-random-secret"
+    JWT_ACCESS_TOKEN_EXPIRE_HOURS: int = 24
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
     # Dcard 預設看板
     DEFAULT_FORUM: str = "goodthings"
 

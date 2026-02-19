@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getArticles, getArticle, updateArticle, deleteArticle, optimizeSeo, copyArticle, analyzeSeo, analyzeSeoById } from '../api/client';
 import SeoPanel from '../components/SeoPanel';
+import { useAuth } from '../contexts/AuthContext';
 
 // 複製圖片到剪貼簿（透過後端代理避免跨域）
 async function copyImageToClipboard(imageUrl) {
@@ -108,6 +109,7 @@ function RenderContent({ text }) {
 }
 
 export default function ArticlesPage() {
+  const { user } = useAuth();
   const [articles, setArticles] = useState([]);
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -337,8 +339,15 @@ export default function ArticlesPage() {
               <button onClick={handleAnalyzeSeo} disabled={analyzing || optimizing} className="px-3 py-1.5 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed">
                 {analyzing ? '分析中...' : '📊 SEO 分析'}
               </button>
-              <button onClick={handleOptimizeSeo} disabled={optimizing || analyzing} className="px-3 py-1.5 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                {optimizing ? '優化中...' : '✨ SEO 優化'}
+              <button
+                onClick={handleOptimizeSeo}
+                disabled={optimizing || analyzing || !user?.is_approved}
+                className={`px-3 py-1.5 text-sm text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                  !user?.is_approved ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-600'
+                }`}
+                title={!user?.is_approved ? '等待管理員核准' : ''}
+              >
+                {!user?.is_approved ? '等待核准' : optimizing ? '優化中...' : 'SEO 優化'}
               </button>
               <button onClick={() => handleDelete(selectedArticle.id)} className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600">
                 🗑️ 刪除

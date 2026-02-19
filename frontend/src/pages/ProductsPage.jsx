@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { getProducts, deleteProduct, batchDeleteProducts, downloadProductImages, generateArticle, getPrompts } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function ProductsPage() {
+  const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [loading, setLoading] = useState(true);
@@ -144,12 +146,14 @@ export default function ProductsPage() {
               )}
               <button
                 onClick={handleGenerate}
-                disabled={generating}
+                disabled={generating || !user?.is_approved}
                 className={`px-4 py-2 text-white rounded-lg text-sm font-medium ${
+                  !user?.is_approved ? 'bg-gray-400 cursor-not-allowed' :
                   generating ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
                 }`}
+                title={!user?.is_approved ? '等待管理員核准' : ''}
               >
-                {generating ? '生成中...' : `✨ 生成${selected.size >= 2 ? '比較文' : '開箱文'} (${selected.size})`}
+                {!user?.is_approved ? '等待管理員核准' : generating ? '生成中...' : `生成${selected.size >= 2 ? '比較文' : '開箱文'} (${selected.size})`}
               </button>
               <button
                 onClick={handleBatchDelete}

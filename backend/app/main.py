@@ -10,6 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.db.database import create_tables, SessionLocal
 from app.api import products, articles, seo, usage, prompts
+from app.api import auth as auth_api
+from app.api import admin as admin_api
 
 
 @asynccontextmanager
@@ -28,6 +30,9 @@ async def lifespan(app: FastAPI):
         seed_default_prompts(db)
     finally:
         db.close()
+
+    # 建立初始管理員帳號
+    _seed_admin_user()
 
     yield
 
@@ -55,11 +60,46 @@ if not settings.is_production:
     app.mount("/images", StaticFiles(directory=str(images_dir)), name="images")
 
 # 註冊路由
+app.include_router(auth_api.router, prefix="/api/auth", tags=["認證"])
+app.include_router(admin_api.router, prefix="/api/admin", tags=["管理員"])
 app.include_router(products.router, prefix="/api/products", tags=["商品管理"])
 app.include_router(articles.router, prefix="/api/articles", tags=["文章管理"])
 app.include_router(seo.router, prefix="/api/seo", tags=["SEO 分析"])
 app.include_router(usage.router, prefix="/api/usage", tags=["使用量統計"])
 app.include_router(prompts.router, prefix="/api/prompts", tags=["Prompt 範本"])
+
+
+def _seed_admin_user():
+    """啟動時建立初始管理員帳號（若不存在）"""
+    import logging
+    from app.models.user import User
+    from app.auth import get_password_hash
+
+    logger = logging.getLogger(__name__)
+    db = SessionLocal()
+    try:
+        existing = db.query(User).filter(User.username == "t86xu3").first()
+        if not existing:
+            admin = User(
+                username="t86xu3",
+                email="t86xu3@dcard-auto.local",
+                hashed_password=get_password_hash("tread1996"),
+                is_active=True,
+                is_admin=True,
+                is_approved=True,
+            )
+            db.add(admin)
+            db.commit()
+            logger.info("已建立初始管理員帳號: t86xu3")
+        else:
+            # 修補 migration 建立的帳號缺少 created_at 的問題
+            if existing.created_at is None:
+                from datetime import datetime, timezone, timedelta
+                existing.created_at = datetime.now(timezone(timedelta(hours=8)))
+                db.commit()
+            logger.info("管理員帳號已存在，跳過")
+    finally:
+        db.close()
 
 
 @app.get("/")

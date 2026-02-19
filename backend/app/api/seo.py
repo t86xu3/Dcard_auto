@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models.article import Article
+from app.models.user import User
+from app.auth import get_current_user
 
 router = APIRouter()
 
@@ -20,7 +22,10 @@ class SeoAnalyzeRequest(BaseModel):
 
 
 @router.post("/analyze")
-async def analyze_seo(request: SeoAnalyzeRequest):
+async def analyze_seo(
+    request: SeoAnalyzeRequest,
+    current_user: User = Depends(get_current_user),
+):
     """分析文章 SEO 分數"""
     from app.services.seo_service import seo_service
 
@@ -33,9 +38,13 @@ async def analyze_seo(request: SeoAnalyzeRequest):
 
 
 @router.post("/analyze/{article_id}")
-async def analyze_seo_by_id(article_id: int, db: Session = Depends(get_db)):
+async def analyze_seo_by_id(
+    article_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """分析指定文章的 SEO 並寫入 DB"""
-    article = db.query(Article).filter(Article.id == article_id).first()
+    article = db.query(Article).filter(Article.id == article_id, Article.user_id == current_user.id).first()
     if not article:
         raise HTTPException(status_code=404, detail="文章不存在")
 

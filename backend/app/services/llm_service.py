@@ -65,7 +65,7 @@ class LLMService:
         generated_text = response.content[0].text
         return generated_text, response
 
-    def generate_article(self, products, db: Session, article_type: str = "comparison", target_forum: str = "goodthings", prompt_template_id: Optional[int] = None, model: Optional[str] = None) -> dict:
+    def generate_article(self, products, db: Session, article_type: str = "comparison", target_forum: str = "goodthings", prompt_template_id: Optional[int] = None, model: Optional[str] = None, user_id: Optional[int] = None) -> dict:
         """生成文章"""
         product_ids = [p.id for p in products]
 
@@ -90,11 +90,11 @@ class LLMService:
             if is_anthropic_model(use_model):
                 generated_text, response = self._call_anthropic(use_model, full_system_prompt, user_message)
                 logger.info(f"Claude API 回應成功，文字長度: {len(generated_text)}")
-                track_anthropic_usage(response, model=use_model)
+                track_anthropic_usage(response, model=use_model, user_id=user_id)
             else:
                 generated_text, response = self._call_gemini(use_model, full_system_prompt, user_message)
                 logger.info(f"Gemini API 回應成功，文字長度: {len(generated_text)}")
-                track_gemini_usage(response, model=use_model)
+                track_gemini_usage(response, model=use_model, user_id=user_id)
 
         except Exception as e:
             logger.error(f"LLM API 呼叫失敗 ({use_model}): {e}")

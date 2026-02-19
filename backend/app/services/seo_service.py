@@ -552,7 +552,7 @@ class SeoService:
         else:
             return "D"
 
-    def optimize_with_llm(self, article, model: Optional[str] = None) -> dict:
+    def optimize_with_llm(self, article, model: Optional[str] = None, user_id: Optional[int] = None) -> dict:
         """使用 LLM 進行 SEO 優化"""
         content = article.content or ""
 
@@ -602,7 +602,7 @@ class SeoService:
                 )
                 optimized_content = response.content[0].text
                 logger.info(f"Claude SEO 優化完成，文字長度: {len(optimized_content)}")
-                track_anthropic_usage(response, model=use_model)
+                track_anthropic_usage(response, model=use_model, user_id=user_id)
             else:
                 response = self.gemini_client.models.generate_content(
                     model=use_model,
@@ -615,7 +615,7 @@ class SeoService:
                 )
                 optimized_content = response.text
                 logger.info(f"Gemini SEO 優化完成，文字長度: {len(optimized_content)}")
-                track_gemini_usage(response, model=use_model)
+                track_gemini_usage(response, model=use_model, user_id=user_id)
 
             # 清除可能殘留的 Markdown
             optimized_content = strip_markdown(optimized_content)

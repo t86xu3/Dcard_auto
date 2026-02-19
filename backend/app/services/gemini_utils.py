@@ -23,7 +23,7 @@ def strip_markdown(text: str) -> str:
     return text
 
 
-def track_gemini_usage(response, model: str = "gemini-2.5-flash"):
+def track_gemini_usage(response, model: str = "gemini-2.5-flash", user_id: int = None):
     """追蹤 Gemini API 用量"""
     try:
         from app.services.usage_tracker import usage_tracker
@@ -40,13 +40,14 @@ def track_gemini_usage(response, model: str = "gemini-2.5-flash"):
             model=model,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            user_id=user_id,
         )
-        logger.info(f"API 用量 ({model}): input={input_tokens}, output={output_tokens}")
+        logger.info(f"API 用量 ({model}): input={input_tokens}, output={output_tokens}, user_id={user_id}")
     except Exception as e:
         logger.warning(f"用量追蹤失敗: {e}")
 
 
-def track_anthropic_usage(response, model: str):
+def track_anthropic_usage(response, model: str, user_id: int = None):
     """追蹤 Anthropic Claude API 用量"""
     try:
         from app.services.usage_tracker import usage_tracker
@@ -63,8 +64,9 @@ def track_anthropic_usage(response, model: str):
             model=model,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            user_id=user_id,
         )
-        logger.info(f"API 用量 ({model}): input={input_tokens}, output={output_tokens}")
+        logger.info(f"API 用量 ({model}): input={input_tokens}, output={output_tokens}, user_id={user_id}")
     except Exception as e:
         logger.warning(f"用量追蹤失敗: {e}")
 

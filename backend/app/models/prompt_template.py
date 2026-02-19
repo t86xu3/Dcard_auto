@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 def _taipei_now():
     return datetime.now(timezone(timedelta(hours=8)))
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey
 
 from app.db.database import Base
 
@@ -18,6 +18,7 @@ class PromptTemplate(Base):
     __tablename__ = "prompt_templates"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     name = Column(String(200), nullable=False)
     content = Column(Text, nullable=False)
     is_default = Column(Boolean, default=False)
