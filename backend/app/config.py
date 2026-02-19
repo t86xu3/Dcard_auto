@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_HOURS: int = 24
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # 初始管理員帳號
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_EMAIL: str = "admin@dcard-auto.local"
+    ADMIN_PASSWORD: str = ""
+
     # Dcard 預設看板
     DEFAULT_FORUM: str = "goodthings"
 

@@ -76,21 +76,26 @@ def _seed_admin_user():
     from app.auth import get_password_hash
 
     logger = logging.getLogger(__name__)
+
+    if not settings.ADMIN_PASSWORD:
+        logger.warning("未設定 ADMIN_PASSWORD 環境變數，跳過管理員帳號建立")
+        return
+
     db = SessionLocal()
     try:
-        existing = db.query(User).filter(User.username == "t86xu3").first()
+        existing = db.query(User).filter(User.username == settings.ADMIN_USERNAME).first()
         if not existing:
             admin = User(
-                username="t86xu3",
-                email="t86xu3@dcard-auto.local",
-                hashed_password=get_password_hash("tread1996"),
+                username=settings.ADMIN_USERNAME,
+                email=settings.ADMIN_EMAIL,
+                hashed_password=get_password_hash(settings.ADMIN_PASSWORD),
                 is_active=True,
                 is_admin=True,
                 is_approved=True,
             )
             db.add(admin)
             db.commit()
-            logger.info("已建立初始管理員帳號: t86xu3")
+            logger.info(f"已建立初始管理員帳號: {settings.ADMIN_USERNAME}")
         else:
             # 修補 migration 建立的帳號缺少 created_at 的問題
             if existing.created_at is None:
