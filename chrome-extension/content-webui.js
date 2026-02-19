@@ -34,6 +34,12 @@
         window.postMessage(payload, '*');
     }
 
+    // 方法 1: DOM 標記（最可靠，不受時序影響）
+    document.documentElement.setAttribute('data-dcard-ext-id', extensionId);
+    document.documentElement.setAttribute('data-dcard-ext-version', manifest.version);
+    document.documentElement.setAttribute('data-dcard-ext-name', manifest.name);
+
+    // 方法 2: 重複 postMessage 廣播
     broadcast();
     const interval = setInterval(() => {
         if (acked) {
