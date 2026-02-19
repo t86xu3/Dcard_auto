@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 後端 | FastAPI + SQLAlchemy + Alembic |
 | 任務佇列 | Celery + Redis |
 | 資料庫 | SQLite (開發) / PostgreSQL (生產) |
-| LLM | Google Gemini API |
+| LLM | Google Gemini API (2.5 Flash/Pro) |
 | 前端 | React 19 + Vite + Tailwind CSS 4 |
 | 擴充功能 | Chrome Manifest V3 |
 
@@ -169,6 +169,14 @@ id, name, content (Text), is_default (Boolean), is_builtin (Boolean),
 created_at, updated_at
 ```
 
+### UsageRecord
+```
+id, provider (String), model (String), user_id (Integer, nullable),
+usage_date (Date), requests, input_tokens, output_tokens,
+created_at, updated_at
+UniqueConstraint: provider + model + usage_date + user_id
+```
+
 ## API 端點
 
 | 端點 | 方法 | 說明 |
@@ -188,7 +196,7 @@ created_at, updated_at
 | `/api/prompts/{id}/set-default` | POST | 設為預設範本 |
 | `/api/seo/analyze` | POST | SEO 分析（傳入 title+content） |
 | `/api/seo/analyze/{article_id}` | POST | 按文章 ID 分析 SEO 並存入 DB |
-| `/api/usage` | GET | API 用量統計 |
+| `/api/usage` | GET | API 用量統計（按 provider/model 分組 + 費用 + 30天歷史）|
 
 ## 重要架構模式
 
@@ -246,6 +254,8 @@ Celery broker 用 db 2，result backend 用 db 3（避免與其他專案衝突�
 
 - [ ] Dcard 自動發文（content-dcard.js 自動插圖）
 - [x] Prompt 範本系統（內建好物推薦文 + 前端管理介面）
+- [x] 多模型支援（Gemini 2.5 Flash / Pro，可擴充其他供應商）
+- [x] 費用追蹤頁面（按模型分組統計 + 30 天趨勢圖）
 - [ ] 批量生成
 - [ ] Chrome Extension icon 美化（設計正式 logo）
 

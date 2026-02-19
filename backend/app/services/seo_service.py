@@ -542,7 +542,7 @@ class SeoService:
         else:
             return "D"
 
-    def optimize_with_llm(self, article) -> dict:
+    def optimize_with_llm(self, article, model: Optional[str] = None) -> dict:
         """使用 LLM 進行 SEO 優化"""
         content = article.content or ""
 
@@ -581,9 +581,10 @@ class SeoService:
 - FAQ 用 Q1:/A1: 結構化格式
 """
 
+        use_model = model or settings.LLM_MODEL
         try:
             response = self.client.models.generate_content(
-                model=settings.LLM_MODEL,
+                model=use_model,
                 contents=user_message,
                 config=types.GenerateContentConfig(
                     system_instruction=SEO_OPTIMIZE_PROMPT,
@@ -602,7 +603,7 @@ class SeoService:
             after_analysis = self.analyze(title=article.title, content=optimized_content)
 
             # 追蹤用量
-            track_gemini_usage(response)
+            track_gemini_usage(response, model=use_model)
 
             return {
                 "optimized_content": optimized_content,

@@ -31,7 +31,7 @@ class LLMService:
             self._client = genai.Client(api_key=settings.GOOGLE_API_KEY)
         return self._client
 
-    def generate_article(self, products, db: Session, article_type: str = "comparison", target_forum: str = "goodthings", prompt_template_id: Optional[int] = None) -> dict:
+    def generate_article(self, products, db: Session, article_type: str = "comparison", target_forum: str = "goodthings", prompt_template_id: Optional[int] = None, model: Optional[str] = None) -> dict:
         """生成文章"""
         product_ids = [p.id for p in products]
 
@@ -52,9 +52,10 @@ class LLMService:
         full_system_prompt = f"{SYSTEM_INSTRUCTIONS}\n\n---\n\n以下是使用者的寫作風格範本：\n\n{system_prompt}"
 
         # 呼叫 Gemini API（使用 system_instruction + contents 分離）
+        use_model = model or settings.LLM_MODEL
         try:
             response = self.client.models.generate_content(
-                model=settings.LLM_MODEL,
+                model=use_model,
                 contents=user_message,
                 config=types.GenerateContentConfig(
                     system_instruction=full_system_prompt,
@@ -91,7 +92,7 @@ class LLMService:
                     )
 
         # 追蹤 API 用量
-        track_gemini_usage(response)
+        track_gemini_usage(response, model=use_model)
 
         return {
             "title": title,

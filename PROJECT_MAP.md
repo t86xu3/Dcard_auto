@@ -14,7 +14,7 @@
 | DB 遷移 | Alembic | latest | Schema 版本控制 |
 | 任務佇列 | Celery + Redis | latest | 非同步文章生成 |
 | 資料庫 | SQLite → PostgreSQL | - | 開發用 SQLite / 生產用 Supabase PostgreSQL |
-| LLM | Google Gemini API | latest | 文章生成 + SEO 優化 |
+| LLM | Google Gemini API | 2.5 Flash/Pro | 文章生成 + SEO 優化（多模型可選）|
 | 前端框架 | React + Vite | 19 / 6 | Web UI |
 | CSS | Tailwind CSS | 4 | 樣式 |
 | 擴充功能 | Chrome Manifest V3 | - | 商品擷取 + Dcard 輔助發文 |
@@ -47,7 +47,8 @@ Dcard_auto/
 │   │   │   ├── product.py     # 商品模型
 │   │   │   ├── product_image.py # 圖片備份模型
 │   │   │   ├── article.py     # 文章模型
-│   │   │   ├── api_usage.py   # API 用量追蹤
+│   │   │   ├── api_usage.py   # API 用量追蹤（舊，保留）
+│   │   │   ├── usage_record.py # 多供應商/多模型用量追蹤
 │   │   │   └── prompt_template.py # Prompt 範本模型
 │   │   ├── api/
 │   │   │   ├── products.py    # 商品 CRUD
@@ -82,6 +83,7 @@ Dcard_auto/
 │   │   │   ├── ProductsPage.jsx
 │   │   │   ├── ArticlesPage.jsx   # 文章管理
 │   │   │   ├── SettingsPage.jsx
+│   │   │   ├── UsagePage.jsx      # 費用追蹤頁面
 │   │   │   └── GuidePage.jsx     # 測試人員使用說明
 │   │   └── hooks/
 │   │       └── useExtensionDetect.js
@@ -122,6 +124,7 @@ Dcard_auto/
 | 文章管理 | frontend/src/pages/ArticlesPage.jsx | 文章編輯與發佈 |
 | SEO 面板 | frontend/src/components/SeoPanel.jsx | 環形分數圖 + 8 項進度條 + 關鍵字標籤 |
 | Extension 偵測 | frontend/src/hooks/useExtensionDetect.js | 自動偵測插件 |
+| 費用追蹤 | frontend/src/pages/UsagePage.jsx | 按模型分組的費用統計 + 30天趨勢 |
 | 使用說明 | frontend/src/pages/GuidePage.jsx | 測試人員操作指南 |
 
 ## 開發進度
@@ -137,10 +140,13 @@ Dcard_auto/
 - [x] 前端 Web UI（Dashboard + Products + Articles + Settings）
 - [ ] Chrome Extension 開發 Skill
 
-### Phase 2 - 功能完善（待定）
+### Phase 2 - 功能完善
 
 - [ ] Dcard 自動發文（content-dcard.js 自動插入圖片）
 - [x] Prompt 範本系統（內建好物推薦文範本 + 前端管理介面）
+- [x] 多模型支援（Gemini 2.5 Flash / Pro 可選）
+- [x] 費用追蹤頁面（按模型分組 + 30天趨勢圖）
+- [x] 用量追蹤 Bug 修復（usage_tracker.track → record_usage）
 - [ ] 批量生成功能
 - [ ] Chrome Extension icon 美化（設計正式 logo）
 

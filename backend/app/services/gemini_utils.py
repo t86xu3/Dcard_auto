@@ -23,7 +23,7 @@ def strip_markdown(text: str) -> str:
     return text
 
 
-def track_gemini_usage(response):
+def track_gemini_usage(response, model: str = "gemini-2.5-flash"):
     """追蹤 Gemini API 用量"""
     try:
         from app.services.usage_tracker import usage_tracker
@@ -35,11 +35,12 @@ def track_gemini_usage(response):
             input_tokens = getattr(response.usage_metadata, 'prompt_token_count', 0) or 0
             output_tokens = getattr(response.usage_metadata, 'candidates_token_count', 0) or 0
 
-        usage_tracker.track(
-            requests=1,
+        usage_tracker.record_usage(
+            provider="google",
+            model=model,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
         )
-        logger.info(f"API 用量: input={input_tokens}, output={output_tokens}")
+        logger.info(f"API 用量 ({model}): input={input_tokens}, output={output_tokens}")
     except Exception as e:
         logger.warning(f"用量追蹤失敗: {e}")

@@ -22,6 +22,7 @@ class ArticleGenerateRequest(BaseModel):
     article_type: str = "comparison"  # comparison / review / seo
     target_forum: str = "goodthings"
     prompt_template_id: Optional[int] = None
+    model: Optional[str] = None  # "gemini-2.5-flash" / "gemini-2.5-pro"
 
 
 class ArticleUpdateRequest(BaseModel):
@@ -86,6 +87,7 @@ async def generate_article(request: ArticleGenerateRequest, db: Session = Depend
         article_type=request.article_type,
         target_forum=request.target_forum,
         prompt_template_id=request.prompt_template_id,
+        model=request.model,
     )
 
     # 自動 SEO 分析（純 Python 計算，不消耗 API quota）

@@ -4,7 +4,12 @@ import { getPrompts, createPrompt, updatePrompt, deletePrompt, setDefaultPrompt 
 
 export default function SettingsPage() {
   const { status, extensionInfo, extensionId, retry } = useExtensionDetect();
-  const [llmModel, setLlmModel] = useState('gemini-2.5-flash');
+  const [llmModel, setLlmModel] = useState(() => localStorage.getItem('llmModel') || 'gemini-2.5-flash');
+
+  const handleModelChange = (value) => {
+    setLlmModel(value);
+    localStorage.setItem('llmModel', value);
+  };
 
   // Prompt 範本狀態
   const [templates, setTemplates] = useState([]);
@@ -133,12 +138,15 @@ export default function SettingsPage() {
             <label className="block text-sm font-medium text-gray-600 mb-1">模型</label>
             <select
               value={llmModel}
-              onChange={(e) => setLlmModel(e.target.value)}
+              onChange={(e) => handleModelChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
             >
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash (快速)</option>
-              <option value="gemini-2.5-pro">Gemini 2.5 Pro (品質)</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash (快速，便宜)</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro (高品質)</option>
             </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Flash: $0.15/$0.60 per 1M tokens · Pro: $1.25/$10.00 per 1M tokens
+            </p>
           </div>
         </div>
       </section>

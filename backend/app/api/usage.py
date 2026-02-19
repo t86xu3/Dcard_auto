@@ -9,7 +9,5 @@ router = APIRouter()
 
 @router.get("")
 async def get_usage():
-    """取得當日 API 使用量統計"""
-    usage = usage_tracker.get_usage()
-    cost = usage_tracker.estimate_cost()
-    return {**usage, "cost": cost}
+    """取得 API 使用量統計（按模型分組 + 30 天歷史 + 費用）"""
+    return usage_tracker.get_usage()

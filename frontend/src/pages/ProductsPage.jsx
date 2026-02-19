@@ -80,6 +80,7 @@ export default function ProductsPage() {
         product_ids: [...selected],
         article_type: type,
         target_forum: 'goodthings',
+        model: localStorage.getItem('llmModel') || 'gemini-2.5-flash',
       };
       if (selectedPromptId) {
         payload.prompt_template_id = selectedPromptId;

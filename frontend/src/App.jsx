@@ -4,6 +4,7 @@ import DashboardPage from './pages/DashboardPage';
 import ProductsPage from './pages/ProductsPage';
 import ArticlesPage from './pages/ArticlesPage';
 import SettingsPage from './pages/SettingsPage';
+import UsagePage from './pages/UsagePage';
 import GuidePage from './pages/GuidePage';
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/articles" element={<ArticlesPage />} />
+          <Route path="/usage" element={<UsagePage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/guide" element={<GuidePage />} />
         </Route>
