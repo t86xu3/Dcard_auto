@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import api from '../api/client';
+import { getSystemPrompts } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function AdminPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user: currentUser } = useAuth();
+  const [systemPrompts, setSystemPrompts] = useState(null);
+  const [promptsExpanded, setPromptsExpanded] = useState(false);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -18,7 +21,12 @@ export default function AdminPage() {
     setLoading(false);
   };
 
-  useEffect(() => { loadUsers(); }, []);
+  useEffect(() => {
+    loadUsers();
+    getSystemPrompts()
+      .then(setSystemPrompts)
+      .catch(err => console.error('載入系統提示詞失敗:', err));
+  }, []);
 
   const handleApprove = async (userId) => {
     try {
@@ -137,6 +145,43 @@ export default function AdminPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* 系統提示詞 */}
+      {systemPrompts && (
+        <div className="mt-8">
+          <button
+            onClick={() => setPromptsExpanded(!promptsExpanded)}
+            className="flex items-center gap-2 text-xl font-bold text-gray-800 mb-4 hover:text-gray-600"
+          >
+            <span className={`transition-transform ${promptsExpanded ? 'rotate-90' : ''}`}>
+              ▶
+            </span>
+            系統提示詞
+          </button>
+
+          {promptsExpanded && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-600 mb-2">
+                  系統指令 (SYSTEM_INSTRUCTIONS)
+                </h3>
+                <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-700 font-mono whitespace-pre-wrap overflow-x-auto">
+                  {systemPrompts.system_instructions}
+                </pre>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-600 mb-2">
+                  預設寫作範本 (DEFAULT_SYSTEM_PROMPT)
+                </h3>
+                <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-700 font-mono whitespace-pre-wrap overflow-x-auto">
+                  {systemPrompts.default_prompt}
+                </pre>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

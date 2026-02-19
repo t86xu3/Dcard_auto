@@ -155,4 +155,7 @@ export const getUsage = () =>
 export const getAdminUsage = () =>
   api.get('/admin/usage').then(r => r.data);
 
+export const getSystemPrompts = () =>
+  api.get('/admin/system-prompts').then(r => r.data);
+
 export default api;

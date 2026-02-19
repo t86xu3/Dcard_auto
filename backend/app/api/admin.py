@@ -12,6 +12,7 @@ from app.db.database import get_db
 from app.models.user import User
 from app.auth import get_current_admin
 from app.services.usage_tracker import usage_tracker
+from app.services.prompts import SYSTEM_INSTRUCTIONS, DEFAULT_SYSTEM_PROMPT
 
 router = APIRouter()
 
@@ -96,3 +97,12 @@ async def toggle_user_active(
 async def get_all_usage(_admin: User = Depends(get_current_admin)):
     """全站費用統計（僅管理員）：含全局總覽 + 按用戶分組"""
     return usage_tracker.get_all_users_usage()
+
+
+@router.get("/system-prompts")
+async def get_system_prompts(_admin: User = Depends(get_current_admin)):
+    """取得系統層級提示詞（僅管理員）"""
+    return {
+        "system_instructions": SYSTEM_INSTRUCTIONS,
+        "default_prompt": DEFAULT_SYSTEM_PROMPT,
+    }
