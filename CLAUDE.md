@@ -136,52 +136,13 @@ Vite dev server（port 3001）自動代理 `/api` 請求到後端（port 8001）
 
 ## 資料模型
 
-### User
-```
-id, username, email, hashed_password, is_active, is_admin, is_approved, created_at
-```
+模型定義見 `backend/app/models/`。以下僅列出非顯而易見的設計：
 
-### Product
-```
-id, item_id, shop_id, name, price, original_price, discount,
-description, images (JSON), description_images (JSON),
-rating, sold, shop_name, product_url, created_at
-```
-
-### ProductImage
-```
-id, product_id (FK), original_url, local_path,
-image_type (main/description), downloaded_at
-```
-
-### Article
-```
-id, title, content, content_with_images,
-article_type (comparison/review/seo),
-target_forum, product_ids (JSON), image_map (JSON),
-seo_score, seo_suggestions,
-status (draft/optimized/published), published_url,
-created_at, updated_at
-```
-
-### ApiUsage
-```
-id, usage_date, requests, input_tokens, output_tokens
-```
-
-### PromptTemplate
-```
-id, name, content (Text), is_default (Boolean), is_builtin (Boolean),
-created_at, updated_at
-```
-
-### UsageRecord
-```
-id, provider (String), model (String), user_id (Integer, nullable),
-usage_date (Date), requests, input_tokens, output_tokens,
-created_at, updated_at
-UniqueConstraint: provider + model + usage_date + user_id
-```
+- **User.is_approved**：管理員核准後才能使用 LLM 功能（`get_approved_user` 依賴注入檢查）
+- **Product**：`user_id` FK，`(user_id, item_id)` 組合唯一（同商品不同用戶可各自擷取）
+- **Article**：`product_ids` / `image_map` 為 JSON 欄位；`content_with_images` 含 `{{IMAGE:pid:idx}}` 標記
+- **UsageRecord**：`(provider, model, usage_date, user_id)` 唯一約束，每天每用戶每模型一筆累加
+- **ApiUsage**：舊版用量模型，已被 UsageRecord 取代，保留向後相容
 
 ## API 端點
 
@@ -222,7 +183,16 @@ UniqueConstraint: provider + model + usage_date + user_id
 JWT 認證（PyJWT + bcrypt），前端 token 存 localStorage。
 三層權限依賴注入：`get_current_user`（基本認證）→ `get_current_admin`（管理員）→ `get_approved_user`（已核准，可用 LLM）。
 Token sub claim 為字串型 user_id（`str(user.id)`），解碼時轉回 `int`。
-管理員帳號 `t86xu3` / `tread1996`，lifespan 自動 seed。
+管理員帳號由環境變數 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 控制，lifespan 自動 seed。
+
+### PyJWT import 模式
+
+從 python-jose 遷移而來，import 方式非直覺：
+```python
+import jwt
+from jwt import InvalidTokenError as JWTError
+# jwt.encode() / jwt.decode() 用法與 python-jose 相同
+```
 
 ### Gemini SDK
 
@@ -252,6 +222,12 @@ Prompt 為雙層結構：`SYSTEM_INSTRUCTIONS`（程式碼層級，不可修改�
 
 Celery broker 用 db 2，result backend 用 db 3（避免與其他專案衝突）。
 
+### Alembic Migration 注意事項
+
+- **SQLite 相容**：修改既有表必須用 `op.batch_alter_table()` 包裹（SQLite 不支援 ALTER COLUMN）
+- **PostgreSQL 相容**：INSERT boolean 值必須用 SQLAlchemy bound params（`bindparams(is_active=True)`），不可用 integer literal `1`/`0`
+- **雙 DB 測試**：本地跑 `alembic current` 確認 SQLite 不受影響，再用 `DATABASE_URL=... alembic upgrade head` 跑 Supabase
+
 ## Dcard 目標看板
 
 | 看板別名 | 中文名 | 適用場景 |
@@ -264,47 +240,16 @@ Celery broker 用 db 2，result backend 用 db 3（避免與其他專案衝突�
 
 ## 開發藍圖
 
-### Phase 1 - 核心功能（完成）
+Phase 1（核心功能）、Phase 3（雲端部署）、Phase 4（多用戶帳號）均已完成。
 
-- [x] Chrome Extension（蝦皮擷取 + Dcard 手動輔助）
-- [x] 後端 API + DB
-- [x] LLM 文章生成（Mock，含圖片標記）
-- [x] 圖片下載與備份
-- [x] SEO 分析與優化
-- [x] 前端 Web UI
-- [x] 手動複製貼上發文流程
-- [x] 測試人員使用說明頁面（/guide）
-
-### Phase 2 - 自動化與擴展
+### Phase 2 - 自動化與擴展（進行中）
 
 - [ ] Dcard 自動發文（content-dcard.js 自動插圖）
 - [x] Prompt 範本系統（內建好物推薦文 + 前端管理介面）
 - [x] 多模型支援（Gemini Flash/Pro/3Pro + Claude Sonnet/Haiku）
-- [x] 費用追蹤頁面（按模型分組統計 + 30 天趨勢圖）
+- [x] 費用追蹤頁面（按模型分組統計 + 30 天趨勢圖 + 管理員全站總覽）
 - [ ] 批量生成
 - [ ] Chrome Extension icon 美化（設計正式 logo）
-
-### Phase 3 - 雲端部署（完成）
-
-架構：Firebase Hosting + Cloud Run + Supabase PostgreSQL（全免費）
-
-- [x] 後端容器化（Dockerfile）
-- [x] 程式碼適配（config/database/CORS/alembic）
-- [x] Firebase Hosting 部署（https://dcard-auto.web.app）
-- [x] Supabase 資料庫 + Alembic 遷移
-- [x] Cloud Run 部署
-- [x] CORS 限制為 Firebase 域名
-
-### Phase 4 - 多用戶帳號系統（完成）
-
-- [x] 用戶模型 + JWT 認證（PyJWT + bcrypt）
-- [x] 登入/註冊 API + Refresh Token
-- [x] 前端登入頁面 + AuthContext + 路由守衛
-- [x] 所有 API 端點加認證 + user_id 資料隔離
-- [x] is_approved 機制（管理員核准才能使用 LLM）
-- [x] 管理員 API + 前端用戶管理頁面
-- [x] user_id 傳遞鏈（API → Service → Usage Tracker）
-- [x] 前端 axios interceptor（自動帶 token + 401 refresh）
 
 ## 部署架構
 
@@ -313,6 +258,17 @@ Celery broker 用 db 2，result backend 用 db 3（避免與其他專案衝突�
               ├── 靜態資源 → CDN 直接回傳
               └── /api/** → Cloud Run (FastAPI) → Supabase PostgreSQL
 ```
+
+### 環境資訊
+
+| 項目 | 值 |
+|------|-----|
+| Firebase 專案 | `dcard-auto` |
+| 前端 URL | https://dcard-auto.web.app |
+| Cloud Run Service | `dcard-auto-backend`（asia-east1） |
+| Artifact Registry | `asia-east1-docker.pkg.dev/dcard-auto/cloud-run-source-deploy/dcard-auto-backend` |
+| Supabase 區域 | ap-southeast-1（Pooler port 6543） |
+| Cloud Run 環境變數 | `DATABASE_URL`, `GOOGLE_API_KEY`, `ANTHROPIC_API_KEY`, `ALLOWED_ORIGINS`, `JWT_SECRET_KEY`, `ADMIN_*` |
 
 ### 部署指令
 
@@ -333,9 +289,7 @@ DATABASE_URL="postgresql://..." alembic upgrade head
 
 ## 參考來源
 
-本專案 Chrome Extension 架構基於 `shoppe_autovideo` 專案：
-- 來源路徑：`/Users/angrydragon/project/shoppe_autovideo/chrome-extension/`
-- 複用模式：三層腳本架構、訊息傳遞、後端同步、Web UI 偵測
+Chrome Extension 架構複用自 `shoppe_autovideo` 專案的三層腳本模式（injected → content → background）。
 
 ## 關鍵文檔
 
