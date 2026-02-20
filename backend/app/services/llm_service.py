@@ -68,13 +68,18 @@ class LLMService:
                 try:
                     resp = client.get(url)
                     resp.raise_for_status()
+                    img_bytes = resp.content
+                    # 過濾太小的圖片（< 1KB，可能是空白或損壞）
+                    if len(img_bytes) < 1024:
+                        logger.warning(f"圖片太小（{len(img_bytes)} bytes），跳過: {url[:80]}...")
+                        continue
                     content_type = resp.headers.get("content-type", "image/jpeg")
                     mime_type = content_type.split(";")[0].strip().lower()
-                    # Claude API 只接受這 4 種 media_type
+                    # 只接受這 4 種圖片格式
                     allowed_types = {"image/jpeg", "image/png", "image/gif", "image/webp"}
                     if mime_type not in allowed_types:
                         mime_type = "image/jpeg"
-                    image_parts.append((resp.content, mime_type))
+                    image_parts.append((img_bytes, mime_type))
                     logger.debug(f"圖片下載成功: {url[:80]}...")
                 except Exception as e:
                     logger.warning(f"圖片下載失敗（跳過）: {url[:80]}... - {e}")
@@ -83,59 +88,78 @@ class LLMService:
         return image_parts
 
     def _call_gemini(self, use_model: str, system_prompt: str, user_message: str, image_parts: list[tuple[bytes, str]] | None = None) -> tuple:
-        """呼叫 Gemini API，回傳 (generated_text, response)"""
+        """呼叫 Gemini API，回傳 (generated_text, response)。圖片失敗時自動 fallback 為純文字"""
         contents = [user_message]
         if image_parts:
             for img_bytes, mime_type in image_parts:
                 contents.append(types.Part.from_bytes(data=img_bytes, mime_type=mime_type))
 
-        response = self.gemini_client.models.generate_content(
-            model=use_model,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                temperature=settings.LLM_TEMPERATURE,
-                max_output_tokens=settings.LLM_MAX_TOKENS,
-            ),
+        config = types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=settings.LLM_TEMPERATURE,
+            max_output_tokens=settings.LLM_MAX_TOKENS,
         )
-        return response.text, response
 
-    def _extract_image_info(self, image_parts: list[tuple[bytes, str]], user_id: int | None = None) -> str:
+        try:
+            response = self.gemini_client.models.generate_content(
+                model=use_model, contents=contents, config=config,
+            )
+            return response.text, response
+        except Exception as e:
+            if image_parts and "image" in str(e).lower():
+                logger.warning(f"Gemini 圖片處理失敗，改用純文字模式重試: {e}")
+                response = self.gemini_client.models.generate_content(
+                    model=use_model, contents=[user_message], config=config,
+                )
+                return response.text, response
+            raise
+
+    def _extract_image_info(self, image_parts: list[tuple[bytes, str]], user_id: int | None = None, max_images: int = 8) -> str:
         """用 Gemini Flash 提取圖片中的文字資訊（成本極低）
 
         當使用 Claude 模型時，先用此方法讀圖，再把純文字傳給 Claude，
         避免 Claude 的高額圖片 token 費用。
+        逐張處理，跳過 Gemini 無法解析的圖片。
+        限制最多處理 max_images 張，避免超時。
         """
+        # 限制圖片數量，避免逐張呼叫 API 超時（每張約 5-10 秒）
+        if len(image_parts) > max_images:
+            logger.info(f"圖片數量 {len(image_parts)} 超過上限 {max_images}，僅處理前 {max_images} 張")
+            image_parts = image_parts[:max_images]
+
         extract_prompt = (
-            "請仔細閱讀以下商品圖片，提取所有有用的文字資訊，包括但不限於：\n"
+            "請仔細閱讀這張商品圖片，提取所有有用的文字資訊，包括但不限於：\n"
             "- 商品規格、尺寸、重量\n"
             "- 成分表、材質說明\n"
             "- 使用方式、注意事項\n"
             "- 賣點文案、促銷資訊\n"
             "- 任何圖片中可見的文字\n\n"
-            "請以條列方式整理，保留原始文字，不要加入你的評論。"
+            "請以條列方式整理，保留原始文字，不要加入你的評論。如果圖片中沒有文字，簡短描述圖片內容。"
         )
 
-        contents = [extract_prompt]
-        for img_bytes, mime_type in image_parts:
-            contents.append(types.Part.from_bytes(data=img_bytes, mime_type=mime_type))
+        results = []
+        for i, (img_bytes, mime_type) in enumerate(image_parts):
+            try:
+                contents = [
+                    extract_prompt,
+                    types.Part.from_bytes(data=img_bytes, mime_type=mime_type),
+                ]
+                response = self.gemini_client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        temperature=0.1,
+                        max_output_tokens=2048,
+                    ),
+                )
+                if response.text:
+                    results.append(f"【圖片 {i+1}】\n{response.text}")
+                track_gemini_usage(response, model="gemini-2.5-flash", user_id=user_id)
+            except Exception as e:
+                logger.warning(f"圖片 {i+1}/{len(image_parts)} 提取失敗（跳過）: {e}")
 
-        try:
-            response = self.gemini_client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    temperature=0.1,
-                    max_output_tokens=4096,
-                ),
-            )
-            extracted = response.text
-            track_gemini_usage(response, model="gemini-2.5-flash", user_id=user_id)
-            logger.info(f"Gemini Flash 圖片文字提取完成，長度: {len(extracted)}")
-            return extracted
-        except Exception as e:
-            logger.warning(f"圖片文字提取失敗（將跳過圖片資訊）: {e}")
-            return ""
+        logger.info(f"Gemini Flash 圖片文字提取完成：{len(results)}/{len(image_parts)} 張成功")
+        return "\n\n".join(results)
 
     def _call_anthropic(self, use_model: str, system_prompt: str, user_message: str, image_parts: list[tuple[bytes, str]] | None = None) -> tuple:
         """呼叫 Anthropic Claude API，回傳 (generated_text, response)"""
