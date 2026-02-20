@@ -31,5 +31,8 @@ Thumbs.db
 # Build
 *.log
 
+# Data
+data/
+
 # Firebase
 .firebase/
