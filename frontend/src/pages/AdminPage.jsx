@@ -163,23 +163,22 @@ export default function AdminPage() {
 
           {promptsExpanded && (
             <div className="space-y-6">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-600 mb-2">
-                  系統指令 (SYSTEM_INSTRUCTIONS)
-                </h3>
-                <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-700 font-mono whitespace-pre-wrap overflow-x-auto">
-                  {systemPrompts.system_instructions}
-                </pre>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-gray-600 mb-2">
-                  預設寫作範本 (DEFAULT_SYSTEM_PROMPT)
-                </h3>
-                <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-700 font-mono whitespace-pre-wrap overflow-x-auto">
-                  {systemPrompts.default_prompt}
-                </pre>
-              </div>
+              {[
+                { key: 'system_instructions', label: '系統指令 (SYSTEM_INSTRUCTIONS)', desc: '程式碼層級，所有範本共用，使用者看不到' },
+                { key: 'seo_optimize_prompt', label: 'SEO 優化提示詞 (SEO_OPTIMIZE_PROMPT)', desc: '文章 SEO 優化時使用的提示詞' },
+                { key: 'default_prompt', label: '範本 1：Dcard 好物推薦文', desc: '原始內建範本' },
+                { key: 'default_prompt_v2', label: '範本 2：Google 排名衝刺版', desc: '基於 Google 首頁文章逆向工程' },
+              ].map(({ key, label, desc }) => (
+                systemPrompts[key] && (
+                  <div key={key}>
+                    <h3 className="text-sm font-semibold text-gray-600 mb-1">{label}</h3>
+                    <p className="text-xs text-gray-400 mb-2">{desc}</p>
+                    <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-700 font-mono whitespace-pre-wrap overflow-x-auto max-h-96 overflow-y-auto">
+                      {systemPrompts[key]}
+                    </pre>
+                  </div>
+                )
+              ))}
             </div>
           )}
         </div>

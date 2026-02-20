@@ -12,7 +12,8 @@ from app.db.database import get_db
 from app.models.user import User
 from app.auth import get_current_admin
 from app.services.usage_tracker import usage_tracker
-from app.services.prompts import SYSTEM_INSTRUCTIONS, DEFAULT_SYSTEM_PROMPT
+from app.services.prompts import SYSTEM_INSTRUCTIONS, DEFAULT_SYSTEM_PROMPT, DEFAULT_SYSTEM_PROMPT_V2
+from app.services.seo_service import SEO_OPTIMIZE_PROMPT
 
 router = APIRouter()
 
@@ -105,4 +106,6 @@ async def get_system_prompts(_admin: User = Depends(get_current_admin)):
     return {
         "system_instructions": SYSTEM_INSTRUCTIONS,
         "default_prompt": DEFAULT_SYSTEM_PROMPT,
+        "default_prompt_v2": DEFAULT_SYSTEM_PROMPT_V2,
+        "seo_optimize_prompt": SEO_OPTIMIZE_PROMPT,
     }
