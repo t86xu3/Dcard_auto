@@ -610,7 +610,8 @@ class SeoService:
 - FAQ 用 Q1:/A1: 結構化格式
 """
 
-        use_model = model or settings.LLM_MODEL
+        # SEO 優化強制使用最便宜的模型（節省成本，SEO 改寫不需要高階模型）
+        use_model = "gemini-2.5-flash"
         try:
             if is_anthropic_model(use_model):
                 response = self.anthropic_client.messages.create(
