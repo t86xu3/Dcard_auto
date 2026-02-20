@@ -214,7 +214,7 @@ export default function ProductsPage() {
                         <span>📋 描述圖（規格/成分）</span>
                       </label>
                     </div>
-                    <p className="text-xs text-amber-600 mt-2">附圖會增加 token 費用（每張約 200-1000 tokens）</p>
+                    <p className="text-xs text-emerald-600 mt-2">附圖由 Gemini Flash 免費讀取，不額外增加 Claude 費用</p>
                   </div>
                 )}
               </div>

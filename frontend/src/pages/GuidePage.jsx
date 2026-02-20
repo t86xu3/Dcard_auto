@@ -106,7 +106,7 @@ export default function GuidePage() {
             <ul className="list-disc list-inside ml-4 mt-1 text-gray-500">
               <li>📸 主圖（商品照片）— 最多 3 張</li>
               <li>📋 描述圖（規格/成分）— 最多 5 張</li>
-              <li>附圖會增加 token 費用，但文章品質更好</li>
+              <li>附圖由 Gemini Flash 免費讀取再傳給 Claude，幾乎不增加費用</li>
             </ul>
           </li>
           <li>點擊 <strong>✨ 生成比較文/開箱文</strong>，等待 AI 生成（約 30~60 秒）</li>
