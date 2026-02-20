@@ -100,6 +100,43 @@ class LLMService:
         )
         return response.text, response
 
+    def _extract_image_info(self, image_parts: list[tuple[bytes, str]], user_id: int | None = None) -> str:
+        """用 Gemini Flash 提取圖片中的文字資訊（成本極低）
+
+        當使用 Claude 模型時，先用此方法讀圖，再把純文字傳給 Claude，
+        避免 Claude 的高額圖片 token 費用。
+        """
+        extract_prompt = (
+            "請仔細閱讀以下商品圖片，提取所有有用的文字資訊，包括但不限於：\n"
+            "- 商品規格、尺寸、重量\n"
+            "- 成分表、材質說明\n"
+            "- 使用方式、注意事項\n"
+            "- 賣點文案、促銷資訊\n"
+            "- 任何圖片中可見的文字\n\n"
+            "請以條列方式整理，保留原始文字，不要加入你的評論。"
+        )
+
+        contents = [extract_prompt]
+        for img_bytes, mime_type in image_parts:
+            contents.append(types.Part.from_bytes(data=img_bytes, mime_type=mime_type))
+
+        try:
+            response = self.gemini_client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    temperature=0.1,
+                    max_output_tokens=4096,
+                ),
+            )
+            extracted = response.text
+            track_gemini_usage(response, model="gemini-2.5-flash", user_id=user_id)
+            logger.info(f"Gemini Flash 圖片文字提取完成，長度: {len(extracted)}")
+            return extracted
+        except Exception as e:
+            logger.warning(f"圖片文字提取失敗（將跳過圖片資訊）: {e}")
+            return ""
+
     def _call_anthropic(self, use_model: str, system_prompt: str, user_message: str, image_parts: list[tuple[bytes, str]] | None = None) -> tuple:
         """呼叫 Anthropic Claude API，回傳 (generated_text, response)"""
         content = [{"type": "text", "text": user_message}]
@@ -156,10 +193,21 @@ class LLMService:
         use_model = model or settings.LLM_MODEL
         try:
             if is_anthropic_model(use_model):
-                generated_text, response = self._call_anthropic(use_model, full_system_prompt, user_message, image_parts=image_parts)
+                # 兩階段策略：Claude 模型 + 有圖片時，先用 Gemini Flash 讀圖（極低成本），
+                # 再把提取的純文字傳給 Claude，避免 Claude 高額的圖片 token 費用
+                if image_parts:
+                    logger.info(f"兩階段圖片分析：先用 Gemini Flash 提取 {len(image_parts)} 張圖片文字...")
+                    extracted_text = self._extract_image_info(image_parts, user_id=user_id)
+                    if extracted_text:
+                        user_message += f"\n\n以下是從商品圖片中提取的詳細資訊：\n{extracted_text}"
+                    # 不傳圖片給 Claude，只傳純文字
+                    image_parts = None
+
+                generated_text, response = self._call_anthropic(use_model, full_system_prompt, user_message, image_parts=None)
                 logger.info(f"Claude API 回應成功，文字長度: {len(generated_text)}")
                 track_anthropic_usage(response, model=use_model, user_id=user_id)
             else:
+                # Gemini 模型直接傳圖片（成本已經很低）
                 generated_text, response = self._call_gemini(use_model, full_system_prompt, user_message, image_parts=image_parts)
                 logger.info(f"Gemini API 回應成功，文字長度: {len(generated_text)}")
                 track_gemini_usage(response, model=use_model, user_id=user_id)
