@@ -1,7 +1,9 @@
 /**
  * SEO 分析面板元件
  * 顯示 8 項 SEO 評分指標、環形分數圖、進度條 breakdown、關鍵字標籤、建議列表
+ * 支援折疊：點擊標題列展開/收合
  */
+import { useState } from 'react';
 
 // 環形分數圖（SVG）
 function ScoreRing({ score, maxScore, grade, size = 80 }) {
@@ -88,6 +90,8 @@ function KeywordPill({ keyword }) {
  * @param {Object} props.beforeAnalysis - 優化前的完整分析（含 breakdown）
  */
 export default function SeoPanel({ data, optimized = false, beforeScore = null, beforeAnalysis = null }) {
+  const [collapsed, setCollapsed] = useState(false);
+
   if (!data) return null;
 
   // 相容舊格式：data 可能是 { breakdown: {...} } 或純 list
@@ -102,19 +106,27 @@ export default function SeoPanel({ data, optimized = false, beforeScore = null, 
     const grade = data.grade ?? (score >= 85 ? 'A' : score >= 70 ? 'B' : score >= 50 ? 'C' : 'D');
 
     return (
-      <div className={`p-4 rounded-xl border ${optimized ? 'bg-green-50 border-green-200' : 'bg-purple-50 border-purple-200'}`}>
-        <div className="flex items-center justify-between mb-3">
+      <div className={`rounded-xl border ${optimized ? 'bg-green-50 border-green-200' : 'bg-purple-50 border-purple-200'}`}>
+        <div
+          className="flex items-center justify-between p-4 cursor-pointer hover:bg-black/5 rounded-xl transition-colors active:scale-[0.99]"
+          onClick={() => setCollapsed(c => !c)}
+        >
           <span className={`font-semibold ${optimized ? 'text-green-800' : 'text-purple-800'}`}>
             {optimized ? 'SEO 優化完成' : 'SEO 分析結果'}
           </span>
-          <span className={`text-2xl font-bold ${optimized ? 'text-green-600' : 'text-purple-600'}`}>
-            {score} / {maxScore} ({grade})
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`text-2xl font-bold ${optimized ? 'text-green-600' : 'text-purple-600'}`}>
+              {score} / {maxScore} ({grade})
+            </span>
+            <span className={`text-gray-400 transition-transform ${collapsed ? '' : 'rotate-180'}`}>▾</span>
+          </div>
         </div>
-        {suggestions.length > 0 && (
-          <ul className="text-sm text-purple-700 space-y-1">
-            {suggestions.map((s, i) => <li key={i}>• {s}</li>)}
-          </ul>
+        {!collapsed && suggestions.length > 0 && (
+          <div className="px-4 pb-4">
+            <ul className="text-sm text-purple-700 space-y-1">
+              {suggestions.map((s, i) => <li key={i}>• {s}</li>)}
+            </ul>
+          </div>
         )}
       </div>
     );
@@ -127,93 +139,110 @@ export default function SeoPanel({ data, optimized = false, beforeScore = null, 
   ];
 
   return (
-    <div className={`p-5 rounded-xl border ${optimized ? 'bg-green-50 border-green-200' : 'bg-purple-50 border-purple-200'}`}>
-      {/* Header: 分數 + 等級 */}
-      <div className="flex items-center justify-between mb-4">
+    <div className={`rounded-xl border ${optimized ? 'bg-green-50 border-green-200' : 'bg-purple-50 border-purple-200'}`}>
+      {/* Header: 可點擊折疊 */}
+      <div
+        className="flex items-center justify-between p-5 cursor-pointer hover:bg-black/5 rounded-xl transition-colors active:scale-[0.99]"
+        onClick={() => setCollapsed(c => !c)}
+      >
         <span className={`font-semibold text-base ${optimized ? 'text-green-800' : 'text-purple-800'}`}>
           {optimized ? 'SEO 優化完成' : 'SEO 分析'}
         </span>
-        <div className="text-right">
-          {optimized && beforeScore != null && (
-            <div className="text-sm text-gray-500 mb-0.5">
-              {beforeScore} → {score}
-              {score > beforeScore
-                ? ` (+${(score - beforeScore).toFixed(1)})`
-                : score < beforeScore
-                  ? ` (${(score - beforeScore).toFixed(1)})`
-                  : ' (不變)'}
-            </div>
-          )}
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            {optimized && beforeScore != null ? (
+              <div className="text-sm text-gray-500">
+                {beforeScore} → {score}
+                {score > beforeScore
+                  ? ` (+${(score - beforeScore).toFixed(1)})`
+                  : score < beforeScore
+                    ? ` (${(score - beforeScore).toFixed(1)})`
+                    : ' (不變)'}
+              </div>
+            ) : (
+              <span className={`text-lg font-bold ${
+                grade === 'A' ? 'text-green-600' : grade === 'B' ? 'text-blue-600' : grade === 'C' ? 'text-yellow-600' : 'text-red-600'
+              }`}>
+                {Math.round(score)} 分 ({grade})
+              </span>
+            )}
+          </div>
+          <span className={`text-gray-400 transition-transform ${collapsed ? '' : 'rotate-180'}`}>▾</span>
         </div>
       </div>
 
-      {/* 分數環 */}
-      <div className="relative flex justify-center mb-5">
-        <ScoreRing score={score} maxScore={maxScore} grade={grade} />
-      </div>
+      {/* 可折疊內容 */}
+      {!collapsed && (
+        <div className="px-5 pb-5">
+          {/* 分數環 */}
+          <div className="relative flex justify-center mb-5">
+            <ScoreRing score={score} maxScore={maxScore} grade={grade} />
+          </div>
 
-      {/* Breakdown 進度條 */}
-      <div className="space-y-2.5 mb-4">
-        {breakdownOrder.map(key => {
-          const item = breakdown[key];
-          if (!item) return null;
-          return (
-            <ProgressBar
-              key={key}
-              score={item.score}
-              max={item.max}
-              label={item.label}
-            />
-          );
-        })}
-      </div>
-
-      {/* 優化前後對比（每項差異） */}
-      {optimized && beforeAnalysis?.breakdown && (
-        <div className="mb-4 p-3 bg-white/60 rounded-lg">
-          <div className="text-xs font-medium text-gray-500 mb-2">各項變化</div>
-          <div className="grid grid-cols-2 gap-1.5 text-xs">
+          {/* Breakdown 進度條 */}
+          <div className="space-y-2.5 mb-4">
             {breakdownOrder.map(key => {
-              const after = breakdown[key];
-              const before = beforeAnalysis.breakdown[key];
-              if (!after || !before) return null;
-              const diff = after.score - before.score;
-              if (diff === 0) return null;
+              const item = breakdown[key];
+              if (!item) return null;
               return (
-                <div key={key} className="flex justify-between">
-                  <span className="text-gray-600">{after.label}</span>
-                  <span className={diff > 0 ? 'text-green-600' : 'text-red-600'}>
-                    {diff > 0 ? '+' : ''}{diff.toFixed(1)}
-                  </span>
-                </div>
+                <ProgressBar
+                  key={key}
+                  score={item.score}
+                  max={item.max}
+                  label={item.label}
+                />
               );
             })}
           </div>
-        </div>
-      )}
 
-      {/* 關鍵字標籤 */}
-      {keywords?.length > 0 && (
-        <div className="mb-4">
-          <div className="text-xs font-medium text-gray-500 mb-2">提取的關鍵字</div>
-          <div className="flex flex-wrap gap-1.5">
-            {keywords.slice(0, 8).map((kw, i) => <KeywordPill key={i} keyword={kw} />)}
-          </div>
-        </div>
-      )}
+          {/* 優化前後對比（每項差異） */}
+          {optimized && beforeAnalysis?.breakdown && (
+            <div className="mb-4 p-3 bg-white/60 rounded-lg">
+              <div className="text-xs font-medium text-gray-500 mb-2">各項變化</div>
+              <div className="grid grid-cols-2 gap-1.5 text-xs">
+                {breakdownOrder.map(key => {
+                  const after = breakdown[key];
+                  const before = beforeAnalysis.breakdown[key];
+                  if (!after || !before) return null;
+                  const diff = after.score - before.score;
+                  if (diff === 0) return null;
+                  return (
+                    <div key={key} className="flex justify-between">
+                      <span className="text-gray-600">{after.label}</span>
+                      <span className={diff > 0 ? 'text-green-600' : 'text-red-600'}>
+                        {diff > 0 ? '+' : ''}{diff.toFixed(1)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-      {/* 建議列表 */}
-      {suggestions?.length > 0 && (
-        <div>
-          <div className="text-xs font-medium text-gray-500 mb-2">改善建議</div>
-          <ul className="space-y-1.5">
-            {suggestions.map((s, i) => (
-              <li key={i} className="flex items-start gap-1.5 text-sm text-gray-700">
-                <span className="shrink-0">{i < 2 ? '⚠️' : '💡'}</span>
-                <span>{s}</span>
-              </li>
-            ))}
-          </ul>
+          {/* 關鍵字標籤 */}
+          {keywords?.length > 0 && (
+            <div className="mb-4">
+              <div className="text-xs font-medium text-gray-500 mb-2">提取的關鍵字</div>
+              <div className="flex flex-wrap gap-1.5">
+                {keywords.slice(0, 8).map((kw, i) => <KeywordPill key={i} keyword={kw} />)}
+              </div>
+            </div>
+          )}
+
+          {/* 建議列表 */}
+          {suggestions?.length > 0 && (
+            <div>
+              <div className="text-xs font-medium text-gray-500 mb-2">改善建議</div>
+              <ul className="space-y-1.5">
+                {suggestions.map((s, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-sm text-gray-700">
+                    <span className="shrink-0">{i < 2 ? '⚠️' : '💡'}</span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>
