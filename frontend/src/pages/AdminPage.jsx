@@ -118,25 +118,25 @@ export default function AdminPage() {
                         {!u.is_approved ? (
                           <button
                             onClick={() => handleApprove(u.id)}
-                            className="text-xs px-2.5 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                            className="text-xs px-2.5 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 active:scale-95 transition-transform"
                           >
-                            核准
+                            ✅ 核准
                           </button>
                         ) : (
                           <button
                             onClick={() => handleRevoke(u.id)}
-                            className="text-xs px-2.5 py-1 bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
+                            className="text-xs px-2.5 py-1 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 active:scale-95 transition-transform"
                           >
-                            撤銷
+                            ⛔ 撤銷
                           </button>
                         )}
                         <button
                           onClick={() => handleToggleActive(u.id)}
-                          className={`text-xs px-2.5 py-1 rounded-md text-white ${
+                          className={`text-xs px-2.5 py-1 rounded-md text-white active:scale-95 transition-transform ${
                             u.is_active ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
                           }`}
                         >
-                          {u.is_active ? '停用' : '啟用'}
+                          {u.is_active ? '🚫 停用' : '✅ 啟用'}
                         </button>
                       </div>
                     )}
@@ -153,7 +153,7 @@ export default function AdminPage() {
         <div className="mt-8">
           <button
             onClick={() => setPromptsExpanded(!promptsExpanded)}
-            className="flex items-center gap-2 text-xl font-bold text-gray-800 mb-4 hover:text-gray-600"
+            className="flex items-center gap-2 text-xl font-bold text-gray-800 mb-4 hover:text-gray-600 active:scale-95 transition-all cursor-pointer"
           >
             <span className={`transition-transform ${promptsExpanded ? 'rotate-90' : ''}`}>
               ▶

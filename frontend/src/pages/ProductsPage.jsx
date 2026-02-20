@@ -182,7 +182,7 @@ export default function ProductsPage() {
                     onChange={(e) => setIncludeImages(e.target.checked)}
                     className="rounded"
                   />
-                  <span>附圖給 LLM</span>
+                  <span>🖼️ 附圖給 LLM</span>
                 </label>
                 {includeImages && (
                   <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-10 w-56">
@@ -198,7 +198,7 @@ export default function ProductsPage() {
                           }}
                           className="rounded"
                         />
-                        <span>主圖（商品照片）</span>
+                        <span>📸 主圖（商品照片）</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -211,7 +211,7 @@ export default function ProductsPage() {
                           }}
                           className="rounded"
                         />
-                        <span>描述圖（規格/成分）</span>
+                        <span>📋 描述圖（規格/成分）</span>
                       </label>
                     </div>
                     <p className="text-xs text-amber-600 mt-2">附圖會增加 token 費用（每張約 200-1000 tokens）</p>
@@ -221,17 +221,17 @@ export default function ProductsPage() {
               <button
                 onClick={handleGenerate}
                 disabled={generating || !user?.is_approved}
-                className={`px-4 py-2 text-white rounded-lg text-sm font-medium ${
+                className={`px-4 py-2 text-white rounded-lg text-sm font-medium active:scale-95 transition-transform ${
                   !user?.is_approved ? 'bg-gray-400 cursor-not-allowed' :
                   generating ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
                 }`}
                 title={!user?.is_approved ? '等待管理員核准' : ''}
               >
-                {!user?.is_approved ? '等待管理員核准' : generating ? '生成中...' : `生成${selected.size >= 2 ? '比較文' : '開箱文'} (${selected.size})`}
+                {!user?.is_approved ? '🔒 等待管理員核准' : generating ? '生成中...' : `✨ 生成${selected.size >= 2 ? '比較文' : '開箱文'} (${selected.size})`}
               </button>
               <button
                 onClick={handleBatchDelete}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600"
+                className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 active:scale-95 transition-transform"
               >
                 🗑️ 刪除 ({selected.size})
               </button>
@@ -309,15 +309,15 @@ export default function ProductsPage() {
                             />
                             <button
                               onClick={() => handleSaveUrl(product.id)}
-                              className="text-xs text-green-600 hover:text-green-700 whitespace-nowrap"
+                              className="text-xs text-green-600 hover:text-green-700 whitespace-nowrap active:scale-95 transition-transform inline-block"
                             >
-                              儲存
+                              💾 儲存
                             </button>
                             <button
                               onClick={cancelEditUrl}
-                              className="text-xs text-gray-400 hover:text-gray-600 whitespace-nowrap"
+                              className="text-xs text-gray-400 hover:text-gray-600 whitespace-nowrap active:scale-95 transition-transform inline-block"
                             >
-                              取消
+                              ✕ 取消
                             </button>
                           </div>
                         ) : product.product_url ? (
@@ -333,7 +333,7 @@ export default function ProductsPage() {
                             </a>
                             <button
                               onClick={() => startEditUrl(product)}
-                              className="text-xs text-gray-400 hover:text-gray-600"
+                              className="text-xs text-gray-400 hover:text-gray-600 active:scale-95 transition-transform inline-block"
                               title="編輯連結"
                             >
                               ✏️
@@ -342,9 +342,9 @@ export default function ProductsPage() {
                         ) : (
                           <button
                             onClick={() => startEditUrl(product)}
-                            className="text-xs text-gray-400 hover:text-blue-500 mt-0.5"
+                            className="text-xs text-gray-400 hover:text-blue-500 mt-0.5 active:scale-95 transition-transform inline-block"
                           >
-                            + 新增連結
+                            🔗 新增連結
                           </button>
                         )}
                       </div>
@@ -363,16 +363,16 @@ export default function ProductsPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleDownloadImages(product.id)}
-                        className="text-xs text-blue-500 hover:underline"
+                        className="text-xs text-blue-500 hover:underline active:scale-95 transition-transform inline-block"
                         title="下載圖片"
                       >
                         📥 圖片
                       </button>
                       <button
                         onClick={() => handleDelete(product.id)}
-                        className="text-xs text-red-500 hover:underline"
+                        className="text-xs text-red-500 hover:underline active:scale-95 transition-transform inline-block"
                       >
-                        刪除
+                        🗑️ 刪除
                       </button>
                     </div>
                   </td>

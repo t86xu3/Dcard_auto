@@ -53,19 +53,19 @@ export default function LoginPage() {
           <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => { setIsRegister(false); setError(''); }}
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all active:scale-95 ${
                 !isRegister ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'
               }`}
             >
-              登入
+              🔑 登入
             </button>
             <button
               onClick={() => { setIsRegister(true); setError(''); }}
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all active:scale-95 ${
                 isRegister ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'
               }`}
             >
-              註冊
+              📝 註冊
             </button>
           </div>
 
@@ -117,11 +117,11 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className={`w-full py-2.5 rounded-lg text-sm font-medium text-white transition-colors ${
+              className={`w-full py-2.5 rounded-lg text-sm font-medium text-white transition-all active:scale-95 ${
                 submitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'
               }`}
             >
-              {submitting ? '處理中...' : isRegister ? '註冊' : '登入'}
+              {submitting ? '處理中...' : isRegister ? '📝 註冊' : '🔑 登入'}
             </button>
           </form>
 

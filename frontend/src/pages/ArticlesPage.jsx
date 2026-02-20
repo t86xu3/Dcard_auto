@@ -79,7 +79,7 @@ function ArticleImage({ src, alt }) {
       <button
         onClick={handleCopy}
         disabled={copying}
-        className={`absolute top-2 right-2 px-2.5 py-1.5 rounded-lg text-xs font-medium shadow-md transition-all ${
+        className={`absolute top-2 right-2 px-2.5 py-1.5 rounded-lg text-xs font-medium shadow-md transition-all active:scale-95 ${
           copied
             ? 'bg-green-500 text-white'
             : 'bg-white/90 text-gray-700 hover:bg-blue-500 hover:text-white opacity-0 group-hover:opacity-100'
@@ -316,8 +316,8 @@ export default function ArticlesPage() {
                     autoFocus
                     onKeyDown={(e) => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
                   />
-                  <button onClick={handleSaveTitle} className="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">儲存</button>
-                  <button onClick={() => { setEditingTitle(false); setEditTitle(selectedArticle.title); }} className="px-3 py-2 bg-gray-200 rounded-lg text-sm hover:bg-gray-300">取消</button>
+                  <button onClick={handleSaveTitle} className="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 active:scale-95 transition-transform">💾 儲存</button>
+                  <button onClick={() => { setEditingTitle(false); setEditTitle(selectedArticle.title); }} className="px-3 py-2 bg-gray-200 rounded-lg text-sm hover:bg-gray-300 active:scale-95 transition-transform">✕ 取消</button>
                 </div>
               ) : (
                 <h3
@@ -333,23 +333,23 @@ export default function ArticlesPage() {
 
             {/* Toolbar */}
             <div className="flex gap-2 mb-4">
-              <button onClick={handleCopy} className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+              <button onClick={handleCopy} className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 active:scale-95 transition-transform">
                 📋 複製
               </button>
-              <button onClick={handleAnalyzeSeo} disabled={analyzing || optimizing} className="px-3 py-1.5 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed">
+              <button onClick={handleAnalyzeSeo} disabled={analyzing || optimizing} className="px-3 py-1.5 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform">
                 {analyzing ? '分析中...' : '📊 SEO 分析'}
               </button>
               <button
                 onClick={handleOptimizeSeo}
                 disabled={optimizing || analyzing || !user?.is_approved}
-                className={`px-3 py-1.5 text-sm text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`px-3 py-1.5 text-sm text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform ${
                   !user?.is_approved ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-600'
                 }`}
                 title={!user?.is_approved ? '等待管理員核准' : ''}
               >
-                {!user?.is_approved ? '等待核准' : optimizing ? '優化中...' : 'SEO 優化'}
+                {!user?.is_approved ? '🔒 等待核准' : optimizing ? '優化中...' : '🚀 SEO 優化'}
               </button>
-              <button onClick={() => handleDelete(selectedArticle.id)} className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600">
+              <button onClick={() => handleDelete(selectedArticle.id)} className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 active:scale-95 transition-transform">
                 🗑️ 刪除
               </button>
             </div>
@@ -384,15 +384,15 @@ export default function ArticlesPage() {
                     className="w-full h-96 p-4 border border-gray-200 rounded-lg font-mono text-sm resize-y"
                   />
                   <div className="flex gap-2 mt-3">
-                    <button onClick={handleSave} className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm">儲存</button>
-                    <button onClick={() => { setEditing(false); setEditContent(selectedArticle.content || ''); }} className="px-4 py-2 bg-gray-200 rounded-lg text-sm">取消</button>
+                    <button onClick={handleSave} className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 active:scale-95 transition-transform">💾 儲存</button>
+                    <button onClick={() => { setEditing(false); setEditContent(selectedArticle.content || ''); }} className="px-4 py-2 bg-gray-200 rounded-lg text-sm hover:bg-gray-300 active:scale-95 transition-transform">✕ 取消</button>
                   </div>
                 </div>
               ) : (
                 <div>
                   <button
                     onClick={() => setEditing(true)}
-                    className="mb-3 text-sm text-blue-500 hover:underline"
+                    className="mb-3 text-sm text-blue-500 hover:underline active:scale-95 transition-transform inline-block"
                   >
                     ✏️ 編輯內文
                   </button>

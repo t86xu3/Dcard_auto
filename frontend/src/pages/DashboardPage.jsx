@@ -75,9 +75,9 @@ export default function DashboardPage() {
               <span className="text-red-500">未偵測到</span>
               <button
                 onClick={retry}
-                className="ml-2 text-sm text-blue-500 hover:underline"
+                className="ml-2 text-sm text-blue-500 hover:underline active:scale-95 transition-transform inline-block"
               >
-                重試
+                🔄 重試
               </button>
             </>
           )}

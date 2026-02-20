@@ -29,7 +29,7 @@ export default function GuidePage() {
           href="https://github.com/t86xu3/Dcard_auto/archive/refs/heads/main.zip"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors mb-4"
+          className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition-all active:scale-95 mb-4"
         >
           <span>⬇️</span> 下載專案 ZIP
         </a>

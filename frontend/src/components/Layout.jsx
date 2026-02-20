@@ -28,7 +28,7 @@ export default function Layout() {
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 text-sm font-medium transition-colors ${
+                `flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 text-sm font-medium transition-all active:scale-95 ${
                   isActive
                     ? 'bg-blue-50 text-blue-600'
                     : 'text-gray-600 hover:bg-gray-50'
@@ -44,7 +44,7 @@ export default function Layout() {
             <NavLink
               to="/admin"
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 text-sm font-medium transition-colors ${
+                `flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 text-sm font-medium transition-all active:scale-95 ${
                   isActive
                     ? 'bg-purple-50 text-purple-600'
                     : 'text-gray-600 hover:bg-gray-50'
@@ -78,7 +78,7 @@ export default function Layout() {
             </div>
             <button
               onClick={logout}
-              className="text-gray-400 hover:text-red-500 transition-colors"
+              className="text-gray-400 hover:text-red-500 transition-all active:scale-95"
               title="登出"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">

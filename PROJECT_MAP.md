@@ -171,6 +171,19 @@ Dcard_auto/
 - [ ] 批量生成功能
 - [ ] Chrome Extension icon 美化（設計正式 logo）
 
+### v2.3 - UI 圖標與點擊回饋（完成）
+
+- [x] LoginPage.jsx - 登入/註冊 Tab + Submit 加圖標與 active:scale-95
+- [x] DashboardPage.jsx - 重試按鈕加圖標與回饋
+- [x] GuidePage.jsx - 下載 ZIP 按鈕加回饋
+- [x] AdminPage.jsx - 核准/撤銷/停用/摺疊按鈕加圖標與回饋
+- [x] SettingsPage.jsx - 重試/新增/預設/刪除/儲存按鈕加圖標與回饋
+- [x] UsagePage.jsx - 我的用量/全站總覽 Tab 加圖標與回饋
+- [x] Layout.jsx - NavLink + 登出按鈕加回饋
+- [x] ArticlesPage.jsx - 10 類按鈕加圖標與回饋
+- [x] ProductsPage.jsx - 8 類按鈕 + 3 個 Checkbox 標籤加圖標與回饋
+- [x] 全域 CLAUDE.md 新增 §3.10 UI 可點擊元素規範
+
 ### Phase 3 - 雲端部署（完成）
 
 架構：Firebase Hosting + Cloud Run + Supabase PostgreSQL（全免費）

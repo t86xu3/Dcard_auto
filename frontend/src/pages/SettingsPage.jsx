@@ -118,7 +118,7 @@ export default function SettingsPage() {
             {status === 'installed' ? '已連線' : status === 'checking' ? '偵測中...' : '未偵測到'}
           </span>
           {status === 'not_installed' && (
-            <button onClick={retry} className="text-sm text-blue-500 hover:underline">重試</button>
+            <button onClick={retry} className="text-sm text-blue-500 hover:underline active:scale-95 transition-transform inline-block">🔄 重試</button>
           )}
         </div>
         {extensionInfo && (
@@ -211,9 +211,9 @@ export default function SettingsPage() {
           <h3 className="text-lg font-semibold text-gray-800">提示詞範本</h3>
           <button
             onClick={handleNew}
-            className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600"
+            className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 active:scale-95 transition-transform"
           >
-            + 新增範本
+            📄 新增範本
           </button>
         </div>
 
@@ -247,19 +247,19 @@ export default function SettingsPage() {
                       {!t.is_default && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleSetDefault(t.id); }}
-                          className="text-xs text-blue-500 hover:text-blue-700 px-1"
+                          className="text-xs text-blue-500 hover:text-blue-700 px-1 active:scale-95 transition-transform inline-block"
                           title="設為預設"
                         >
-                          設預設
+                          ⭐ 設預設
                         </button>
                       )}
                       {!t.is_builtin && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
-                          className="text-xs text-red-400 hover:text-red-600 px-1"
+                          className="text-xs text-red-400 hover:text-red-600 px-1 active:scale-95 transition-transform inline-block"
                           title="刪除"
                         >
-                          刪除
+                          🗑️ 刪除
                         </button>
                       )}
                     </div>
@@ -298,13 +298,13 @@ export default function SettingsPage() {
                     <button
                       onClick={handleSave}
                       disabled={saving || !hasChanges}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                      className={`px-4 py-2 rounded-lg text-sm font-medium active:scale-95 transition-transform ${
                         hasChanges
                           ? 'bg-blue-500 text-white hover:bg-blue-600'
                           : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      {saving ? '儲存中...' : '儲存'}
+                      {saving ? '儲存中...' : '💾 儲存'}
                     </button>
                   </div>
                 </>
