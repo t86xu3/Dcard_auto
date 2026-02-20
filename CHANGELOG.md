@@ -7,6 +7,7 @@
 ### 核心功能
 - Chrome Extension 蝦皮商品擷取（三層腳本架構：injected → content → background）
 - LLM 文章生成（Gemini + Claude 雙供應商，支援多模態圖片輸入）
+- 兩階段圖片分析（Claude 附圖時由 Gemini Flash 先讀圖，節省 ~60% 成本）
 - SEO 8 項評分引擎 + LLM 自動優化（強制使用 gemini-2.5-flash 節省成本）
 - Dcard 發文輔助（content-dcard.js 偵測編輯器）
 

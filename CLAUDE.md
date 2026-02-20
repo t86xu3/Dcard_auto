@@ -212,6 +212,7 @@ Prompt 為雙層結構：`SYSTEM_INSTRUCTIONS`（程式碼層級，不可修改�
 生成文章時可指定 `prompt_template_id` 和 `model`，否則使用預設範本和預設模型。
 前端透過 localStorage 持久化使用者選擇的模型。
 支援多模態圖片輸入：`include_images=True` 時下載商品圖片（主圖/描述圖）傳入 LLM 分析。
+兩階段圖片策略：Claude 模型附圖時，先用 Gemini Flash 提取圖片文字（`_extract_image_info()`），再傳純文字給 Claude，節省 ~60% 圖片成本；Gemini 模型則直接傳圖片。
 SEO 優化強制使用 `gemini-2.5-flash`（不管前端選什麼模型），節省成本。
 
 ### Dcard 不支援 Markdown

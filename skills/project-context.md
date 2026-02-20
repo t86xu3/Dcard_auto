@@ -71,6 +71,7 @@
 | 技術文檔分層 | CLAUDE.md + PROJECT_MAP + TECH_REFERENCE | TECH_REFERENCE 不入 AI 啟動流程，減少 context 浪費 |
 | SEO 優化模型 | 強制 gemini-2.5-flash | SEO 改寫不需高階模型，成本從 NT$4→NT$0.13 |
 | 範本架構 | V1 好物推薦 + V2 Google 排名衝刺 | V2 基於 9 篇 Google 首頁文章逆向工程 |
+| Claude 圖片策略 | 兩階段：Flash 讀圖 → 純文字傳 Claude | Claude 圖片 token 昂貴，Flash 讀圖幾乎免費，節省 ~60% |
 
 ### 踩過的坑
 
