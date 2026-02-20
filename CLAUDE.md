@@ -305,6 +305,20 @@ Chrome Extension 架構複用自 `shoppe_autovideo` 專案的三層腳本模式�
 
 | 文檔 | 說明 |
 |------|------|
+| `docs/TECH_REFERENCE.md` | 完整技術參考手冊（依賴版本、配置規格、內部機制） |
 | `docs/IMPLEMENTATION_PLAN.md` | 完整實作計畫 |
 | `PROJECT_MAP.md` | 專案地圖 |
 | `skills/project-context.md` | 專案上下文 |
+
+### 文檔同步補充
+
+commit 涉及以下變更時，`docs/TECH_REFERENCE.md` 也需同步更新：
+
+| 變更類型 | 需更新的章節 |
+|----------|-------------|
+| 升級/新增依賴 | 後端依賴 / 前端依賴 |
+| 修改環境變數 | 環境變數完整參考 |
+| 修改 DB Schema | 資料庫模型 |
+| 修改 LLM 模型或定價 | LLM 服務架構 |
+| 修改 API timeout / 新增 API 函數 | Axios API Client |
+| 修改 Docker / 部署配置 | Docker 與部署配置 |

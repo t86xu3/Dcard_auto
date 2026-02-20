@@ -227,4 +227,5 @@ Dcard_auto/
 - API 路由：backend/app/api/
 - DB 模型：backend/app/models/
 - Extension 設定：chrome-extension/manifest.json
+- 技術規格：docs/TECH_REFERENCE.md
 - 參考來源：/Users/angrydragon/project/shoppe_autovideo/chrome-extension/
