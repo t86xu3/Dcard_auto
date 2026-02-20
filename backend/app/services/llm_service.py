@@ -4,6 +4,7 @@ LLM 文章生成服務 - 支援 Gemini + Anthropic Claude（含多模態圖片�
 import base64
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 import httpx
@@ -31,7 +32,10 @@ class LLMService:
         if self._gemini_client is None:
             if not settings.GOOGLE_API_KEY:
                 raise ValueError("GOOGLE_API_KEY 未設定，請在 .env 中設定")
-            self._gemini_client = genai.Client(api_key=settings.GOOGLE_API_KEY)
+            self._gemini_client = genai.Client(
+                api_key=settings.GOOGLE_API_KEY,
+                http_options=types.HttpOptions(timeout=120.0),
+            )
         return self._gemini_client
 
     @property
@@ -40,11 +44,14 @@ class LLMService:
             if not settings.ANTHROPIC_API_KEY:
                 raise ValueError("ANTHROPIC_API_KEY 未設定，請在 .env 中設定")
             import anthropic
-            self._anthropic_client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+            self._anthropic_client = anthropic.Anthropic(
+                api_key=settings.ANTHROPIC_API_KEY,
+                timeout=120.0,
+            )
         return self._anthropic_client
 
     def _download_images(self, products, image_sources: list[str]) -> list[tuple[bytes, str]]:
-        """下載商品圖片供 LLM 多模態分析
+        """下載商品圖片供 LLM 多模態分析（平行下載）
 
         Args:
             products: 商品列表
@@ -62,27 +69,32 @@ class LLMService:
                 for url in p.description_images[:5]:
                     image_urls.append(url)
 
-        image_parts = []
-        with httpx.Client(timeout=10.0) as client:
-            for url in image_urls:
-                try:
+        def _fetch_one(url):
+            try:
+                with httpx.Client(timeout=10.0) as client:
                     resp = client.get(url)
                     resp.raise_for_status()
                     img_bytes = resp.content
-                    # 過濾太小的圖片（< 1KB，可能是空白或損壞）
                     if len(img_bytes) < 1024:
                         logger.warning(f"圖片太小（{len(img_bytes)} bytes），跳過: {url[:80]}...")
-                        continue
+                        return None
                     content_type = resp.headers.get("content-type", "image/jpeg")
                     mime_type = content_type.split(";")[0].strip().lower()
-                    # 只接受這 4 種圖片格式
                     allowed_types = {"image/jpeg", "image/png", "image/gif", "image/webp"}
                     if mime_type not in allowed_types:
                         mime_type = "image/jpeg"
-                    image_parts.append((img_bytes, mime_type))
                     logger.debug(f"圖片下載成功: {url[:80]}...")
-                except Exception as e:
-                    logger.warning(f"圖片下載失敗（跳過）: {url[:80]}... - {e}")
+                    return (img_bytes, mime_type)
+            except Exception as e:
+                logger.warning(f"圖片下載失敗（跳過）: {url[:80]}... - {e}")
+                return None
+
+        image_parts = []
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            results = executor.map(_fetch_one, image_urls)
+            for result in results:
+                if result is not None:
+                    image_parts.append(result)
 
         logger.info(f"共下載 {len(image_parts)}/{len(image_urls)} 張圖片供 LLM 分析")
         return image_parts

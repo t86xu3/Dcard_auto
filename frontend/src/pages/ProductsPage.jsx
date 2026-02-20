@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getProducts, deleteProduct, batchDeleteProducts, downloadProductImages, generateArticle, getPrompts, updateProduct } from '../api/client';
+import { getProducts, deleteProduct, batchDeleteProducts, downloadProductImages, generateArticle, getPrompts, updateProduct, invalidateCache } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function ProductsPage() {
@@ -16,7 +16,6 @@ export default function ProductsPage() {
   const [editingUrlValue, setEditingUrlValue] = useState('');
 
   const loadProducts = async () => {
-    setLoading(true);
     try {
       const data = await getProducts();
       setProducts(data);
@@ -37,7 +36,7 @@ export default function ProductsPage() {
     }
   };
 
-  useEffect(() => { loadProducts(); loadPrompts(); }, []);
+  useEffect(() => { Promise.all([loadProducts(), loadPrompts()]); }, []);
 
   const toggleSelect = (id) => {
     setSelected(prev => {
@@ -58,6 +57,7 @@ export default function ProductsPage() {
   const handleDelete = async (id) => {
     if (!confirm('確定刪除此商品？')) return;
     await deleteProduct(id);
+    invalidateCache('products');
     await loadProducts();
     selected.delete(id);
     setSelected(new Set(selected));
@@ -67,6 +67,7 @@ export default function ProductsPage() {
     if (selected.size === 0) return;
     if (!confirm(`確定刪除 ${selected.size} 個商品？`)) return;
     await batchDeleteProducts([...selected]);
+    invalidateCache('products');
     setSelected(new Set());
     await loadProducts();
   };

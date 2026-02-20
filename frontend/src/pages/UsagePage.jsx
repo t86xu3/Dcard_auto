@@ -30,12 +30,10 @@ export default function UsagePage() {
   const [viewMode, setViewMode] = useState('my'); // 'my' | 'all'
 
   useEffect(() => {
-    setLoading(true);
     const fetcher = (isAdmin && viewMode === 'all') ? getAdminUsage : getUsage;
     fetcher()
-      .then(setData)
-      .catch(err => console.error('載入用量失敗:', err))
-      .finally(() => setLoading(false));
+      .then(d => { setData(d); setLoading(false); })
+      .catch(err => { console.error('載入用量失敗:', err); setLoading(false); });
   }, [viewMode, isAdmin]);
 
   if (loading) {

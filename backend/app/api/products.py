@@ -153,14 +153,14 @@ async def batch_delete_products(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """批量刪除商品（只刪自己的）"""
-    deleted_ids = []
-    for product_id in request.ids:
-        product = db.query(Product).filter(Product.id == product_id, Product.user_id == current_user.id).first()
-        if product:
-            db.delete(product)
-            deleted_ids.append(product_id)
-
+    """批量刪除商品（只刪自己的，單次查詢）"""
+    products = db.query(Product).filter(
+        Product.id.in_(request.ids),
+        Product.user_id == current_user.id,
+    ).all()
+    deleted_ids = [p.id for p in products]
+    for p in products:
+        db.delete(p)
     db.commit()
     return BatchDeleteResponse(deleted_count=len(deleted_ids), deleted_ids=deleted_ids)
 

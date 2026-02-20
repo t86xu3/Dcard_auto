@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { getArticles, getArticle, updateArticle, deleteArticle, optimizeSeo, copyArticle, analyzeSeo, analyzeSeoById } from '../api/client';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { getArticles, getArticle, updateArticle, deleteArticle, optimizeSeo, copyArticle, analyzeSeo, analyzeSeoById, invalidateCache, fetchArticlesFresh } from '../api/client';
 import SeoPanel from '../components/SeoPanel';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -131,7 +131,6 @@ export default function ArticlesPage() {
   };
 
   const loadArticles = async () => {
-    setLoading(true);
     try {
       const data = await getArticles();
       setArticles(data);
@@ -141,12 +140,18 @@ export default function ArticlesPage() {
     setLoading(false);
   };
 
-  // 靜默輪詢（不觸發 loading 狀態）
-  const pollArticles = async () => {
+  const articlesRef = useRef(articles);
+  articlesRef.current = articles;
+  const selectedArticleRef = useRef(selectedArticle);
+  selectedArticleRef.current = selectedArticle;
+  const pollStartRef = useRef(null);
+
+  // 靜默輪詢（不觸發 loading 狀態，跳過快取）
+  const pollArticles = useCallback(async () => {
     try {
-      const data = await getArticles();
-      // 檢查是否有文章從 generating 變成其他狀態
-      const prevGenerating = articles.filter(a => a.status === 'generating').map(a => a.id);
+      const data = await fetchArticlesFresh();
+      const prev = articlesRef.current;
+      const prevGenerating = prev.filter(a => a.status === 'generating').map(a => a.id);
       const nowCompleted = data.filter(a => prevGenerating.includes(a.id) && a.status !== 'generating');
       nowCompleted.forEach(a => {
         if (a.status === 'draft') {
@@ -156,10 +161,10 @@ export default function ArticlesPage() {
         }
       });
       setArticles(data);
-      // 同步更新已選中的文章
-      if (selectedArticle) {
-        const updated = data.find(a => a.id === selectedArticle.id);
-        if (updated && updated.status !== selectedArticle.status) {
+      const sel = selectedArticleRef.current;
+      if (sel) {
+        const updated = data.find(a => a.id === sel.id);
+        if (updated && updated.status !== sel.status) {
           setSelectedArticle(updated);
           setEditContent(updated.content || '');
           setEditTitle(updated.title || '');
@@ -168,17 +173,36 @@ export default function ArticlesPage() {
     } catch (err) {
       console.error('輪詢文章失敗:', err);
     }
-  };
+  }, []);
 
   useEffect(() => { loadArticles(); }, []);
 
-  // 偵測到 generating 狀態時每 5 秒輪詢
+  // 偵測到 generating 狀態時啟動退避輪詢
   useEffect(() => {
     const hasGenerating = articles.some(a => a.status === 'generating');
-    if (!hasGenerating) return;
-    const interval = setInterval(pollArticles, 5000);
-    return () => clearInterval(interval);
-  }, [articles]);
+    if (!hasGenerating) {
+      pollStartRef.current = null;
+      return;
+    }
+    if (!pollStartRef.current) pollStartRef.current = Date.now();
+
+    function getInterval() {
+      const elapsed = Date.now() - pollStartRef.current;
+      if (elapsed < 30_000) return 3_000;   // 前 30 秒：每 3 秒
+      if (elapsed < 60_000) return 10_000;  // 30-60 秒：每 10 秒
+      return 20_000;                        // 60 秒後：每 20 秒
+    }
+
+    let timer;
+    function schedule() {
+      timer = setTimeout(async () => {
+        await pollArticles();
+        schedule();
+      }, getInterval());
+    }
+    schedule();
+    return () => clearTimeout(timer);
+  }, [articles, pollArticles]);
 
   const selectArticle = async (id) => {
     try {
@@ -209,6 +233,7 @@ export default function ArticlesPage() {
       const updated = await updateArticle(selectedArticle.id, { content: editContent });
       setSelectedArticle(updated);
       setEditing(false);
+      invalidateCache('articles');
       await loadArticles();
     } catch (err) {
       alert('儲存失敗');
@@ -221,6 +246,7 @@ export default function ArticlesPage() {
       const updated = await updateArticle(selectedArticle.id, { title: editTitle });
       setSelectedArticle(updated);
       setEditingTitle(false);
+      invalidateCache('articles');
       await loadArticles();
     } catch (err) {
       alert('標題儲存失敗');
@@ -230,6 +256,7 @@ export default function ArticlesPage() {
   const handleDelete = async (id) => {
     if (!confirm('確定刪除此文章？')) return;
     await deleteArticle(id);
+    invalidateCache('articles');
     if (selectedArticle?.id === id) setSelectedArticle(null);
     await loadArticles();
   };
@@ -247,6 +274,7 @@ export default function ArticlesPage() {
       setSeoOptimized(true);
       setSeoBeforeScore(resp.before_score);
       setSeoBeforeAnalysis(resp.before_analysis || null);
+      invalidateCache('articles');
       await loadArticles();
     } catch (err) {
       alert('SEO 優化失敗');

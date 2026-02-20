@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useExtensionDetect } from '../hooks/useExtensionDetect';
-import { getPrompts, createPrompt, updatePrompt, deletePrompt, setDefaultPrompt } from '../api/client';
+import { getPrompts, createPrompt, updatePrompt, deletePrompt, setDefaultPrompt, invalidateCache } from '../api/client';
 
 export default function SettingsPage() {
   const { status, extensionInfo, extensionId, retry } = useExtensionDetect();
@@ -21,7 +21,6 @@ export default function SettingsPage() {
   const [loadingTemplates, setLoadingTemplates] = useState(true);
 
   const loadTemplates = async () => {
-    setLoadingTemplates(true);
     try {
       const data = await getPrompts();
       setTemplates(data);
@@ -64,6 +63,7 @@ export default function SettingsPage() {
       } else {
         await updatePrompt(selectedId, { name: editName, content: editContent });
       }
+      invalidateCache('prompts');
       await loadTemplates();
     } catch (err) {
       alert('儲存失敗: ' + (err.response?.data?.detail || err.message));
@@ -75,6 +75,7 @@ export default function SettingsPage() {
     if (!confirm('確定刪除此範本？')) return;
     try {
       await deletePrompt(id);
+      invalidateCache('prompts');
       if (selectedId === id) {
         setSelectedId(null);
         setEditName('');
@@ -89,6 +90,7 @@ export default function SettingsPage() {
   const handleSetDefault = async (id) => {
     try {
       await setDefaultPrompt(id);
+      invalidateCache('prompts');
       await loadTemplates();
     } catch (err) {
       alert('設定預設失敗: ' + (err.response?.data?.detail || err.message));

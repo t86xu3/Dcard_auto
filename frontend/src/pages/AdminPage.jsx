@@ -11,7 +11,6 @@ export default function AdminPage() {
   const [promptsExpanded, setPromptsExpanded] = useState(false);
 
   const loadUsers = async () => {
-    setLoading(true);
     try {
       const resp = await api.get('/admin/users');
       setUsers(resp.data);
