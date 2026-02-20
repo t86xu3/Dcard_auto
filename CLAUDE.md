@@ -208,9 +208,11 @@ from jwt import InvalidTokenError as JWTError
 
 支援 Gemini + Anthropic Claude 雙供應商。透過 `is_anthropic_model()` 判斷 model 前綴自動路由。
 Prompt 為雙層結構：`SYSTEM_INSTRUCTIONS`（程式碼層級，不可修改）+ 使用者範本（存 DB，可在設定頁管理）。
+內建兩套範本：「Dcard 好物推薦文」（V1）和「Google 排名衝刺版」（V2，基於 9 篇 Google 首頁文章逆向工程）。
 生成文章時可指定 `prompt_template_id` 和 `model`，否則使用預設範本和預設模型。
 前端透過 localStorage 持久化使用者選擇的模型。
 支援多模態圖片輸入：`include_images=True` 時下載商品圖片（主圖/描述圖）傳入 LLM 分析。
+SEO 優化強制使用 `gemini-2.5-flash`（不管前端選什麼模型），節省成本。
 
 ### Dcard 不支援 Markdown
 
@@ -258,6 +260,10 @@ Phase 1（核心功能）、Phase 3（雲端部署）、Phase 4（多用戶帳�
 - [x] LLM 多模態圖片輸入（附圖給 LLM 分析商品規格/成分/尺寸）
 - [x] 商品網址手動編輯 + LLM 正確對應連結
 - [x] UI 圖標與點擊回饋（全站按鈕加 emoji + active:scale-95）
+- [x] SEO 排名衝刺版範本（V2，基於 Google 首頁文章逆向工程）
+- [x] 管理員頁面系統提示詞檢視（4 區塊）
+- [x] SEO 優化強制使用 gemini-2.5-flash（節省成本）
+- [x] 瀏覽器分頁 favicon + 標題
 - [ ] 批量生成
 - [ ] Chrome Extension icon 美化（設計正式 logo）
 

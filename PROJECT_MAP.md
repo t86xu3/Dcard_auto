@@ -99,11 +99,14 @@ Dcard_auto/
 │   │   │   └── GuidePage.jsx     # 測試人員使用說明
 │   │   └── hooks/
 │   │       └── useExtensionDetect.js
+│   ├── public/
+│   │   └── favicon.svg         # 自訂 Dcard 風格 favicon
 │   ├── package.json
 │   └── vite.config.js
 │
 ├── docs/                      # 詳細設計文檔
-│   └── IMPLEMENTATION_PLAN.md
+│   ├── IMPLEMENTATION_PLAN.md
+│   └── TECH_REFERENCE.md     # 完整技術參考手冊
 ├── firebase.json             # Firebase Hosting + Cloud Run rewrite
 ├── .firebaserc               # Firebase 專案設定
 ├── CLAUDE.md
@@ -128,10 +131,10 @@ Dcard_auto/
 | 文章生成 API | backend/app/api/articles.py | 比較文/開箱文生成（+認證+資料隔離）|
 | SEO 分析 API | backend/app/api/seo.py | SEO 評分 + 按文章 ID 分析並存入 DB（+認證）|
 | Prompt 範本 API | backend/app/api/prompts.py | 範本 CRUD + 設為預設（+認證）|
-| LLM 服務 | backend/app/services/llm_service.py | Gemini 文章生成（system_instruction 分離）|
-| Prompt 範本服務 | backend/app/services/prompts.py | 內建範本 seed + 預設取得 |
-| Gemini 共用工具 | backend/app/services/gemini_utils.py | strip_markdown + track_usage |
-| SEO 服務 | backend/app/services/seo_service.py | 8 項 SEO 評分引擎 + LLM 優化 |
+| LLM 服務 | backend/app/services/llm_service.py | 多供應商文章生成（Gemini + Claude，system_instruction 分離）|
+| Prompt 範本服務 | backend/app/services/prompts.py | 雙內建範本 seed（好物推薦文 + Google 排名衝刺版）+ SYSTEM_INSTRUCTIONS |
+| Gemini 共用工具 | backend/app/services/gemini_utils.py | strip_markdown + track_usage（支援 Gemini/Claude 雙軌）|
+| SEO 服務 | backend/app/services/seo_service.py | 8 項 SEO 評分引擎 + LLM 優化（強制使用 gemini-2.5-flash）|
 | 圖片服務 | backend/app/services/image_service.py | 圖片下載、備份、打包 ZIP |
 | 文章任務 | backend/app/tasks/article_tasks.py | Celery 非同步生成 |
 | 儀表板 | frontend/src/pages/DashboardPage.jsx | 系統概覽 |
@@ -144,7 +147,7 @@ Dcard_auto/
 | 認證 Context | frontend/src/contexts/AuthContext.jsx | AuthProvider + useAuth hook |
 | 路由守衛 | frontend/src/components/ProtectedRoute.jsx | 未登入導向 /login |
 | 登入頁 | frontend/src/pages/LoginPage.jsx | 登入/註冊 Tab 切換 |
-| 管理員頁 | frontend/src/pages/AdminPage.jsx | 用戶列表 + 核准/停用 |
+| 管理員頁 | frontend/src/pages/AdminPage.jsx | 用戶列表 + 核准/停用 + 系統提示詞檢視（4 區塊）|
 
 ## 開發進度
 
@@ -168,6 +171,10 @@ Dcard_auto/
 - [x] 用量追蹤 Bug 修復（usage_tracker.track → record_usage）
 - [x] LLM 多模態圖片輸入（附圖給 LLM 分析商品規格/成分/尺寸）
 - [x] 商品網址手動編輯 + LLM 正確對應連結
+- [x] SEO 排名衝刺版範本（基於 9 篇 Google 首頁文章逆向工程）
+- [x] 管理員頁面顯示 4 區塊系統提示詞（SYSTEM_INSTRUCTIONS + SEO + V1 + V2）
+- [x] SEO 優化強制使用 gemini-2.5-flash（節省成本）
+- [x] 瀏覽器分頁 favicon + 標題
 - [ ] 批量生成功能
 - [ ] Chrome Extension icon 美化（設計正式 logo）
 
