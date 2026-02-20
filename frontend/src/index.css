@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+/* Tailwind CSS 4 preflight 將 button cursor 重設為 default，這裡覆蓋回 pointer */
+@layer base {
+  button, [role="button"] {
+    cursor: pointer;
+  }
+}
