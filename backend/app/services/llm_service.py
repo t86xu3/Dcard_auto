@@ -69,8 +69,10 @@ class LLMService:
                     resp = client.get(url)
                     resp.raise_for_status()
                     content_type = resp.headers.get("content-type", "image/jpeg")
-                    mime_type = content_type.split(";")[0].strip()
-                    if not mime_type.startswith("image/"):
+                    mime_type = content_type.split(";")[0].strip().lower()
+                    # Claude API 只接受這 4 種 media_type
+                    allowed_types = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+                    if mime_type not in allowed_types:
                         mime_type = "image/jpeg"
                     image_parts.append((resp.content, mime_type))
                     logger.debug(f"圖片下載成功: {url[:80]}...")
