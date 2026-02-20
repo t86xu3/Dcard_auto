@@ -12,7 +12,7 @@
 | 後端框架 | FastAPI | latest | REST API |
 | ORM | SQLAlchemy | 2.x | 資料庫抽象 |
 | DB 遷移 | Alembic | latest | Schema 版本控制 |
-| 任務佇列 | Celery + Redis | latest | 非同步文章生成 |
+| 任務佇列 | Celery + Redis | latest | 非同步文章生成（已改用 threading.Thread） |
 | 資料庫 | SQLite → PostgreSQL | - | 開發用 SQLite / 生產用 Supabase PostgreSQL |
 | LLM | Google Gemini API | 2.5 Flash/Pro, 3 Pro | 文章生成 + SEO 優化 |
 | LLM | Anthropic Claude API | Sonnet 4.5, Haiku 4.5 | 文章生成 + SEO 優化 |
@@ -128,11 +128,11 @@ Dcard_auto/
 | 認證 API | backend/app/api/auth.py | 註冊/登入/刷新 Token/取得用戶資訊 |
 | 管理員 API | backend/app/api/admin.py | 用戶列表/核准/停用/全站費用總覽 |
 | 商品 API | backend/app/api/products.py | 商品 CRUD + 圖片下載（+認證+資料隔離）|
-| 文章生成 API | backend/app/api/articles.py | 比較文/開箱文生成（+認證+資料隔離）|
+| 文章生成 API | backend/app/api/articles.py | 非同步生成（背景執行緒）+ CRUD + SEO 優化（自動更新標題）（+認證+資料隔離）|
 | SEO 分析 API | backend/app/api/seo.py | SEO 評分 + 按文章 ID 分析並存入 DB（+認證）|
-| Prompt 範本 API | backend/app/api/prompts.py | 範本 CRUD + 設為預設（+認證）|
-| LLM 服務 | backend/app/services/llm_service.py | 多供應商文章生成（Gemini + Claude，system_instruction 分離）|
-| Prompt 範本服務 | backend/app/services/prompts.py | 雙內建範本 seed（好物推薦文 + Google 排名衝刺版）+ SYSTEM_INSTRUCTIONS |
+| Prompt 範本 API | backend/app/api/prompts.py | 範本 CRUD + 設為預設（含內建範本可編輯/刪除）（+認證）|
+| LLM 服務 | backend/app/services/llm_service.py | 多供應商文章生成（Gemini + Claude，圖片失敗 fallback 純文字）|
+| Prompt 範本服務 | backend/app/services/prompts.py | 雙內建範本 seed + SYSTEM_INSTRUCTIONS（標題 20-35 字）|
 | Gemini 共用工具 | backend/app/services/gemini_utils.py | strip_markdown + track_usage（支援 Gemini/Claude 雙軌）|
 | SEO 服務 | backend/app/services/seo_service.py | 8 項 SEO 評分引擎 + LLM 優化（強制使用 gemini-2.5-flash）|
 | 圖片服務 | backend/app/services/image_service.py | 圖片下載、備份、打包 ZIP |
@@ -140,7 +140,7 @@ Dcard_auto/
 | 儀表板 | frontend/src/pages/DashboardPage.jsx | 系統概覽 |
 | 商品管理 | frontend/src/pages/ProductsPage.jsx | 商品列表與操作 |
 | 文章管理 | frontend/src/pages/ArticlesPage.jsx | 文章編輯與發佈 |
-| SEO 面板 | frontend/src/components/SeoPanel.jsx | 環形分數圖 + 8 項進度條 + 關鍵字標籤 |
+| SEO 面板 | frontend/src/components/SeoPanel.jsx | 環形分數圖 + 8 項進度條 + 關鍵字標籤（可折疊，預設收合）|
 | Extension 偵測 | frontend/src/hooks/useExtensionDetect.js | 自動偵測插件 |
 | 費用追蹤 | frontend/src/pages/UsagePage.jsx | 按模型分組的費用統計 + 30天趨勢 + 管理員全站總覽 |
 | 使用說明 | frontend/src/pages/GuidePage.jsx | 測試人員操作指南 |
@@ -175,6 +175,13 @@ Dcard_auto/
 - [x] 管理員頁面顯示 4 區塊系統提示詞（SYSTEM_INSTRUCTIONS + SEO + V1 + V2）
 - [x] SEO 優化強制使用 gemini-2.5-flash（節省成本）
 - [x] 瀏覽器分頁 favicon + 標題
+- [x] 非同步文章生成（threading.Thread + placeholder + 前端 5 秒輪詢）
+- [x] SEO 優化自動更新標題（LLM 輸出解析 + DB 同步 + 前端 editTitle 同步）
+- [x] 文章編輯自動同步 content_with_images（PUT content 時自動重建）
+- [x] SEO 面板折疊（預設收合，點擊標題列展開）
+- [x] Gemini 圖片處理 fallback（400 INVALID_ARGUMENT → 純文字重試）
+- [x] 標題長度規範統一（全站 20-35 字：範本 + SEO prompt + 評分引擎）
+- [x] 內建範本可編輯/刪除（移除 is_builtin 限制）
 - [ ] 批量生成功能
 - [ ] Chrome Extension icon 美化（設計正式 logo）
 

@@ -240,6 +240,7 @@ export default function ArticlesPage() {
     try {
       const resp = await optimizeSeo(selectedArticle.id, localStorage.getItem('llmModel'));
       setSelectedArticle(resp.article);
+      setEditTitle(resp.article.title || '');
       setEditContent(resp.article.content || '');
       // 顯示優化後的完整分析
       setSeoResult(resp.after_analysis || resp.article.seo_suggestions);

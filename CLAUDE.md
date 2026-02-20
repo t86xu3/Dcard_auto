@@ -127,9 +127,10 @@ Vite dev server（port 3001）自動代理 `/api` 請求到後端（port 8001）
 擷取商品 → 儲存蝦皮 CDN URL（images + description_images）
               ├── 可選：下載到 backend/images/{product_id}/
               ├── 文章生成時（多模態）：
-              │   ├── 使用者勾選「附圖給 LLM」→ 下載圖片 → 傳入 LLM 分析
-              │   ├── Gemini: types.Part.from_bytes() / Claude: base64 編碼
-              │   └── 圖片來源可選：主圖(max 3)、描述圖(max 5)
+              │   ├── 使用者勾選「附描述圖給 LLM」→ 下載描述圖(max 5) → 傳入 LLM 分析
+              │   ├── Gemini: types.Part.from_bytes()（失敗自動 fallback 純文字）
+              │   ├── Claude: 兩階段策略（Gemini Flash 讀圖 → 純文字傳 Claude）
+              │   └── 過濾 < 1KB 的損壞/空白圖片
               └── 文章生成時（標記）：
                   ├── LLM 插入 {{IMAGE:product_id:index}} 標記
                   ├── 後端替換為實際圖片 URL
@@ -144,7 +145,7 @@ Vite dev server（port 3001）自動代理 `/api` 請求到後端（port 8001）
 
 - **User.is_approved**：管理員核准後才能使用 LLM 功能（`get_approved_user` 依賴注入檢查）
 - **Product**：`user_id` FK，`(user_id, item_id)` 組合唯一（同商品不同用戶可各自擷取）
-- **Article**：`product_ids` / `image_map` 為 JSON 欄位；`content_with_images` 含 `{{IMAGE:pid:idx}}` 標記
+- **Article**：`product_ids` / `image_map` 為 JSON 欄位；`content_with_images` 含 `{{IMAGE:pid:idx}}` 標記；`status` 可為 `generating`/`failed`/`draft`/`optimized`/`published`
 - **UsageRecord**：`(provider, model, usage_date, user_id)` 唯一約束，每天每用戶每模型一筆累加
 - **ApiUsage**：舊版用量模型，已被 UsageRecord 取代，保留向後相容
 
@@ -168,15 +169,15 @@ Vite dev server（port 3001）自動代理 `/api` 請求到後端（port 8001）
 | `/api/products/{id}` | GET/PATCH | 商品詳情/更新（目前 PATCH 僅支援 product_url） |
 | `/api/products/batch-delete` | POST | 批量刪除 |
 | `/api/products/{id}/download-images` | POST | 下載圖片到本地 |
-| `/api/articles/generate` | POST | 生成比較文（支援 include_images 多模態圖片輸入） |
+| `/api/articles/generate` | POST | 非同步生成文章（立即回傳 placeholder，背景執行緒生成） |
 | `/api/articles` | GET | 文章列表 |
-| `/api/articles/{id}` | GET/PUT/DELETE | 文章 CRUD |
-| `/api/articles/{id}/optimize-seo` | POST | SEO 優化 |
+| `/api/articles/{id}` | GET/PUT/DELETE | 文章 CRUD（PUT content 自動同步 content_with_images） |
+| `/api/articles/{id}/optimize-seo` | POST | SEO 優化（自動更新標題+內容+分數） |
 | `/api/articles/{id}/copy` | GET | Dcard 格式化內容 |
 | `/api/articles/{id}/images` | GET | 文章圖片列表 |
 | `/api/articles/{id}/images/download` | GET | 打包下載 ZIP |
 | `/api/prompts` | GET/POST | Prompt 範本列表/新增 |
-| `/api/prompts/{id}` | PUT/DELETE | 範本更新/刪除 |
+| `/api/prompts/{id}` | PUT/DELETE | 範本更新/刪除（含內建範本） |
 | `/api/prompts/{id}/set-default` | POST | 設為預設範本 |
 | `/api/seo/analyze` | POST | SEO 分析（傳入 title+content） |
 | `/api/seo/analyze/{article_id}` | POST | 按文章 ID 分析 SEO 並存入 DB |
@@ -204,16 +205,22 @@ from jwt import InvalidTokenError as JWTError
 
 使用新版 `google.genai`（`from google import genai`），非舊版 `google.generativeai`。
 
-### 文章生成架構（多供應商）
+### 文章生成架構（非同步 + 多供應商）
+
+**非同步生成**：`POST /generate` 建立 placeholder Article（`status="generating"`）後立即回傳，啟動 `threading.Thread` 在背景執行 LLM 生成。背景執行緒使用獨立 DB session（`get_db_session()`），成功更新為 `status="draft"`，失敗更新為 `status="failed"`。Cloud Run 部署需加 `--no-cpu-throttling` 確保回應後背景執行緒仍有 CPU。
+
+**Article status 值**：`generating`（生成中）→ `draft`（草稿）→ `optimized`（已 SEO 優化）→ `published`（已發佈）；`failed`（生成失敗）。
 
 支援 Gemini + Anthropic Claude 雙供應商。透過 `is_anthropic_model()` 判斷 model 前綴自動路由。
 Prompt 為雙層結構：`SYSTEM_INSTRUCTIONS`（程式碼層級，不可修改）+ 使用者範本（存 DB，可在設定頁管理）。
-內建兩套範本：「Dcard 好物推薦文」（V1）和「Google 排名衝刺版」（V2，基於 9 篇 Google 首頁文章逆向工程）。
+內建兩套範本：「Dcard 好物推薦文」（V1）和「Google 排名衝刺版」（V2，基於 9 篇 Google 首頁文章逆向工程）。內建範本可修改和刪除。
 生成文章時可指定 `prompt_template_id` 和 `model`，否則使用預設範本和預設模型。
 前端透過 localStorage 持久化使用者選擇的模型。
-支援多模態圖片輸入：`include_images=True` 時下載商品圖片（主圖/描述圖）傳入 LLM 分析。
-兩階段圖片策略：Claude 模型附圖時，先用 Gemini Flash 提取圖片文字（`_extract_image_info()`），再傳純文字給 Claude，節省 ~60% 圖片成本；Gemini 模型則直接傳圖片。
+支援多模態圖片輸入：`include_images=True` 時下載商品描述圖傳入 LLM 分析（前端已移除主圖選項，固定只傳描述圖）。
+兩階段圖片策略：Claude 模型附圖時，先用 Gemini Flash 提取圖片文字（`_extract_image_info()`），再傳純文字給 Claude，節省 ~60% 圖片成本；Gemini 模型則直接傳圖片（圖片處理失敗時自動 fallback 為純文字模式）。
 SEO 優化強制使用 `gemini-2.5-flash`（不管前端選什麼模型），節省成本。
+SEO 優化時自動從 LLM 輸出解析新標題（第一個非空行），同時更新 `article.title` 和 `article.content`，after_analysis 使用新標題重新評分。
+標題長度規範全站統一為 20-35 字（生成範本、SEO 優化 prompt、SYSTEM_INSTRUCTIONS、SEO 評分引擎）。
 
 ### Dcard 不支援 Markdown
 
@@ -222,7 +229,7 @@ SEO 優化強制使用 `gemini-2.5-flash`（不管前端選什麼模型），節
 ### DB Session 雙模式
 
 - `get_db()`：FastAPI 依賴注入用（generator）
-- `get_db_session()`：Celery 等非 FastAPI 環境用（context manager）
+- `get_db_session()`：背景執行緒 / Celery 等非 FastAPI 環境用（context manager）
 
 ### 服務單例
 
@@ -265,6 +272,13 @@ Phase 1（核心功能）、Phase 3（雲端部署）、Phase 4（多用戶帳�
 - [x] 管理員頁面系統提示詞檢視（4 區塊）
 - [x] SEO 優化強制使用 gemini-2.5-flash（節省成本）
 - [x] 瀏覽器分頁 favicon + 標題
+- [x] 非同步文章生成（背景執行緒 + placeholder + 前端輪詢）
+- [x] SEO 優化自動更新標題（LLM 輸出解析 + DB 同步）
+- [x] 文章編輯自動同步 content_with_images
+- [x] SEO 面板折疊（預設收合，點擊展開）
+- [x] Gemini 圖片處理 fallback（400 錯誤 → 純文字重試）
+- [x] 標題長度規範統一（20-35 字）
+- [x] 內建範本可編輯/刪除
 - [ ] 批量生成
 - [ ] Chrome Extension icon 美化（設計正式 logo）
 
@@ -293,7 +307,7 @@ Phase 1（核心功能）、Phase 3（雲端部署）、Phase 4（多用戶帳�
 # 後端部署（Cloud Run）
 cd backend
 gcloud builds submit --tag asia-east1-docker.pkg.dev/PROJECT_ID/cloud-run-source-deploy/dcard-auto-backend
-gcloud run deploy dcard-auto-backend --image IMAGE_URL --region asia-east1
+gcloud run deploy dcard-auto-backend --image IMAGE_URL --region asia-east1 --no-cpu-throttling
 
 # 前端部署（Firebase Hosting）
 cd frontend && npm run build

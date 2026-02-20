@@ -90,7 +90,7 @@ function KeywordPill({ keyword }) {
  * @param {Object} props.beforeAnalysis - 優化前的完整分析（含 breakdown）
  */
 export default function SeoPanel({ data, optimized = false, beforeScore = null, beforeAnalysis = null }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   if (!data) return null;
 

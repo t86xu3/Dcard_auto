@@ -20,7 +20,7 @@ SEO_OPTIMIZE_PROMPT = """你是一位 Dcard SEO 優化專家，專門優化文�
 ===== 標題優化（最高優先） =====
 標題決定 60% 的 Google 排名。最佳格式：
 【{年份}{關鍵字}推薦】{痛點Hook}！{N}款Dcard/PTT熱議評比：{受眾標籤}、{品牌名}
-- 標題 30-50 字（Google SERP 最佳顯示範圍）
+- 標題 20-35 字（Google SERP 最佳顯示範圍）
 - 必須包含：年份、主關鍵字、「推薦」、「Dcard/PTT」
 - 加入品牌名（長尾關鍵字入口）
 - 加入受眾標籤（小資/租屋/學生等，捕獲意圖搜尋）
@@ -640,10 +640,24 @@ class SeoService:
             # 清除可能殘留的 Markdown
             optimized_content = strip_markdown(optimized_content)
 
-            # 優化後重新分析
-            after_analysis = self.analyze(title=article.title, content=optimized_content)
+            # 從 LLM 輸出中解析優化後的標題（第一個非空行）
+            optimized_title = article.title  # 預設保留原標題
+            lines = optimized_content.strip().split('\n')
+            skip_patterns = {'---', '===', '***', '- - -', '* * *'}
+            for i, line in enumerate(lines):
+                stripped = line.strip()
+                if not stripped or stripped in skip_patterns:
+                    continue
+                # 第一個有意義的行作為標題
+                optimized_title = stripped.lstrip('#').strip()
+                optimized_content = '\n'.join(lines[i + 1:]).strip()
+                break
+
+            # 優化後重新分析（使用新標題）
+            after_analysis = self.analyze(title=optimized_title, content=optimized_content)
 
             return {
+                "optimized_title": optimized_title,
                 "optimized_content": optimized_content,
                 "score": after_analysis["score"],
                 "suggestions": after_analysis["suggestions"],

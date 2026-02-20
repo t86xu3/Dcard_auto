@@ -239,6 +239,16 @@ async def update_article(
     for key, value in update_data.items():
         setattr(article, key, value)
 
+    # content 更新時同步重新生成 content_with_images
+    if "content" in update_data and article.image_map:
+        content_with_images = article.content
+        for marker, img_url in article.image_map.items():
+            content_with_images = content_with_images.replace(
+                f"{{{{{marker}}}}}",
+                f"\n\n![商品圖片]({img_url})\n\n"
+            )
+        article.content_with_images = content_with_images
+
     db.commit()
     db.refresh(article)
     return article
@@ -275,7 +285,9 @@ async def optimize_seo(
     from app.services.seo_service import seo_service
 
     result = seo_service.optimize_with_llm(article, model=model, user_id=current_user.id)
+    optimized_title = result.get("optimized_title", article.title)
     optimized_content = result.get("optimized_content", article.content)
+    article.title = optimized_title
     article.content = optimized_content
 
     # 同步更新 content_with_images：重新替換圖片標記
