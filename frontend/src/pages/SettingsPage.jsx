@@ -72,11 +72,6 @@ export default function SettingsPage() {
   };
 
   const handleDelete = async (id) => {
-    const t = templates.find(t => t.id === id);
-    if (t?.is_builtin) {
-      alert('內建範本不可刪除');
-      return;
-    }
     if (!confirm('確定刪除此範本？')) return;
     try {
       await deletePrompt(id);
@@ -253,15 +248,13 @@ export default function SettingsPage() {
                           ⭐ 設預設
                         </button>
                       )}
-                      {!t.is_builtin && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
-                          className="text-xs text-red-400 hover:text-red-600 px-1 active:scale-95 transition-transform inline-block"
-                          title="刪除"
-                        >
-                          🗑️ 刪除
-                        </button>
-                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
+                        className="text-xs text-red-400 hover:text-red-600 px-1 active:scale-95 transition-transform inline-block"
+                        title="刪除"
+                      >
+                        🗑️ 刪除
+                      </button>
                     </div>
                   </div>
                 </div>

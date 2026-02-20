@@ -12,7 +12,6 @@ export default function ProductsPage() {
   const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState(null); // { type: 'success'|'error', message }
   const [includeImages, setIncludeImages] = useState(false);
-  const [imageSources, setImageSources] = useState(['description']);
   const [editingUrlId, setEditingUrlId] = useState(null);
   const [editingUrlValue, setEditingUrlValue] = useState('');
 
@@ -93,10 +92,10 @@ export default function ProductsPage() {
       }
       if (includeImages) {
         payload.include_images = true;
-        payload.image_sources = imageSources;
+        payload.image_sources = ['description'];
       }
       await generateArticle(payload);
-      showToast('success', '文章已生成！請到文章管理頁面查看。');
+      showToast('success', '文章生成中，可到文章管理頁查看進度');
     } catch (err) {
       showToast('error', '生成失敗: ' + (err.response?.data?.detail || err.message));
     }
@@ -136,17 +135,6 @@ export default function ProductsPage() {
 
   return (
     <div className="p-8 relative">
-      {/* 生成中 Overlay */}
-      {generating && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl p-8 shadow-xl flex flex-col items-center gap-4">
-            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <div className="text-lg font-semibold text-gray-800">文章生成中...</div>
-            <div className="text-sm text-gray-400">LLM 正在撰寫文章，請稍候</div>
-          </div>
-        </div>
-      )}
-
       {/* Toast 通知 */}
       {toast && (
         <div className={`fixed top-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium transition-all ${
@@ -174,50 +162,15 @@ export default function ProductsPage() {
                   ))}
                 </select>
               )}
-              <div className="relative">
-                <label className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-pointer hover:bg-gray-50">
-                  <input
-                    type="checkbox"
-                    checked={includeImages}
-                    onChange={(e) => setIncludeImages(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span>🖼️ 附圖給 LLM</span>
-                </label>
-                {includeImages && (
-                  <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-10 w-56">
-                    <div className="flex flex-col gap-2 text-sm">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={imageSources.includes('main')}
-                          onChange={(e) => {
-                            setImageSources(prev =>
-                              e.target.checked ? [...prev, 'main'] : prev.filter(s => s !== 'main')
-                            );
-                          }}
-                          className="rounded"
-                        />
-                        <span>📸 主圖（商品照片）</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={imageSources.includes('description')}
-                          onChange={(e) => {
-                            setImageSources(prev =>
-                              e.target.checked ? [...prev, 'description'] : prev.filter(s => s !== 'description')
-                            );
-                          }}
-                          className="rounded"
-                        />
-                        <span>📋 描述圖（規格/成分）</span>
-                      </label>
-                    </div>
-                    <p className="text-xs text-emerald-600 mt-2">附圖由 Gemini Flash 免費讀取，不額外增加 Claude 費用</p>
-                  </div>
-                )}
-              </div>
+              <label className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-pointer hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  checked={includeImages}
+                  onChange={(e) => setIncludeImages(e.target.checked)}
+                  className="rounded"
+                />
+                <span>🖼️ 附描述圖給 LLM</span>
+              </label>
               <button
                 onClick={handleGenerate}
                 disabled={generating || !user?.is_approved}

@@ -1,6 +1,8 @@
 """
 文章 API 路由
 """
+import threading
+import logging
 from typing import List, Optional
 from datetime import datetime
 
@@ -10,10 +12,12 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import httpx
 
-from app.db.database import get_db
+from app.db.database import get_db, get_db_session
 from app.models.article import Article
 from app.models.user import User
 from app.auth import get_current_user, get_approved_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -73,14 +77,72 @@ async def image_proxy(url: str = Query(..., description="圖片 URL")):
     return Response(content=resp.content, media_type=content_type)
 
 
+def _generate_article_background(
+    article_id: int,
+    product_ids: List[int],
+    article_type: str,
+    target_forum: str,
+    prompt_template_id: Optional[int],
+    model: Optional[str],
+    user_id: int,
+    include_images: bool,
+    image_sources: List[str],
+):
+    """背景執行緒：實際執行 LLM 文章生成"""
+    from app.services.llm_service import llm_service
+    from app.services.seo_service import seo_service
+    from app.models.product import Product
+
+    with get_db_session() as db:
+        try:
+            products = db.query(Product).filter(
+                Product.id.in_(product_ids),
+                Product.user_id == user_id,
+            ).all()
+
+            result = llm_service.generate_article(
+                products=products,
+                db=db,
+                article_type=article_type,
+                target_forum=target_forum,
+                prompt_template_id=prompt_template_id,
+                model=model,
+                user_id=user_id,
+                include_images=include_images,
+                image_sources=image_sources,
+            )
+
+            # 自動 SEO 分析
+            seo_result = seo_service.analyze(title=result["title"], content=result["content"])
+
+            # 更新 placeholder 文章
+            article = db.query(Article).filter(Article.id == article_id).first()
+            if article:
+                article.title = result["title"]
+                article.content = result["content"]
+                article.content_with_images = result["content_with_images"]
+                article.image_map = result.get("image_map")
+                article.seo_score = seo_result["score"]
+                article.seo_suggestions = seo_result
+                article.status = "draft"
+                db.commit()
+                logger.info(f"文章 {article_id} 生成完成")
+        except Exception as e:
+            logger.error(f"文章 {article_id} 生成失敗: {e}")
+            article = db.query(Article).filter(Article.id == article_id).first()
+            if article:
+                article.status = "failed"
+                article.title = f"生成失敗：{str(e)[:100]}"
+                db.commit()
+
+
 @router.post("/generate", response_model=ArticleResponse)
 async def generate_article(
     request: ArticleGenerateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_approved_user),
 ):
-    """生成文章（需已核准用戶）"""
-    from app.services.llm_service import llm_service
+    """生成文章（需已核准用戶）— 非同步：立即回傳 placeholder，背景生成"""
     from app.models.product import Product
 
     # 驗證 product_ids 屬於當前用戶
@@ -93,40 +155,39 @@ async def generate_article(
     if len(products) != len(request.product_ids):
         raise HTTPException(status_code=403, detail="部分商品不屬於你")
 
-    # 生成文章
-    result = llm_service.generate_article(
-        products=products,
-        db=db,
-        article_type=request.article_type,
-        target_forum=request.target_forum,
-        prompt_template_id=request.prompt_template_id,
-        model=request.model,
-        user_id=current_user.id,
-        include_images=request.include_images,
-        image_sources=request.image_sources,
-    )
-
-    # 自動 SEO 分析（純 Python 計算，不消耗 API quota）
-    from app.services.seo_service import seo_service
-    seo_result = seo_service.analyze(title=result["title"], content=result["content"])
-
-    # 儲存到資料庫
+    # 建立 placeholder 文章
     article = Article(
-        title=result["title"],
-        content=result["content"],
-        content_with_images=result["content_with_images"],
+        title="文章生成中...",
+        content=None,
+        content_with_images=None,
         article_type=request.article_type,
         target_forum=request.target_forum,
         product_ids=request.product_ids,
-        image_map=result.get("image_map"),
-        seo_score=seo_result["score"],
-        seo_suggestions=seo_result,
-        status="draft",
+        status="generating",
         user_id=current_user.id,
     )
     db.add(article)
     db.commit()
     db.refresh(article)
+
+    # 啟動背景執行緒
+    thread = threading.Thread(
+        target=_generate_article_background,
+        args=(
+            article.id,
+            request.product_ids,
+            request.article_type,
+            request.target_forum,
+            request.prompt_template_id,
+            request.model,
+            current_user.id,
+            request.include_images,
+            request.image_sources,
+        ),
+        daemon=True,
+    )
+    thread.start()
+
     return article
 
 

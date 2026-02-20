@@ -123,6 +123,12 @@ export default function ArticlesPage() {
   const [loading, setLoading] = useState(true);
   const [optimizing, setOptimizing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const loadArticles = async () => {
     setLoading(true);
@@ -135,7 +141,44 @@ export default function ArticlesPage() {
     setLoading(false);
   };
 
+  // 靜默輪詢（不觸發 loading 狀態）
+  const pollArticles = async () => {
+    try {
+      const data = await getArticles();
+      // 檢查是否有文章從 generating 變成其他狀態
+      const prevGenerating = articles.filter(a => a.status === 'generating').map(a => a.id);
+      const nowCompleted = data.filter(a => prevGenerating.includes(a.id) && a.status !== 'generating');
+      nowCompleted.forEach(a => {
+        if (a.status === 'draft') {
+          showToast('success', `「${a.title}」生成完成！`);
+        } else if (a.status === 'failed') {
+          showToast('error', `文章生成失敗`);
+        }
+      });
+      setArticles(data);
+      // 同步更新已選中的文章
+      if (selectedArticle) {
+        const updated = data.find(a => a.id === selectedArticle.id);
+        if (updated && updated.status !== selectedArticle.status) {
+          setSelectedArticle(updated);
+          setEditContent(updated.content || '');
+          setEditTitle(updated.title || '');
+        }
+      }
+    } catch (err) {
+      console.error('輪詢文章失敗:', err);
+    }
+  };
+
   useEffect(() => { loadArticles(); }, []);
+
+  // 偵測到 generating 狀態時每 5 秒輪詢
+  useEffect(() => {
+    const hasGenerating = articles.some(a => a.status === 'generating');
+    if (!hasGenerating) return;
+    const interval = setInterval(pollArticles, 5000);
+    return () => clearInterval(interval);
+  }, [articles]);
 
   const selectArticle = async (id) => {
     try {
@@ -237,12 +280,16 @@ export default function ArticlesPage() {
   };
 
   const statusColors = {
+    generating: 'bg-orange-100 text-orange-600 animate-pulse',
+    failed: 'bg-red-100 text-red-600',
     draft: 'bg-gray-100 text-gray-600',
     optimized: 'bg-green-100 text-green-600',
     published: 'bg-blue-100 text-blue-600',
   };
 
   const statusLabels = {
+    generating: '生成中...',
+    failed: '失敗',
     draft: '草稿',
     optimized: '已優化',
     published: '已發佈',
@@ -258,7 +305,16 @@ export default function ArticlesPage() {
   const displayContent = selectedArticle?.content_with_images || selectedArticle?.content || '';
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full relative">
+      {/* Toast 通知 */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium transition-all ${
+          toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`}>
+          {toast.message}
+        </div>
+      )}
+
       {/* Article List */}
       <div className="w-80 border-r border-gray-200 bg-white overflow-y-auto">
         <div className="p-4 border-b border-gray-100">

@@ -88,13 +88,11 @@ async def update_prompt(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """更新範本（內建不可改）"""
+    """更新範本"""
     template = db.query(PromptTemplate).filter(PromptTemplate.id == prompt_id).first()
     if not template:
         raise HTTPException(status_code=404, detail="範本不存在")
-    if template.is_builtin:
-        raise HTTPException(status_code=400, detail="內建範本不可修改")
-    if template.user_id != current_user.id:
+    if not template.is_builtin and template.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="無權修改此範本")
 
     update_data = request.model_dump(exclude_unset=True)
@@ -112,13 +110,11 @@ async def delete_prompt(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """刪除範本（內建不可刪）"""
+    """刪除範本"""
     template = db.query(PromptTemplate).filter(PromptTemplate.id == prompt_id).first()
     if not template:
         raise HTTPException(status_code=404, detail="範本不存在")
-    if template.is_builtin:
-        raise HTTPException(status_code=400, detail="內建範本不可刪除")
-    if template.user_id != current_user.id:
+    if not template.is_builtin and template.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="無權刪除此範本")
 
     # 若刪除的是預設範本，將內建範本設為預設

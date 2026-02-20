@@ -102,15 +102,13 @@ export default function GuidePage() {
               <li>也可在「設定」頁自訂範本</li>
             </ul>
           </li>
-          <li>可選：勾選 <strong>🖼️ 附圖給 LLM</strong>，讓 AI 看圖分析商品規格
+          <li>可選：勾選 <strong>🖼️ 附描述圖給 LLM</strong>，讓 AI 看描述圖分析商品規格/成分
             <ul className="list-disc list-inside ml-4 mt-1 text-gray-500">
-              <li>📸 主圖（商品照片）— 最多 3 張</li>
-              <li>📋 描述圖（規格/成分）— 最多 5 張</li>
-              <li>附圖由 Gemini Flash 免費讀取再傳給 Claude，幾乎不增加費用</li>
+              <li>描述圖最多 5 張，由 Gemini Flash 免費讀取，幾乎不增加費用</li>
             </ul>
           </li>
-          <li>點擊 <strong>✨ 生成比較文/開箱文</strong>，等待 AI 生成（約 30~60 秒）</li>
-          <li>生成完成後會提示前往文章管理頁面查看</li>
+          <li>點擊 <strong>✨ 生成比較文/開箱文</strong>，系統會立即回應並在背景生成</li>
+          <li>前往<strong>「📝 文章管理」</strong>，生成中的文章會顯示橘色「生成中...」狀態，完成後自動更新為「草稿」</li>
         </ol>
         <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
           <p className="text-sm text-blue-700">

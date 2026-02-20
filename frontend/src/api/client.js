@@ -103,9 +103,9 @@ export const batchDeleteProducts = (ids) =>
 export const downloadProductImages = (id) =>
   api.post(`/products/${id}/download-images`).then(r => r.data);
 
-// 文章（LLM 生成需要較長時間）
+// 文章（非同步生成，立即回傳 placeholder）
 export const generateArticle = (data) =>
-  api.post('/articles/generate', data, { timeout: 180000 }).then(r => r.data);
+  api.post('/articles/generate', data).then(r => r.data);
 
 export const getArticles = (skip = 0, limit = 50) =>
   api.get(`/articles?skip=${skip}&limit=${limit}`).then(r => r.data);
