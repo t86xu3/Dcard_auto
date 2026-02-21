@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 任務佇列 | Celery + Redis |
 | 資料庫 | SQLite (開發) / PostgreSQL (生產) |
 | LLM | Google Gemini API + Anthropic Claude API |
-| 前端 | React 19 + Vite + Tailwind CSS 4 |
+| 前端 | React 19 + Vite + Tailwind CSS 4 + @dnd-kit |
 | 認證 | JWT (PyJWT + bcrypt) |
 | 擴充功能 | Chrome Manifest V3 |
 
@@ -167,9 +167,11 @@ Vite dev server（port 3001）自動代理 `/api` 請求到後端（port 8001）
 | `/api/admin/system-prompts` | GET | 系統層級提示詞（管理員） |
 | `/api/products` | GET/POST | 商品 CRUD |
 | `/api/products/{id}` | GET/PATCH | 商品詳情/更新（目前 PATCH 僅支援 product_url） |
-| `/api/products/batch-delete` | POST | 批量刪除 |
+| `/api/products/batch-delete` | POST | 批量刪除商品 |
 | `/api/products/{id}/download-images` | POST | 下載圖片到本地 |
+| `/api/articles/image-proxy` | GET | 代理下載外部圖片（解決跨域） |
 | `/api/articles/generate` | POST | 非同步生成文章（立即回傳 placeholder，背景執行緒生成） |
+| `/api/articles/batch-delete` | POST | 批量刪除文章 |
 | `/api/articles` | GET | 文章列表 |
 | `/api/articles/{id}` | GET/PUT/DELETE | 文章 CRUD（PUT content 自動同步 content_with_images） |
 | `/api/articles/{id}/optimize-seo` | POST | SEO 優化（自動更新標題+內容+分數） |
@@ -205,16 +207,25 @@ from jwt import InvalidTokenError as JWTError
 
 使用新版 `google.genai`（`from google import genai`），非舊版 `google.generativeai`。
 
+**`HttpOptions.timeout` 單位是毫秒**：SDK 內部 `timeout / 1000.0` 轉為秒後設 `X-Server-Timeout` header。設定 300 秒 timeout 須寫 `HttpOptions(timeout=300_000)`，寫 `300` 會變成 0.3 秒被 API 拒絕。
+
 ### 文章生成架構（非同步 + 多供應商）
 
-**非同步生成**：`POST /generate` 建立 placeholder Article（`status="generating"`）後立即回傳，啟動 `threading.Thread` 在背景執行 LLM 生成。背景執行緒使用獨立 DB session（`get_db_session()`），成功更新為 `status="draft"`，失敗更新為 `status="failed"`。Cloud Run 部署需加 `--no-cpu-throttling` 確保回應後背景執行緒仍有 CPU。
+**非同步生成**：`POST /generate` 建立 placeholder Article（`status="generating"`）後立即回傳，啟動 `threading.Thread` 在背景執行 LLM 生成。背景執行緒使用獨立 DB session（`get_db_session()`），成功更新為 `status="draft"`，失敗更新為 `status="failed"`（content 存詳細錯誤報告含 traceback）。Cloud Run 部署需加 `--no-cpu-throttling` 確保回應後背景執行緒仍有 CPU。
 
-**Article status 值**：`generating`（生成中）→ `draft`（草稿）→ `optimized`（已 SEO 優化）→ `published`（已發佈）；`failed`（生成失敗）。
+**LLM 呼叫重試**：`_call_gemini` / `_call_anthropic` 內建 max 3 次重試（指數退避 5s/10s/20s），超時和暫時性錯誤（500/503/timeout）自動重試，圖片錯誤 fallback 純文字。重試歷史記錄在 `error.retry_history` 屬性上，失敗時寫入文章 content 供前端顯示。
+
+**商品順序保留**：前端用有序陣列（`@dnd-kit` 拖拽排序），後端 SQL `IN` 查詢後按 `product_ids` 順序重排（dict lookup + list comprehension）。
+
+**Article status 值**：`generating`（生成中）→ `draft`（草稿）→ `optimized`（已 SEO 優化）→ `published`（已發佈）；`failed`（生成失敗，content 為錯誤報告）。
 
 支援 Gemini + Anthropic Claude 雙供應商。透過 `is_anthropic_model()` 判斷 model 前綴自動路由。
 Prompt 為雙層結構：`SYSTEM_INSTRUCTIONS`（程式碼層級，不可修改）+ 使用者範本（存 DB，可在設定頁管理）。
-內建兩套範本：「Dcard 好物推薦文」（V1）和「Google 排名衝刺版」（V2，基於 9 篇 Google 首頁文章逆向工程）。內建範本可修改和刪除。
+內建兩套範本：「Dcard 好物推薦文」（V1）和「Google 排名衝刺版」（V2，基於 9 篇 Google 首頁文章逆向工程）。內建範本僅管理員可編輯/刪除（後端 403 + 前端唯讀）。
+範本系統為 per-user 隔離：自訂範本只有建立者看得到，`set-default` 只影響自己（不動其他用戶），`get_default_prompt(db, user_id)` 先找用戶自訂預設再 fallback 內建預設。
 生成文章時可指定 `prompt_template_id` 和 `model`，否則使用預設範本和預設模型。
+LLM 生成時動態注入當前年份（`datetime.now().year`），避免 LLM 使用舊年份。
+生成完成後 regex 清除殘留的 `{{IMAGE:...}}` 標記（LLM 可能產生不存在的索引）。
 前端透過 localStorage 持久化使用者選擇的模型。
 支援多模態圖片輸入：`include_images=True` 時下載商品描述圖傳入 LLM 分析（前端已移除主圖選項，固定只傳描述圖）。
 兩階段圖片策略：Claude 模型附圖時，先用 Gemini Flash 提取圖片文字（`_extract_image_info()`），再傳純文字給 Claude，節省 ~60% 圖片成本；Gemini 模型則直接傳圖片（圖片處理失敗時自動 fallback 為純文字模式）。
@@ -279,6 +290,11 @@ Phase 1（核心功能）、Phase 3（雲端部署）、Phase 4（多用戶帳�
 - [x] Gemini 圖片處理 fallback（400 錯誤 → 純文字重試）
 - [x] 標題長度規範統一（20-35 字）
 - [x] 內建範本可編輯/刪除
+- [x] 商品拖拽排序（@dnd-kit，控制文章中商品出現順序）
+- [x] LLM 呼叫重試機制（指數退避 + 詳細錯誤報告）
+- [x] 範本 per-user 隔離（自訂範本私有 + 內建範本僅管理員可改）
+- [x] 文章批量選取刪除
+- [x] 文章列表重新整理按鈕
 - [ ] 批量生成
 - [x] Chrome Extension icon 美化（設計正式 logo）
 
