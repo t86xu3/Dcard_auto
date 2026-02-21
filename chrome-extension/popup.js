@@ -23,6 +23,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const apiLabelRight = document.getElementById('apiLabelRight');
     const webUiLink = document.getElementById('webUiLink');
 
+    // 顯示版本號
+    const manifest = chrome.runtime.getManifest();
+    document.getElementById('versionText').textContent = `v${manifest.version}`;
+
     const modeResponse = await chrome.runtime.sendMessage({ type: 'GET_API_MODE' });
     updateApiDisplay(modeResponse.mode);
 
