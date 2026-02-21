@@ -7,7 +7,7 @@ const api = axios.create({
 
 // ─── 簡易記憶體快取（stale-while-revalidate 策略）───
 const _cache = new Map(); // key → { data, timestamp }
-const DEFAULT_TTL = 30_000; // 30 秒
+const DEFAULT_TTL = 120_000; // 2 分鐘（stale-while-revalidate，過期仍先回傳舊資料）
 
 function getCached(key) {
   const entry = _cache.get(key);
@@ -186,7 +186,7 @@ export const getArticleImages = (id) =>
 
 // Prompt 範本（帶快取）
 export const getPrompts = () =>
-  cachedGet('prompts', () => api.get('/prompts').then(r => r.data));
+  cachedGet('prompts', () => api.get('/prompts').then(r => r.data), 300_000); // 5 分鐘
 
 export const createPrompt = (data) =>
   api.post('/prompts', data).then(r => r.data);

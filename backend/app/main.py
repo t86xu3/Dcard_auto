@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.db.database import create_tables, SessionLocal
+from app.db.database import create_tables, SessionLocal, engine
 from app.api import products, articles, seo, usage, prompts
 from app.api import auth as auth_api
 from app.api import admin as admin_api
@@ -33,6 +33,17 @@ async def lifespan(app: FastAPI):
 
     # 建立初始管理員帳號
     _seed_admin_user()
+
+    # 預熱 DB 連線（減少首次請求延遲）
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info("DB 連線預熱完成")
+    except Exception as e:
+        logger.warning(f"DB 預熱失敗: {e}")
 
     yield
 

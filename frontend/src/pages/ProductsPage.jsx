@@ -390,7 +390,12 @@ export default function ProductsPage() {
                           )
                         ) : (
                           <>
-                            <div className="text-xs text-gray-400">{product.shop_name}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-gray-400">{product.shop_name}</span>
+                              {product.affiliate_url && (
+                                <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full" title={product.affiliate_url}>聯盟</span>
+                              )}
+                            </div>
                             {editingUrlId === product.id ? (
                               <div className="flex items-center gap-1.5 mt-1">
                                 <input
@@ -509,7 +514,10 @@ export default function ProductsPage() {
               </div>
 
               <p className="text-sm text-gray-600 mb-3">
-                每行貼入一個蝦皮聯盟行銷短網址（如 https://s.shopee.tw/xxxxx）
+                每行貼入一個蝦皮聯盟行銷短網址（如 https://s.shopee.tw/xxxxx）。
+                <span className="block text-xs text-gray-400 mt-1">
+                  先貼網址再用 Extension 擷取，或先擷取商品再貼網址綁定，兩種順序皆可。
+                </span>
               </p>
 
               <textarea
@@ -524,10 +532,17 @@ export default function ProductsPage() {
               {affiliateResult && (
                 <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm space-y-1">
                   {affiliateResult.imported.length > 0 && (
-                    <div className="text-green-700">✅ 成功匯入 {affiliateResult.imported.length} 筆</div>
+                    <div className="text-green-700">✅ 新建待擷取 {affiliateResult.imported.length} 筆</div>
                   )}
                   {affiliateResult.skipped.length > 0 && (
-                    <div className="text-amber-700">⏭️ 跳過（已更新網址） {affiliateResult.skipped.length} 筆</div>
+                    <div className="text-blue-700">
+                      🔗 已綁定聯盟網址 {affiliateResult.skipped.length} 筆
+                      {affiliateResult.skipped.map((s, i) => (
+                        <div key={i} className="text-xs text-blue-500 ml-4 truncate">
+                          {s.product_name ? `→ ${s.product_name}` : `→ item ${s.item_id}`}
+                        </div>
+                      ))}
+                    </div>
                   )}
                   {affiliateResult.failed.length > 0 && (
                     <div className="text-red-700">

@@ -3,20 +3,27 @@
 """
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
+from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 from app.config import settings
 
 # SQLite 需要 check_same_thread=False，PostgreSQL 不需要
 connect_args = {}
+engine_kwargs = {}
+
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+    engine_kwargs["pool_pre_ping"] = True
+else:
+    # PostgreSQL + Supabase PgBouncer：讓 PgBouncer 管連線池
+    engine_kwargs["poolclass"] = NullPool
 
 engine = create_engine(
     settings.DATABASE_URL,
     connect_args=connect_args,
-    pool_pre_ping=True,  # 處理 Supabase 閒置斷線
+    **engine_kwargs,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

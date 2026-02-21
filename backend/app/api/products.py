@@ -72,6 +72,7 @@ class AffiliateImportItem(BaseModel):
     url: str
     item_id: str
     status: str  # "imported" | "updated" | "failed"
+    product_name: Optional[str] = None
     message: Optional[str] = None
 
 
@@ -148,10 +149,12 @@ async def import_affiliate_urls(
                 ).first()
                 if existing:
                     existing.affiliate_url = url
+                    existing.product_url = url  # 同步更新商品連結為聯盟網址
                     db.commit()
                     skipped.append(AffiliateImportItem(
                         url=url, item_id=item_id, status="updated",
-                        message="商品已存在，已更新聯盟網址"
+                        product_name=existing.name if existing.name != "待擷取" else None,
+                        message="已綁定聯盟網址"
                     ))
                     continue
 
