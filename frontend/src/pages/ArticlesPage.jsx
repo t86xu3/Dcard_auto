@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getArticles, getArticle, updateArticle, deleteArticle, optimizeSeo, copyArticle, analyzeSeo, analyzeSeoById, invalidateCache, fetchArticlesFresh } from '../api/client';
+import { getArticles, getArticle, updateArticle, deleteArticle, batchDeleteArticles, optimizeSeo, copyArticle, analyzeSeo, analyzeSeoById, invalidateCache, fetchArticlesFresh } from '../api/client';
 import SeoPanel from '../components/SeoPanel';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -124,6 +124,9 @@ export default function ArticlesPage() {
   const [optimizing, setOptimizing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [toast, setToast] = useState(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [batchDeleting, setBatchDeleting] = useState(false);
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -261,6 +264,28 @@ export default function ArticlesPage() {
     await loadArticles();
   };
 
+  const toggleSelectId = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`確定刪除所選的 ${selectedIds.length} 篇文章？`)) return;
+    setBatchDeleting(true);
+    try {
+      await batchDeleteArticles(selectedIds);
+      invalidateCache('articles');
+      if (selectedArticle && selectedIds.includes(selectedArticle.id)) setSelectedArticle(null);
+      setSelectedIds([]);
+      setSelectMode(false);
+      await loadArticles();
+      showToast('success', `已刪除 ${selectedIds.length} 篇文章`);
+    } catch (err) {
+      alert('批量刪除失敗');
+    }
+    setBatchDeleting(false);
+  };
+
   const handleOptimizeSeo = async () => {
     if (!selectedArticle) return;
     setOptimizing(true);
@@ -349,18 +374,54 @@ export default function ArticlesPage() {
         <div className="p-4 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-gray-800">文章管理</h2>
-            <button
-              onClick={() => { setLoading(true); loadArticles(); }}
-              disabled={loading}
-              className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors active:scale-95 disabled:opacity-50"
-              title="重新整理"
-            >
-              <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-1">
+              {articles.length > 0 && (
+                <button
+                  onClick={() => { setSelectMode(!selectMode); setSelectedIds([]); }}
+                  className={`p-1.5 rounded-lg transition-colors active:scale-95 ${
+                    selectMode ? 'text-blue-500 bg-blue-50' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50'
+                  }`}
+                  title={selectMode ? '取消選取' : '批量選取'}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                </button>
+              )}
+              <button
+                onClick={() => { setLoading(true); loadArticles(); }}
+                disabled={loading}
+                className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors active:scale-95 disabled:opacity-50"
+                title="重新整理"
+              >
+                <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
           </div>
-          <p className="text-xs text-gray-400 mt-1">{articles.length} 篇文章</p>
+          {selectMode ? (
+            <div className="flex items-center justify-between mt-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedIds(selectedIds.length === articles.length ? [] : articles.map(a => a.id))}
+                  className="text-xs text-blue-500 hover:text-blue-700 active:scale-95 transition-transform"
+                >
+                  {selectedIds.length === articles.length ? '取消全選' : '全選'}
+                </button>
+                <span className="text-xs text-gray-400">已選 {selectedIds.length} 篇</span>
+              </div>
+              <button
+                onClick={handleBatchDelete}
+                disabled={selectedIds.length === 0 || batchDeleting}
+                className="px-2.5 py-1 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform"
+              >
+                {batchDeleting ? '刪除中...' : `🗑️ 刪除 (${selectedIds.length})`}
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 mt-1">{articles.length} 篇文章</p>
+          )}
         </div>
 
         {loading ? (
@@ -374,23 +435,37 @@ export default function ArticlesPage() {
           articles.map(article => (
             <div
               key={article.id}
-              onClick={() => selectArticle(article.id)}
+              onClick={() => selectMode ? toggleSelectId(article.id) : selectArticle(article.id)}
               className={`p-4 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors ${
-                selectedArticle?.id === article.id ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''
+                selectMode && selectedIds.includes(article.id) ? 'bg-red-50' :
+                !selectMode && selectedArticle?.id === article.id ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''
               }`}
             >
-              <div className="font-medium text-gray-800 text-sm truncate">{article.title}</div>
-              <div className="flex items-center gap-2 mt-2">
-                <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[article.status] || ''}`}>
-                  {statusLabels[article.status] || article.status}
-                </span>
-                <span className="text-xs text-gray-400">{typeLabels[article.article_type]}</span>
-                {article.seo_score && (
-                  <span className="text-xs text-purple-500">SEO: {article.seo_score}</span>
+              <div className="flex items-center gap-3">
+                {selectMode && (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(article.id)}
+                    onChange={() => toggleSelectId(article.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-400 shrink-0"
+                  />
                 )}
-              </div>
-              <div className="text-xs text-gray-400 mt-1">
-                {new Date(article.created_at).toLocaleDateString('zh-TW')}
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-gray-800 text-sm truncate">{article.title}</div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[article.status] || ''}`}>
+                      {statusLabels[article.status] || article.status}
+                    </span>
+                    <span className="text-xs text-gray-400">{typeLabels[article.article_type]}</span>
+                    {article.seo_score && (
+                      <span className="text-xs text-purple-500">SEO: {article.seo_score}</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {new Date(article.created_at).toLocaleDateString('zh-TW')}
+                  </div>
+                </div>
               </div>
             </div>
           ))

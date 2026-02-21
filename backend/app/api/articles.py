@@ -321,6 +321,28 @@ async def delete_article(
     return {"message": "文章已刪除"}
 
 
+class BatchDeleteRequest(BaseModel):
+    ids: List[int]
+
+
+@router.post("/batch-delete")
+async def batch_delete_articles(
+    request: BatchDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """批量刪除文章（只刪自己的）"""
+    articles = db.query(Article).filter(
+        Article.id.in_(request.ids),
+        Article.user_id == current_user.id,
+    ).all()
+    deleted_ids = [a.id for a in articles]
+    for a in articles:
+        db.delete(a)
+    db.commit()
+    return {"deleted_count": len(deleted_ids), "deleted_ids": deleted_ids}
+
+
 @router.post("/{article_id}/optimize-seo")
 async def optimize_seo(
     article_id: int,

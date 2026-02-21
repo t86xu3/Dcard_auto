@@ -169,6 +169,9 @@ export const updateArticle = (id, data) =>
 export const deleteArticle = (id) =>
   api.delete(`/articles/${id}`).then(r => r.data);
 
+export const batchDeleteArticles = (ids) =>
+  api.post('/articles/batch-delete', { ids }).then(r => r.data);
+
 export const optimizeSeo = (id, model) =>
   api.post(`/articles/${id}/optimize-seo`, null, { params: model ? { model } : {}, timeout: 180000 }).then(r => r.data);
 
