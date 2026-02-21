@@ -113,7 +113,7 @@ async def import_affiliate_urls(
     failed = []
 
     async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
-        for url in request.urls:
+        for url in reversed(request.urls):
             url = url.strip()
             if not url:
                 continue

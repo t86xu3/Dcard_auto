@@ -390,12 +390,7 @@ export default function ProductsPage() {
                           )
                         ) : (
                           <>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs text-gray-400">{product.shop_name}</span>
-                              {product.affiliate_url && (
-                                <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full" title={product.affiliate_url}>聯盟</span>
-                              )}
-                            </div>
+                            <div className="text-xs text-gray-400">{product.shop_name}</div>
                             {editingUrlId === product.id ? (
                               <div className="flex items-center gap-1.5 mt-1">
                                 <input
@@ -423,17 +418,29 @@ export default function ProductsPage() {
                                   ✕ 取消
                                 </button>
                               </div>
-                            ) : product.product_url ? (
+                            ) : (
                               <div className="flex items-center gap-1 mt-0.5">
-                                <a
-                                  href={product.product_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-blue-400 hover:text-blue-600 truncate max-w-[200px]"
-                                  title={product.product_url}
-                                >
-                                  {product.product_url.replace(/^https?:\/\//, '').slice(0, 35)}...
-                                </a>
+                                {product.affiliate_url ? (
+                                  <a
+                                    href={product.affiliate_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-green-600 hover:text-green-700 truncate max-w-[200px]"
+                                    title={product.affiliate_url}
+                                  >
+                                    🔗 {product.affiliate_url.replace(/^https?:\/\//, '').slice(0, 30)}
+                                  </a>
+                                ) : product.product_url ? (
+                                  <a
+                                    href={product.product_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-400 hover:text-blue-600 truncate max-w-[200px]"
+                                    title={product.product_url}
+                                  >
+                                    {product.product_url.replace(/^https?:\/\//, '').slice(0, 35)}...
+                                  </a>
+                                ) : null}
                                 <button
                                   onClick={() => startEditUrl(product)}
                                   className="text-xs text-gray-400 hover:text-gray-600 active:scale-95 transition-transform inline-block"
@@ -442,13 +449,6 @@ export default function ProductsPage() {
                                   ✏️
                                 </button>
                               </div>
-                            ) : (
-                              <button
-                                onClick={() => startEditUrl(product)}
-                                className="text-xs text-gray-400 hover:text-blue-500 mt-0.5 active:scale-95 transition-transform inline-block"
-                              >
-                                🔗 新增連結
-                              </button>
                             )}
                           </>
                         )}
