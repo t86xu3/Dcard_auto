@@ -145,7 +145,7 @@ Vite dev server（port 3001）自動代理 `/api` 請求到後端（port 8001）
 
 - **User.is_approved**：管理員核准後才能使用 LLM 功能（`get_approved_user` 依賴注入檢查）
 - **Product**：`user_id` FK，`(user_id, item_id)` 組合唯一（同商品不同用戶可各自擷取）；`affiliate_url` 存蝦皮聯盟行銷短網址，`name="待擷取"` 為 placeholder（等待 Extension 擷取填充）
-- **Article**：`product_ids` / `image_map` 為 JSON 欄位；`content_with_images` 含 `{{IMAGE:pid:idx}}` 標記；`status` 可為 `generating`/`failed`/`draft`/`optimized`/`published`
+- **Article**：`product_ids` / `image_map` 為 JSON 欄位；`content_with_images` 含 `{{IMAGE:pid:idx}}` 標記；`sub_id` 為蝦皮聯盟行銷追蹤用（生成文章時選填）；`status` 可為 `generating`/`failed`/`draft`/`optimized`/`published`
 - **UsageRecord**：`(provider, model, usage_date, user_id)` 唯一約束，每天每用戶每模型一筆累加
 - **ApiUsage**：舊版用量模型，已被 UsageRecord 取代，保留向後相容
 
