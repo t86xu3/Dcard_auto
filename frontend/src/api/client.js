@@ -153,6 +153,9 @@ export const batchDeleteProducts = (ids) =>
 export const downloadProductImages = (id) =>
   api.post(`/products/${id}/download-images`).then(r => r.data);
 
+export const importAffiliateUrls = (urls) =>
+  api.post('/products/import-affiliate-urls', { urls }).then(r => r.data);
+
 // 文章（帶快取）
 export const generateArticle = (data) =>
   api.post('/articles/generate', data).then(r => r.data);

@@ -1,9 +1,12 @@
 """
 商品 API 路由
 """
+import re
+import logging
 from typing import List, Optional
 from datetime import datetime
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -12,6 +15,8 @@ from app.db.database import get_db
 from app.models.product import Product
 from app.models.user import User
 from app.auth import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -31,6 +36,7 @@ class ProductBase(BaseModel):
     sold: Optional[int] = None
     shop_name: Optional[str] = None
     product_url: Optional[str] = None
+    affiliate_url: Optional[str] = None
 
 
 class ProductCreate(ProductBase):
@@ -58,6 +64,23 @@ class BatchDeleteResponse(BaseModel):
     deleted_ids: List[int]
 
 
+class AffiliateUrlImportRequest(BaseModel):
+    urls: List[str]
+
+
+class AffiliateImportItem(BaseModel):
+    url: str
+    item_id: str
+    status: str  # "imported" | "updated" | "failed"
+    message: Optional[str] = None
+
+
+class AffiliateImportResult(BaseModel):
+    imported: List[AffiliateImportItem]
+    skipped: List[AffiliateImportItem]
+    failed: List[AffiliateImportItem]
+
+
 @router.get("", response_model=List[ProductResponse])
 async def list_products(
     skip: int = 0,
@@ -75,6 +98,83 @@ async def list_products(
         .all()
     )
     return products
+
+
+@router.post("/import-affiliate-urls", response_model=AffiliateImportResult)
+async def import_affiliate_urls(
+    request: AffiliateUrlImportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """從蝦皮聯盟行銷短網址批量匯入商品 placeholder"""
+    imported = []
+    skipped = []
+    failed = []
+
+    async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
+        for url in request.urls:
+            url = url.strip()
+            if not url:
+                continue
+
+            try:
+                resp = await client.head(url)
+                final_url = str(resp.url)
+
+                # 從最終 URL 路徑提取 shop_id 和 item_id
+                # 格式: /{slug}-i.{shop_id}.{item_id}
+                match = re.search(r'-i\.(\d+)\.(\d+)', final_url)
+                if not match:
+                    path_parts = final_url.rstrip('/').split('/')
+                    if len(path_parts) >= 3 and path_parts[-1].isdigit() and path_parts[-2].isdigit():
+                        shop_id = path_parts[-2]
+                        item_id = path_parts[-1]
+                    else:
+                        failed.append(AffiliateImportItem(
+                            url=url, item_id="", status="failed",
+                            message=f"無法從 URL 解析 item_id: {final_url}"
+                        ))
+                        continue
+                else:
+                    shop_id = match.group(1)
+                    item_id = match.group(2)
+
+                existing = db.query(Product).filter(
+                    Product.user_id == current_user.id,
+                    Product.item_id == item_id,
+                ).first()
+                if existing:
+                    existing.affiliate_url = url
+                    db.commit()
+                    skipped.append(AffiliateImportItem(
+                        url=url, item_id=item_id, status="updated",
+                        message="商品已存在，已更新聯盟網址"
+                    ))
+                    continue
+
+                product = Product(
+                    user_id=current_user.id,
+                    item_id=item_id,
+                    shop_id=shop_id,
+                    name="待擷取",
+                    product_url=final_url,
+                    affiliate_url=url,
+                )
+                db.add(product)
+                db.commit()
+
+                imported.append(AffiliateImportItem(
+                    url=url, item_id=item_id, status="imported"
+                ))
+
+            except Exception as e:
+                logger.error(f"解析聯盟網址失敗: {url} - {e}")
+                failed.append(AffiliateImportItem(
+                    url=url, item_id="", status="failed",
+                    message=str(e)
+                ))
+
+    return AffiliateImportResult(imported=imported, skipped=skipped, failed=failed)
 
 
 @router.get("/{product_id}", response_model=ProductResponse)
@@ -122,6 +222,15 @@ async def create_product(
         Product.item_id == product.item_id,
     ).first()
     if existing:
+        # Placeholder → 用 Extension 資料填充，保留 affiliate_url
+        if existing.affiliate_url and existing.name == "待擷取":
+            saved_affiliate = existing.affiliate_url
+            for key, value in product.model_dump(exclude_unset=True).items():
+                setattr(existing, key, value)
+            existing.affiliate_url = saved_affiliate
+            db.commit()
+            db.refresh(existing)
+            return existing
         raise HTTPException(status_code=400, detail="商品已存在")
 
     db_product = Product(**product.model_dump(), user_id=current_user.id)

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getProducts, deleteProduct, batchDeleteProducts, downloadProductImages, generateArticle, getPrompts, updateProduct, invalidateCache } from '../api/client';
+import { getProducts, deleteProduct, batchDeleteProducts, downloadProductImages, generateArticle, getPrompts, updateProduct, invalidateCache, importAffiliateUrls } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
@@ -62,6 +62,10 @@ export default function ProductsPage() {
   const [includeImages, setIncludeImages] = useState(false);
   const [editingUrlId, setEditingUrlId] = useState(null);
   const [editingUrlValue, setEditingUrlValue] = useState('');
+  const [showAffiliateModal, setShowAffiliateModal] = useState(false);
+  const [affiliateUrls, setAffiliateUrls] = useState('');
+  const [affiliateImporting, setAffiliateImporting] = useState(false);
+  const [affiliateResult, setAffiliateResult] = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -96,11 +100,13 @@ export default function ProductsPage() {
     );
   };
 
+  const selectableProducts = products.filter(p => p.name !== '待擷取');
+
   const selectAll = () => {
-    if (selected.length === products.length) {
+    if (selected.length === selectableProducts.length) {
       setSelected([]);
     } else {
-      setSelected(products.map(p => p.id));
+      setSelected(selectableProducts.map(p => p.id));
     }
   };
 
@@ -197,6 +203,24 @@ export default function ProductsPage() {
     setSelected(prev => prev.filter(x => x !== id));
   };
 
+  const handleAffiliateImport = async () => {
+    const urls = affiliateUrls.split('\n').map(u => u.trim()).filter(Boolean);
+    if (urls.length === 0) return;
+
+    setAffiliateImporting(true);
+    setAffiliateResult(null);
+    try {
+      const data = await importAffiliateUrls(urls);
+      setAffiliateResult(data);
+      invalidateCache('products');
+      await loadProducts();
+    } catch (err) {
+      showToast('error', `匯入失敗: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setAffiliateImporting(false);
+    }
+  };
+
   // 建立 id → product 的查找表
   const productsMap = {};
   for (const p of products) {
@@ -217,6 +241,12 @@ export default function ProductsPage() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-800">商品管理</h2>
         <div className="flex gap-3">
+          <button
+            onClick={() => { setShowAffiliateModal(true); setAffiliateResult(null); setAffiliateUrls(''); }}
+            className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 active:scale-95 transition-transform"
+          >
+            🔗 匯入聯盟行銷網址
+          </button>
           {selected.length > 0 && (
             <>
               {promptTemplates.length > 0 && (
@@ -304,7 +334,7 @@ export default function ProductsPage() {
                 <th className="p-3 w-10">
                   <input
                     type="checkbox"
-                    checked={selected.length === products.length && products.length > 0}
+                    checked={selected.length === selectableProducts.length && selectableProducts.length > 0}
                     onChange={selectAll}
                     className="rounded"
                   />
@@ -317,117 +347,215 @@ export default function ProductsPage() {
               </tr>
             </thead>
             <tbody>
-              {products.map(product => (
-                <tr key={product.id} className="border-t border-gray-100 hover:bg-gray-50">
+              {products.map(product => {
+                const isPlaceholder = product.name === '待擷取';
+                return (
+                <tr key={product.id} className={`border-t border-gray-100 ${isPlaceholder ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-gray-50'}`}>
                   <td className="p-3">
                     <input
                       type="checkbox"
                       checked={selected.includes(product.id)}
                       onChange={() => toggleSelect(product.id)}
-                      className="rounded"
+                      disabled={isPlaceholder}
+                      className={`rounded ${isPlaceholder ? 'opacity-30 cursor-not-allowed' : ''}`}
                     />
                   </td>
                   <td className="p-3">
                     <div className="flex items-center gap-3">
-                      {product.images?.[0] && (
+                      {isPlaceholder ? (
+                        <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center text-2xl">📦</div>
+                      ) : product.images?.[0] ? (
                         <img
                           src={product.images[0]}
                           alt=""
                           className="w-12 h-12 rounded-lg object-cover bg-gray-100"
                         />
-                      )}
+                      ) : null}
                       <div className="min-w-0">
-                        <div className="font-medium text-gray-800 truncate max-w-xs">
-                          {product.name}
+                        <div className={`font-medium truncate max-w-xs ${isPlaceholder ? 'text-amber-700' : 'text-gray-800'}`}>
+                          {isPlaceholder ? '⏳ 待擷取' : product.name}
                         </div>
-                        <div className="text-xs text-gray-400">{product.shop_name}</div>
-                        {editingUrlId === product.id ? (
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <input
-                              type="text"
-                              value={editingUrlValue}
-                              onChange={(e) => setEditingUrlValue(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSaveUrl(product.id);
-                                if (e.key === 'Escape') cancelEditUrl();
-                              }}
-                              placeholder="https://shopee.tw/..."
-                              className="flex-1 text-xs px-2 py-1 border border-gray-300 rounded focus:outline-none focus:border-blue-400 min-w-0"
-                              autoFocus
-                            />
-                            <button
-                              onClick={() => handleSaveUrl(product.id)}
-                              className="text-xs text-green-600 hover:text-green-700 whitespace-nowrap active:scale-95 transition-transform inline-block"
-                            >
-                              💾 儲存
-                            </button>
-                            <button
-                              onClick={cancelEditUrl}
-                              className="text-xs text-gray-400 hover:text-gray-600 whitespace-nowrap active:scale-95 transition-transform inline-block"
-                            >
-                              ✕ 取消
-                            </button>
-                          </div>
-                        ) : product.product_url ? (
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <a
-                              href={product.product_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-blue-400 hover:text-blue-600 truncate max-w-[200px]"
-                              title={product.product_url}
-                            >
-                              {product.product_url.replace(/^https?:\/\//, '').slice(0, 35)}...
-                            </a>
-                            <button
-                              onClick={() => startEditUrl(product)}
-                              className="text-xs text-gray-400 hover:text-gray-600 active:scale-95 transition-transform inline-block"
-                              title="編輯連結"
-                            >
-                              ✏️
-                            </button>
-                          </div>
+                        {isPlaceholder ? (
+                          product.affiliate_url && (
+                            <div className="text-xs text-amber-600 truncate max-w-[200px]" title={product.affiliate_url}>
+                              🔗 {product.affiliate_url}
+                            </div>
+                          )
                         ) : (
-                          <button
-                            onClick={() => startEditUrl(product)}
-                            className="text-xs text-gray-400 hover:text-blue-500 mt-0.5 active:scale-95 transition-transform inline-block"
-                          >
-                            🔗 新增連結
-                          </button>
+                          <>
+                            <div className="text-xs text-gray-400">{product.shop_name}</div>
+                            {editingUrlId === product.id ? (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <input
+                                  type="text"
+                                  value={editingUrlValue}
+                                  onChange={(e) => setEditingUrlValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveUrl(product.id);
+                                    if (e.key === 'Escape') cancelEditUrl();
+                                  }}
+                                  placeholder="https://shopee.tw/..."
+                                  className="flex-1 text-xs px-2 py-1 border border-gray-300 rounded focus:outline-none focus:border-blue-400 min-w-0"
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => handleSaveUrl(product.id)}
+                                  className="text-xs text-green-600 hover:text-green-700 whitespace-nowrap active:scale-95 transition-transform inline-block"
+                                >
+                                  💾 儲存
+                                </button>
+                                <button
+                                  onClick={cancelEditUrl}
+                                  className="text-xs text-gray-400 hover:text-gray-600 whitespace-nowrap active:scale-95 transition-transform inline-block"
+                                >
+                                  ✕ 取消
+                                </button>
+                              </div>
+                            ) : product.product_url ? (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <a
+                                  href={product.product_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-400 hover:text-blue-600 truncate max-w-[200px]"
+                                  title={product.product_url}
+                                >
+                                  {product.product_url.replace(/^https?:\/\//, '').slice(0, 35)}...
+                                </a>
+                                <button
+                                  onClick={() => startEditUrl(product)}
+                                  className="text-xs text-gray-400 hover:text-gray-600 active:scale-95 transition-transform inline-block"
+                                  title="編輯連結"
+                                >
+                                  ✏️
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => startEditUrl(product)}
+                                className="text-xs text-gray-400 hover:text-blue-500 mt-0.5 active:scale-95 transition-transform inline-block"
+                              >
+                                🔗 新增連結
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
                   </td>
                   <td className="p-3 font-medium text-blue-600">
-                    ${product.price?.toLocaleString() || 'N/A'}
+                    {isPlaceholder ? <span className="text-gray-400">-</span> : `$${product.price?.toLocaleString() || 'N/A'}`}
                   </td>
                   <td className="p-3 text-yellow-500">
-                    {product.rating ? `⭐ ${product.rating.toFixed(1)}` : '-'}
+                    {isPlaceholder ? <span className="text-gray-400">-</span> : product.rating ? `⭐ ${product.rating.toFixed(1)}` : '-'}
                   </td>
                   <td className="p-3 text-gray-600">
-                    {product.sold?.toLocaleString() || '-'}
+                    {isPlaceholder ? <span className="text-gray-400">-</span> : product.sold?.toLocaleString() || '-'}
                   </td>
                   <td className="p-3">
-                    <div className="flex gap-2">
+                    {isPlaceholder ? (
                       <button
-                        onClick={() => handleDownloadImages(product.id)}
-                        className="text-xs text-blue-500 hover:underline active:scale-95 transition-transform inline-block"
-                        title="下載圖片"
+                        onClick={() => window.open(product.product_url, '_blank')}
+                        className="text-xs text-amber-600 hover:text-amber-800 font-medium active:scale-95 transition-transform inline-block"
                       >
-                        📥 圖片
+                        🔗 前往擷取
                       </button>
-                      <button
-                        onClick={() => handleDelete(product.id)}
-                        className="text-xs text-red-500 hover:underline active:scale-95 transition-transform inline-block"
-                      >
-                        🗑️ 刪除
-                      </button>
-                    </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleDownloadImages(product.id)}
+                          className="text-xs text-blue-500 hover:underline active:scale-95 transition-transform inline-block"
+                          title="下載圖片"
+                        >
+                          📥 圖片
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          className="text-xs text-red-500 hover:underline active:scale-95 transition-transform inline-block"
+                        >
+                          🗑️ 刪除
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Affiliate URL Import Modal */}
+      {showAffiliateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <h2 className="text-lg font-bold">🔗 匯入聯盟行銷網址</h2>
+                <button
+                  onClick={() => setShowAffiliateModal(false)}
+                  className="text-gray-500 hover:text-gray-700 text-2xl active:scale-95 transition-transform"
+                >
+                  ×
+                </button>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-3">
+                每行貼入一個蝦皮聯盟行銷短網址（如 https://s.shopee.tw/xxxxx）
+              </p>
+
+              <textarea
+                value={affiliateUrls}
+                onChange={(e) => setAffiliateUrls(e.target.value)}
+                placeholder={"https://s.shopee.tw/xxxxx\nhttps://s.shopee.tw/yyyyy"}
+                rows={6}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                disabled={affiliateImporting}
+              />
+
+              {affiliateResult && (
+                <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm space-y-1">
+                  {affiliateResult.imported.length > 0 && (
+                    <div className="text-green-700">✅ 成功匯入 {affiliateResult.imported.length} 筆</div>
+                  )}
+                  {affiliateResult.skipped.length > 0 && (
+                    <div className="text-amber-700">⏭️ 跳過（已更新網址） {affiliateResult.skipped.length} 筆</div>
+                  )}
+                  {affiliateResult.failed.length > 0 && (
+                    <div className="text-red-700">
+                      ❌ 失敗 {affiliateResult.failed.length} 筆
+                      {affiliateResult.failed.map((f, i) => (
+                        <div key={i} className="text-xs text-red-500 ml-4 truncate">{f.url}: {f.message}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => setShowAffiliateModal(false)}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 active:scale-95 transition-transform"
+                >
+                  {affiliateResult ? '關閉' : '取消'}
+                </button>
+                {!affiliateResult && (
+                  <button
+                    onClick={handleAffiliateImport}
+                    disabled={affiliateImporting || !affiliateUrls.trim()}
+                    className={`px-4 py-2 rounded-lg text-white active:scale-95 transition-transform ${
+                      affiliateImporting || !affiliateUrls.trim()
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-amber-500 hover:bg-amber-600'
+                    }`}
+                  >
+                    {affiliateImporting ? '匯入中...' : '📥 匯入'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

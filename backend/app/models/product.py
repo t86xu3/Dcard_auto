@@ -36,6 +36,7 @@ class Product(Base):
     sold = Column(Integer)
     shop_name = Column(String(200))
     product_url = Column(String(1000))
+    affiliate_url = Column(String(1000))  # 蝦皮聯盟行銷短網址
     captured_at = Column(DateTime)
     created_at = Column(DateTime, default=_taipei_now)
 
