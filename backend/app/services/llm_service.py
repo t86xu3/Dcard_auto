@@ -292,7 +292,11 @@ class LLMService:
 
         except Exception as e:
             logger.error(f"LLM API 呼叫失敗 ({use_model}), 商品數={len(products)}, 附圖={bool(image_parts)}: {type(e).__name__}: {e}")
-            raise RuntimeError(f"文章生成失敗: {e}")
+            new_error = RuntimeError(f"文章生成失敗: {e}")
+            # 保留 retry_history 供錯誤報告使用
+            if hasattr(e, "retry_history"):
+                new_error.retry_history = e.retry_history
+            raise new_error from e
 
         # 清除 Markdown 語法（Dcard 不支援）
         generated_text = strip_markdown(generated_text)
