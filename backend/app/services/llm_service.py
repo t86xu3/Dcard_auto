@@ -37,7 +37,7 @@ class LLMService:
                 api_key=settings.GOOGLE_API_KEY,
                 http_options=types.HttpOptions(
                     timeout=300,
-                    client_args={"timeout": 300.0},
+                    httpx_client=httpx.Client(timeout=httpx.Timeout(300.0)),
                 ),
             )
         return self._gemini_client
