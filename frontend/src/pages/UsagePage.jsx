@@ -187,6 +187,69 @@ export default function UsagePage() {
         </section>
       )}
 
+      {/* 管理員：各用戶使用量 */}
+      {viewMode === 'all' && data.by_user && data.by_user.length > 0 && (
+        <section className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-800">各用戶使用量</h3>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-left">
+              <tr>
+                <th className="p-3">用戶</th>
+                <th className="p-3 text-right">請求次數</th>
+                <th className="p-3 text-right">輸入 tokens</th>
+                <th className="p-3 text-right">輸出 tokens</th>
+                <th className="p-3 text-right">費用 (USD)</th>
+                <th className="p-3 text-right">費用 (TWD)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.by_user.map((u) => {
+                const totalRequests = u.models.reduce((s, m) => s + m.requests, 0);
+                const totalInput = u.models.reduce((s, m) => s + m.input_tokens, 0);
+                const totalOutput = u.models.reduce((s, m) => s + m.output_tokens, 0);
+                return (
+                  <tr key={u.user_id} className="border-t border-gray-100 hover:bg-gray-50 group">
+                    <td className="p-3">
+                      <div className="font-medium text-gray-800">{u.username}</div>
+                      <div className="text-xs text-gray-400">ID: {u.user_id}</div>
+                    </td>
+                    <td className="p-3 text-right text-gray-800">{totalRequests}</td>
+                    <td className="p-3 text-right text-gray-600">{formatTokens(totalInput)}</td>
+                    <td className="p-3 text-right text-gray-600">{formatTokens(totalOutput)}</td>
+                    <td className="p-3 text-right font-medium text-gray-800">${u.total_cost_usd.toFixed(4)}</td>
+                    <td className="p-3 text-right font-medium text-gray-800">NT${u.total_cost_twd.toFixed(2)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {/* 展開的模型明細 */}
+          <div className="divide-y divide-gray-100 border-t border-gray-200">
+            {data.by_user.map((u) => (
+              <div key={`detail-${u.user_id}`} className="px-4 py-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-medium text-gray-700">{u.username}</span>
+                  <span className="text-xs text-gray-400">模型明細</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {u.models.map((m) => {
+                    const color = getColor(m.provider, m.model);
+                    return (
+                      <div key={`${m.provider}/${m.model}`} className={`${color.bg} rounded-lg px-3 py-2 text-xs`}>
+                        <span className={`font-medium ${color.text}`}>{m.model}</span>
+                        <span className="text-gray-500 ml-2">{m.requests} 次 · {formatTokens(m.input_tokens)}↑ {formatTokens(m.output_tokens)}↓ · ${m.cost_usd.toFixed(4)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* 詳細表格 */}
       {history.length > 0 && (
         <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -227,41 +290,6 @@ export default function UsagePage() {
               )}
             </tbody>
           </table>
-        </section>
-      )}
-      {/* 管理員：用戶分組統計 */}
-      {viewMode === 'all' && data.by_user && data.by_user.length > 0 && (
-        <section className="bg-white rounded-xl border border-gray-200 overflow-hidden mt-6">
-          <div className="p-4 border-b border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-800">各用戶費用</h3>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {data.by_user.map((u) => (
-              <div key={u.user_id} className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-gray-800">{u.username}</span>
-                    <span className="text-xs text-gray-400">ID: {u.user_id}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-lg font-bold text-gray-800">${u.total_cost_usd.toFixed(4)}</span>
-                    <span className="text-sm text-gray-400 ml-2">NT${u.total_cost_twd.toFixed(2)}</span>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {u.models.map((m) => {
-                    const color = getColor(m.provider, m.model);
-                    return (
-                      <div key={`${m.provider}/${m.model}`} className={`${color.bg} rounded-lg px-3 py-2 text-xs`}>
-                        <span className={`font-medium ${color.text}`}>{m.model}</span>
-                        <span className="text-gray-500 ml-2">{m.requests} 次 · ${m.cost_usd.toFixed(4)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
         </section>
       )}
     </div>
