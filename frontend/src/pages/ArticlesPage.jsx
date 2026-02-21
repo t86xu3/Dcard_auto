@@ -597,6 +597,9 @@ export default function ArticlesPage() {
                 <div>類型: {typeLabels[selectedArticle.article_type]}</div>
                 <div>狀態: {statusLabels[selectedArticle.status] || selectedArticle.status}</div>
                 <div>建立: {new Date(selectedArticle.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</div>
+                {selectedArticle.sub_id && (
+                  <div>Sub_id: <code className="font-mono bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-xs">{selectedArticle.sub_id}</code></div>
+                )}
               </div>
             </div>
           </div>

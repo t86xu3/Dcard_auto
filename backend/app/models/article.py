@@ -28,6 +28,7 @@ class Article(Base):
     image_map = Column(JSON)  # 圖片標記對應表 {"IMAGE:pid:idx": "url"}
     seo_score = Column(Float)
     seo_suggestions = Column(JSON)
+    sub_id = Column(String(100))  # 蝦皮聯盟行銷追蹤 Sub_id
     status = Column(String(20), default="draft")  # draft / optimized / published
     published_url = Column(String(1000))
     created_at = Column(DateTime, default=_taipei_now)

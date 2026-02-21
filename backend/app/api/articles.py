@@ -32,6 +32,7 @@ class ArticleGenerateRequest(BaseModel):
     model: Optional[str] = None  # "gemini-2.5-flash" / "gemini-2.5-pro"
     include_images: bool = False  # 是否附圖給 LLM 分析
     image_sources: List[str] = ["description"]  # "main" / "description" / 兩者
+    sub_id: Optional[str] = None  # 蝦皮聯盟行銷追蹤 Sub_id
 
 
 class ArticleUpdateRequest(BaseModel):
@@ -52,6 +53,7 @@ class ArticleResponse(BaseModel):
     image_map: Optional[dict] = None
     seo_score: Optional[float] = None
     seo_suggestions: Optional[dict | list] = None
+    sub_id: Optional[str] = None
     status: str
     published_url: Optional[str] = None
     created_at: datetime
@@ -214,6 +216,7 @@ async def generate_article(
         article_type=request.article_type,
         target_forum=request.target_forum,
         product_ids=request.product_ids,
+        sub_id=request.sub_id.strip() if request.sub_id and request.sub_id.strip() else None,
         status="generating",
         user_id=current_user.id,
     )

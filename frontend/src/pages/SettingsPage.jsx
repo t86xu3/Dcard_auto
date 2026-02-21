@@ -7,18 +7,10 @@ export default function SettingsPage() {
   const { status, extensionInfo, extensionId, retry } = useExtensionDetect();
   const { user } = useAuth();
   const [llmModel, setLlmModel] = useState(() => localStorage.getItem('llmModel') || 'gemini-2.5-flash');
-  const [shopeeSubId, setShopeeSubId] = useState(() => localStorage.getItem('shopeeSubId') || '');
-  const [subIdSaved, setSubIdSaved] = useState(false);
 
   const handleModelChange = (value) => {
     setLlmModel(value);
     localStorage.setItem('llmModel', value);
-  };
-
-  const handleSubIdSave = () => {
-    localStorage.setItem('shopeeSubId', shopeeSubId.trim());
-    setSubIdSaved(true);
-    setTimeout(() => setSubIdSaved(false), 2000);
   };
 
   // Prompt 範本狀態
@@ -211,41 +203,6 @@ export default function SettingsPage() {
             </table>
             <div className="text-[10px] text-gray-300 mt-1 text-right">USD / 1M tokens</div>
           </div>
-        </div>
-      </section>
-
-      {/* 蝦皮聯盟行銷 */}
-      <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">蝦皮聯盟行銷</h3>
-        <div className="max-w-md">
-          <label className="block text-sm font-medium text-gray-600 mb-1">追蹤 Sub_id</label>
-          <p className="text-xs text-gray-400 mb-2">
-            在蝦皮聯盟後台生成連結時填入此 ID，即可在蝦皮報告中按 Sub_id 篩選追蹤轉換成效。
-          </p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={shopeeSubId}
-              onChange={(e) => setShopeeSubId(e.target.value)}
-              placeholder="例如：user1、dcard_john"
-              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-            />
-            <button
-              onClick={handleSubIdSave}
-              className={`px-4 py-2 rounded-lg text-sm font-medium active:scale-95 transition-transform ${
-                subIdSaved
-                  ? 'bg-green-500 text-white'
-                  : 'bg-amber-500 text-white hover:bg-amber-600'
-              }`}
-            >
-              {subIdSaved ? '已儲存' : '💾 儲存'}
-            </button>
-          </div>
-          {shopeeSubId.trim() && (
-            <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
-              在蝦皮聯盟後台「獲取連結」時，Sub_id 欄位填入：<code className="font-mono bg-amber-100 px-1.5 py-0.5 rounded">{shopeeSubId.trim()}</code>
-            </div>
-          )}
         </div>
       </section>
 
