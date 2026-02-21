@@ -231,6 +231,7 @@ async def create_product(
             for key, value in product.model_dump(exclude_unset=True).items():
                 setattr(existing, key, value)
             existing.affiliate_url = saved_affiliate
+            existing.product_url = saved_affiliate  # 使用聯盟行銷網址作為商品連結
             db.commit()
             db.refresh(existing)
             return existing

@@ -242,6 +242,13 @@ export default function ProductsPage() {
         <h2 className="text-2xl font-bold text-gray-800">商品管理</h2>
         <div className="flex gap-3">
           <button
+            onClick={() => { invalidateCache('products'); loadProducts(); }}
+            className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 active:scale-95 transition-transform"
+            title="重新整理"
+          >
+            🔄 重新整理
+          </button>
+          <button
             onClick={() => { setShowAffiliateModal(true); setAffiliateResult(null); setAffiliateUrls(''); }}
             className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 active:scale-95 transition-transform"
           >
