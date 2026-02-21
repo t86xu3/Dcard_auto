@@ -35,7 +35,10 @@ class LLMService:
                 raise ValueError("GOOGLE_API_KEY 未設定，請在 .env 中設定")
             self._gemini_client = genai.Client(
                 api_key=settings.GOOGLE_API_KEY,
-                http_options=types.HttpOptions(timeout=300.0),
+                http_options=types.HttpOptions(
+                    timeout=300,
+                    client_args={"timeout": 300.0},
+                ),
             )
         return self._gemini_client
 
