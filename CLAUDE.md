@@ -280,7 +280,7 @@ Phase 1（核心功能）、Phase 3（雲端部署）、Phase 4（多用戶帳�
 - [x] 標題長度規範統一（20-35 字）
 - [x] 內建範本可編輯/刪除
 - [ ] 批量生成
-- [ ] Chrome Extension icon 美化（設計正式 logo）
+- [x] Chrome Extension icon 美化（設計正式 logo）
 
 ## 部署架構
 

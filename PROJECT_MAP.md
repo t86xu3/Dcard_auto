@@ -183,7 +183,7 @@ Dcard_auto/
 - [x] 標題長度規範統一（全站 20-35 字：範本 + SEO prompt + 評分引擎）
 - [x] 內建範本可編輯/刪除（移除 is_builtin 限制）
 - [ ] 批量生成功能
-- [ ] Chrome Extension icon 美化（設計正式 logo）
+- [x] Chrome Extension icon 美化（設計正式 logo）
 
 ### v2.3 - UI 圖標與點擊回饋（完成）
 
