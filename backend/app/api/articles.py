@@ -3,6 +3,7 @@
 """
 import threading
 import logging
+import traceback
 from typing import List, Optional
 from datetime import datetime
 
@@ -153,16 +154,20 @@ def _generate_article_background(
             elif hasattr(e, "retry_history"):
                 retry_info = "\n".join(f"  {r}" for r in e.retry_history)
 
+            # 完整 traceback
+            tb = traceback.format_exc()
+
             error_report = (
                 f"[錯誤報告]\n"
                 f"錯誤類型: {type(e).__name__}\n"
-                f"錯誤訊息: {str(e)[:500]}\n"
+                f"錯誤訊息: {str(e)}\n"
                 f"\n"
                 f"[請求參數]\n"
                 f"模型: {use_model}\n"
                 f"文章類型: {article_type}\n"
                 f"目標看板: {target_forum}\n"
                 f"附圖模式: {'是' if include_images else '否'}\n"
+                f"圖片來源: {image_sources}\n"
                 f"範本 ID: {prompt_template_id or '預設'}\n"
                 f"耗時: {elapsed}s\n"
                 f"\n"
@@ -171,6 +176,7 @@ def _generate_article_background(
             )
             if retry_info:
                 error_report += f"\n[重試紀錄]\n{retry_info}\n"
+            error_report += f"\n[完整 Traceback]\n{tb}"
 
             article = db.query(Article).filter(Article.id == article_id).first()
             if article:

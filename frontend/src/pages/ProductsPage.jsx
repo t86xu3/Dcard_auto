@@ -265,14 +265,14 @@ export default function ProductsPage() {
 
       {/* 已選商品排序區域 */}
       {selected.length > 0 && (
-        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-          <div className="flex items-center gap-2 mb-3">
+        <div className="mb-4 px-4 pb-4 pt-2 bg-blue-50 border border-blue-200 rounded-xl">
+          <div className="flex items-center gap-2 mb-2">
             <span className="text-sm font-medium text-blue-700">📋 文章商品順序</span>
             <span className="text-xs text-blue-500">拖拽卡片調整順序，#1 在文章中排最前面</span>
           </div>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={selected} strategy={horizontalListSortingStrategy}>
-              <div className="flex gap-3 overflow-x-auto pb-2">
+              <div className="flex gap-4 overflow-x-auto pt-3 pb-2 px-1">
                 {selected.map((id, index) => (
                   <SortableProductCard
                     key={id}
