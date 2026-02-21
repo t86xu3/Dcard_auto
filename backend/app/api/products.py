@@ -121,11 +121,14 @@ async def import_affiliate_urls(
                 resp = await client.head(url)
                 final_url = str(resp.url)
 
+                # 去除 query string 後解析路徑
+                clean_url = final_url.split('?')[0]
+
                 # 從最終 URL 路徑提取 shop_id 和 item_id
-                # 格式: /{slug}-i.{shop_id}.{item_id}
-                match = re.search(r'-i\.(\d+)\.(\d+)', final_url)
+                # 格式: /{slug}-i.{shop_id}.{item_id} 或 /{slug}/{shop_id}/{item_id}
+                match = re.search(r'-i\.(\d+)\.(\d+)', clean_url)
                 if not match:
-                    path_parts = final_url.rstrip('/').split('/')
+                    path_parts = clean_url.rstrip('/').split('/')
                     if len(path_parts) >= 3 and path_parts[-1].isdigit() and path_parts[-2].isdigit():
                         shop_id = path_parts[-2]
                         item_id = path_parts[-1]

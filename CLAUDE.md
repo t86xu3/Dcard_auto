@@ -144,7 +144,7 @@ Vite dev server（port 3001）自動代理 `/api` 請求到後端（port 8001）
 模型定義見 `backend/app/models/`。以下僅列出非顯而易見的設計：
 
 - **User.is_approved**：管理員核准後才能使用 LLM 功能（`get_approved_user` 依賴注入檢查）
-- **Product**：`user_id` FK，`(user_id, item_id)` 組合唯一（同商品不同用戶可各自擷取）
+- **Product**：`user_id` FK，`(user_id, item_id)` 組合唯一（同商品不同用戶可各自擷取）；`affiliate_url` 存蝦皮聯盟行銷短網址，`name="待擷取"` 為 placeholder（等待 Extension 擷取填充）
 - **Article**：`product_ids` / `image_map` 為 JSON 欄位；`content_with_images` 含 `{{IMAGE:pid:idx}}` 標記；`status` 可為 `generating`/`failed`/`draft`/`optimized`/`published`
 - **UsageRecord**：`(provider, model, usage_date, user_id)` 唯一約束，每天每用戶每模型一筆累加
 - **ApiUsage**：舊版用量模型，已被 UsageRecord 取代，保留向後相容
@@ -165,7 +165,8 @@ Vite dev server（port 3001）自動代理 `/api` 請求到後端（port 8001）
 | `/api/admin/users/{id}/toggle-active` | POST | 啟用/停用（管理員） |
 | `/api/admin/usage` | GET | 全站費用總覽 + 按用戶分組（管理員） |
 | `/api/admin/system-prompts` | GET | 系統層級提示詞（管理員） |
-| `/api/products` | GET/POST | 商品 CRUD |
+| `/api/products/import-affiliate-urls` | POST | 批量匯入聯盟行銷短網址（建立 placeholder） |
+| `/api/products` | GET/POST | 商品 CRUD（POST 支援 upsert placeholder） |
 | `/api/products/{id}` | GET/PATCH | 商品詳情/更新（目前 PATCH 僅支援 product_url） |
 | `/api/products/batch-delete` | POST | 批量刪除商品 |
 | `/api/products/{id}/download-images` | POST | 下載圖片到本地 |

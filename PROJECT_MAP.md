@@ -127,7 +127,7 @@ Dcard_auto/
 | JWT 認證模組 | backend/app/auth.py | 密碼雜湊 + Token 簽發/驗證 + 依賴注入 |
 | 認證 API | backend/app/api/auth.py | 註冊/登入/刷新 Token/取得用戶資訊 |
 | 管理員 API | backend/app/api/admin.py | 用戶列表/核准/停用/全站費用總覽 |
-| 商品 API | backend/app/api/products.py | 商品 CRUD + 圖片下載（+認證+資料隔離）|
+| 商品 API | backend/app/api/products.py | 商品 CRUD + 聯盟行銷匯入 + 圖片下載（+認證+資料隔離）|
 | 文章生成 API | backend/app/api/articles.py | 非同步生成（背景執行緒）+ CRUD + SEO 優化（自動更新標題）（+認證+資料隔離）|
 | SEO 分析 API | backend/app/api/seo.py | SEO 評分 + 按文章 ID 分析並存入 DB（+認證）|
 | Prompt 範本 API | backend/app/api/prompts.py | 範本 CRUD + 設為預設（含內建範本可編輯/刪除）（+認證）|
@@ -182,6 +182,7 @@ Dcard_auto/
 - [x] Gemini 圖片處理 fallback（400 INVALID_ARGUMENT → 純文字重試）
 - [x] 標題長度規範統一（全站 20-35 字：範本 + SEO prompt + 評分引擎）
 - [x] 內建範本可編輯/刪除（移除 is_builtin 限制）
+- [x] 蝦皮聯盟行銷網址批量匯入（placeholder + upsert + 前往擷取）
 - [ ] 批量生成功能
 - [x] Chrome Extension icon 美化（設計正式 logo）
 
