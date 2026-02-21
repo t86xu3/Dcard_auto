@@ -4,6 +4,7 @@ LLM 文章生成服務 - 支援 Gemini + Anthropic Claude（含多模態圖片�
 import base64
 import logging
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
@@ -34,7 +35,7 @@ class LLMService:
                 raise ValueError("GOOGLE_API_KEY 未設定，請在 .env 中設定")
             self._gemini_client = genai.Client(
                 api_key=settings.GOOGLE_API_KEY,
-                http_options=types.HttpOptions(timeout=120.0),
+                http_options=types.HttpOptions(timeout=300.0),
             )
         return self._gemini_client
 
@@ -46,7 +47,7 @@ class LLMService:
             import anthropic
             self._anthropic_client = anthropic.Anthropic(
                 api_key=settings.ANTHROPIC_API_KEY,
-                timeout=120.0,
+                timeout=300.0,
             )
         return self._anthropic_client
 
@@ -99,8 +100,8 @@ class LLMService:
         logger.info(f"共下載 {len(image_parts)}/{len(image_urls)} 張圖片供 LLM 分析")
         return image_parts
 
-    def _call_gemini(self, use_model: str, system_prompt: str, user_message: str, image_parts: list[tuple[bytes, str]] | None = None) -> tuple:
-        """呼叫 Gemini API，回傳 (generated_text, response)。圖片失敗時自動 fallback 為純文字"""
+    def _call_gemini(self, use_model: str, system_prompt: str, user_message: str, image_parts: list[tuple[bytes, str]] | None = None, max_retries: int = 3) -> tuple:
+        """呼叫 Gemini API，回傳 (generated_text, response)。圖片失敗時自動 fallback 為純文字。超時/暫時性錯誤自動重試。"""
         contents = [user_message]
         if image_parts:
             for img_bytes, mime_type in image_parts:
@@ -112,19 +113,39 @@ class LLMService:
             max_output_tokens=settings.LLM_MAX_TOKENS,
         )
 
-        try:
-            response = self.gemini_client.models.generate_content(
-                model=use_model, contents=contents, config=config,
-            )
-            return response.text, response
-        except Exception as e:
-            if image_parts and "image" in str(e).lower():
-                logger.warning(f"Gemini 圖片處理失敗，改用純文字模式重試: {e}")
+        retry_history = []
+        for attempt in range(max_retries):
+            attempt_start = time.time()
+            try:
                 response = self.gemini_client.models.generate_content(
-                    model=use_model, contents=[user_message], config=config,
+                    model=use_model, contents=contents, config=config,
                 )
+                if retry_history:
+                    logger.info(f"Gemini API 第 {attempt+1} 次嘗試成功（前 {len(retry_history)} 次失敗）")
                 return response.text, response
-            raise
+            except Exception as e:
+                elapsed = round(time.time() - attempt_start, 1)
+                error_str = str(e).lower()
+                retry_history.append(f"第{attempt+1}次({elapsed}s): {type(e).__name__}: {str(e)[:200]}")
+                # 圖片錯誤：fallback 純文字（不重試）
+                if image_parts and "image" in error_str:
+                    logger.warning(f"Gemini 圖片處理失敗，改用純文字模式重試: {e}")
+                    contents = [user_message]
+                    image_parts = None
+                    continue
+                # 超時或暫時性錯誤：重試
+                if any(kw in error_str for kw in ["timed out", "timeout", "503", "500", "overloaded", "unavailable"]):
+                    wait = 2 ** attempt * 5  # 5s, 10s, 20s
+                    logger.warning(f"Gemini API 暫時性錯誤（第 {attempt+1}/{max_retries} 次），{wait}s 後重試: {e}")
+                    time.sleep(wait)
+                    continue
+                # 不可重試的錯誤
+                error = RuntimeError(f"Gemini API 錯誤: {e}")
+                error.retry_history = retry_history
+                raise error
+        error = RuntimeError(f"Gemini API {max_retries} 次重試均失敗")
+        error.retry_history = retry_history
+        raise error
 
     def _extract_image_info(self, image_parts: list[tuple[bytes, str]], user_id: int | None = None, max_images: int = 8) -> str:
         """用 Gemini Flash 提取圖片中的文字資訊（成本極低）
@@ -173,8 +194,8 @@ class LLMService:
         logger.info(f"Gemini Flash 圖片文字提取完成：{len(results)}/{len(image_parts)} 張成功")
         return "\n\n".join(results)
 
-    def _call_anthropic(self, use_model: str, system_prompt: str, user_message: str, image_parts: list[tuple[bytes, str]] | None = None) -> tuple:
-        """呼叫 Anthropic Claude API，回傳 (generated_text, response)"""
+    def _call_anthropic(self, use_model: str, system_prompt: str, user_message: str, image_parts: list[tuple[bytes, str]] | None = None, max_retries: int = 3) -> tuple:
+        """呼叫 Anthropic Claude API，回傳 (generated_text, response)。超時/暫時性錯誤自動重試。"""
         content = [{"type": "text", "text": user_message}]
         if image_parts:
             for img_bytes, mime_type in image_parts:
@@ -187,14 +208,35 @@ class LLMService:
                     },
                 })
 
-        response = self.anthropic_client.messages.create(
-            model=use_model,
-            max_tokens=settings.LLM_MAX_TOKENS,
-            system=system_prompt,
-            messages=[{"role": "user", "content": content}],
-        )
-        generated_text = response.content[0].text
-        return generated_text, response
+        retry_history = []
+        for attempt in range(max_retries):
+            attempt_start = time.time()
+            try:
+                response = self.anthropic_client.messages.create(
+                    model=use_model,
+                    max_tokens=settings.LLM_MAX_TOKENS,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": content}],
+                )
+                generated_text = response.content[0].text
+                if retry_history:
+                    logger.info(f"Claude API 第 {attempt+1} 次嘗試成功（前 {len(retry_history)} 次失敗）")
+                return generated_text, response
+            except Exception as e:
+                elapsed = round(time.time() - attempt_start, 1)
+                error_str = str(e).lower()
+                retry_history.append(f"第{attempt+1}次({elapsed}s): {type(e).__name__}: {str(e)[:200]}")
+                if any(kw in error_str for kw in ["timed out", "timeout", "529", "503", "500", "overloaded", "unavailable"]):
+                    wait = 2 ** attempt * 5
+                    logger.warning(f"Claude API 暫時性錯誤（第 {attempt+1}/{max_retries} 次），{wait}s 後重試: {e}")
+                    time.sleep(wait)
+                    continue
+                error = RuntimeError(f"Claude API 錯誤: {e}")
+                error.retry_history = retry_history
+                raise error
+        error = RuntimeError(f"Claude API {max_retries} 次重試均失敗")
+        error.retry_history = retry_history
+        raise error
 
     def generate_article(self, products, db: Session, article_type: str = "comparison", target_forum: str = "goodthings", prompt_template_id: Optional[int] = None, model: Optional[str] = None, user_id: Optional[int] = None, include_images: bool = False, image_sources: list[str] | None = None) -> dict:
         """生成文章"""
@@ -249,7 +291,7 @@ class LLMService:
                 track_gemini_usage(response, model=use_model, user_id=user_id)
 
         except Exception as e:
-            logger.error(f"LLM API 呼叫失敗 ({use_model}): {e}")
+            logger.error(f"LLM API 呼叫失敗 ({use_model}), 商品數={len(products)}, 附圖={bool(image_parts)}: {type(e).__name__}: {e}")
             raise RuntimeError(f"文章生成失敗: {e}")
 
         # 清除 Markdown 語法（Dcard 不支援）

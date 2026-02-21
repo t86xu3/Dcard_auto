@@ -89,9 +89,13 @@ def _generate_article_background(
     image_sources: List[str],
 ):
     """背景執行緒：實際執行 LLM 文章生成"""
+    import time as _time
     from app.services.llm_service import llm_service
     from app.services.seo_service import seo_service
     from app.models.product import Product
+
+    use_model = model or "gemini-2.5-flash"
+    start_time = _time.time()
 
     with get_db_session() as db:
         try:
@@ -128,13 +132,51 @@ def _generate_article_background(
                 article.seo_suggestions = seo_result
                 article.status = "draft"
                 db.commit()
-                logger.info(f"文章 {article_id} 生成完成")
+                elapsed = round(_time.time() - start_time, 1)
+                logger.info(f"文章 {article_id} 生成完成（{elapsed}s, model={use_model}）")
         except Exception as e:
-            logger.error(f"文章 {article_id} 生成失敗: {e}")
+            elapsed = round(_time.time() - start_time, 1)
+            logger.error(f"文章 {article_id} 生成失敗（{elapsed}s）: {e}")
+
+            # 組裝詳細錯誤報告
+            product_names = []
+            try:
+                for pid in product_ids:
+                    p = products_map.get(pid)
+                    product_names.append(f"  - [{pid}] {p.name[:40] if p else '(查無商品)'}")
+            except Exception:
+                product_names = [f"  - IDs: {product_ids}"]
+
+            retry_info = ""
+            if hasattr(e, "__cause__") and hasattr(e.__cause__, "retry_history"):
+                retry_info = "\n".join(f"  {r}" for r in e.__cause__.retry_history)
+            elif hasattr(e, "retry_history"):
+                retry_info = "\n".join(f"  {r}" for r in e.retry_history)
+
+            error_report = (
+                f"[錯誤報告]\n"
+                f"錯誤類型: {type(e).__name__}\n"
+                f"錯誤訊息: {str(e)[:500]}\n"
+                f"\n"
+                f"[請求參數]\n"
+                f"模型: {use_model}\n"
+                f"文章類型: {article_type}\n"
+                f"目標看板: {target_forum}\n"
+                f"附圖模式: {'是' if include_images else '否'}\n"
+                f"範本 ID: {prompt_template_id or '預設'}\n"
+                f"耗時: {elapsed}s\n"
+                f"\n"
+                f"[商品列表] ({len(product_ids)} 件)\n"
+                f"{chr(10).join(product_names)}\n"
+            )
+            if retry_info:
+                error_report += f"\n[重試紀錄]\n{retry_info}\n"
+
             article = db.query(Article).filter(Article.id == article_id).first()
             if article:
                 article.status = "failed"
                 article.title = f"生成失敗：{str(e)[:100]}"
+                article.content = error_report
                 db.commit()
 
 
