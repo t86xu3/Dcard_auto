@@ -95,10 +95,12 @@ def _generate_article_background(
 
     with get_db_session() as db:
         try:
-            products = db.query(Product).filter(
+            # 查詢後按 product_ids 順序重排（SQL IN 不保序）
+            products_map = {p.id: p for p in db.query(Product).filter(
                 Product.id.in_(product_ids),
                 Product.user_id == user_id,
-            ).all()
+            ).all()}
+            products = [products_map[pid] for pid in product_ids if pid in products_map]
 
             result = llm_service.generate_article(
                 products=products,
@@ -145,15 +147,16 @@ async def generate_article(
     """生成文章（需已核准用戶）— 非同步：立即回傳 placeholder，背景生成"""
     from app.models.product import Product
 
-    # 驗證 product_ids 屬於當前用戶
-    products = db.query(Product).filter(
+    # 驗證 product_ids 屬於當前用戶（查詢後按前端順序重排）
+    products_map = {p.id: p for p in db.query(Product).filter(
         Product.id.in_(request.product_ids),
         Product.user_id == current_user.id,
-    ).all()
-    if not products:
+    ).all()}
+    if not products_map:
         raise HTTPException(status_code=404, detail="找不到指定的商品")
-    if len(products) != len(request.product_ids):
+    if len(products_map) != len(request.product_ids):
         raise HTTPException(status_code=403, detail="部分商品不屬於你")
+    products = [products_map[pid] for pid in request.product_ids if pid in products_map]
 
     # 建立 placeholder 文章
     article = Article(

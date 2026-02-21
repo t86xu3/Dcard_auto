@@ -1,11 +1,59 @@
 import { useState, useEffect } from 'react';
 import { getProducts, deleteProduct, batchDeleteProducts, downloadProductImages, generateArticle, getPrompts, updateProduct, invalidateCache } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+function SortableProductCard({ id, product, index, onRemove }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 'auto',
+    opacity: isDragging ? 0.8 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`relative flex flex-col items-center gap-1 px-3 py-2 bg-white border rounded-xl shadow-sm cursor-grab select-none shrink-0 ${
+        isDragging ? 'border-blue-400 shadow-md' : 'border-gray-200 hover:border-gray-300'
+      }`}
+      {...attributes}
+      {...listeners}
+    >
+      {/* 序號標籤 */}
+      <span className="absolute -top-2 -left-2 w-5 h-5 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+        {index + 1}
+      </span>
+      {/* 取消按鈕 */}
+      <button
+        className="absolute -top-2 -right-2 w-5 h-5 bg-red-400 hover:bg-red-500 text-white text-xs rounded-full flex items-center justify-center active:scale-95 transition-transform"
+        onClick={(e) => { e.stopPropagation(); onRemove(id); }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        ✕
+      </button>
+      {/* 商品圖片 */}
+      {product?.images?.[0] ? (
+        <img src={product.images[0]} alt="" className="w-12 h-12 rounded-lg object-cover bg-gray-100" />
+      ) : (
+        <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-lg">📦</div>
+      )}
+      {/* 商品名稱截斷 */}
+      <span className="text-xs text-gray-600 text-center truncate w-20" title={product?.name}>
+        {product?.name?.slice(0, 8) || '未知商品'}
+      </span>
+    </div>
+  );
+}
 
 export default function ProductsPage() {
   const { user } = useAuth();
   const [products, setProducts] = useState([]);
-  const [selected, setSelected] = useState(new Set());
+  const [selected, setSelected] = useState([]); // Array<number> 有序陣列
   const [loading, setLoading] = useState(true);
   const [promptTemplates, setPromptTemplates] = useState([]);
   const [selectedPromptId, setSelectedPromptId] = useState(null);
@@ -14,6 +62,10 @@ export default function ProductsPage() {
   const [includeImages, setIncludeImages] = useState(false);
   const [editingUrlId, setEditingUrlId] = useState(null);
   const [editingUrlValue, setEditingUrlValue] = useState('');
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
 
   const loadProducts = async () => {
     try {
@@ -39,18 +91,16 @@ export default function ProductsPage() {
   useEffect(() => { Promise.all([loadProducts(), loadPrompts()]); }, []);
 
   const toggleSelect = (id) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+    setSelected(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
   };
 
   const selectAll = () => {
-    if (selected.size === products.length) {
-      setSelected(new Set());
+    if (selected.length === products.length) {
+      setSelected([]);
     } else {
-      setSelected(new Set(products.map(p => p.id)));
+      setSelected(products.map(p => p.id));
     }
   };
 
@@ -59,16 +109,15 @@ export default function ProductsPage() {
     await deleteProduct(id);
     invalidateCache('products');
     await loadProducts();
-    selected.delete(id);
-    setSelected(new Set(selected));
+    setSelected(prev => prev.filter(x => x !== id));
   };
 
   const handleBatchDelete = async () => {
-    if (selected.size === 0) return;
-    if (!confirm(`確定刪除 ${selected.size} 個商品？`)) return;
-    await batchDeleteProducts([...selected]);
+    if (selected.length === 0) return;
+    if (!confirm(`確定刪除 ${selected.length} 個商品？`)) return;
+    await batchDeleteProducts(selected);
     invalidateCache('products');
-    setSelected(new Set());
+    setSelected([]);
     await loadProducts();
   };
 
@@ -78,12 +127,12 @@ export default function ProductsPage() {
   };
 
   const handleGenerate = async () => {
-    if (selected.size < 1) return;
+    if (selected.length < 1) return;
     setGenerating(true);
     try {
-      const type = selected.size >= 2 ? 'comparison' : 'review';
+      const type = selected.length >= 2 ? 'comparison' : 'review';
       const payload = {
-        product_ids: [...selected],
+        product_ids: selected, // 直接用有序陣列
         article_type: type,
         target_forum: 'goodthings',
         model: localStorage.getItem('llmModel') || 'gemini-2.5-flash',
@@ -134,6 +183,26 @@ export default function ProductsPage() {
     setEditingUrlValue('');
   };
 
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setSelected(prev => {
+      const oldIndex = prev.indexOf(active.id);
+      const newIndex = prev.indexOf(over.id);
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  };
+
+  const handleRemoveFromSelected = (id) => {
+    setSelected(prev => prev.filter(x => x !== id));
+  };
+
+  // 建立 id → product 的查找表
+  const productsMap = {};
+  for (const p of products) {
+    productsMap[p.id] = p;
+  }
+
   return (
     <div className="p-8 relative">
       {/* Toast 通知 */}
@@ -148,7 +217,7 @@ export default function ProductsPage() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-800">商品管理</h2>
         <div className="flex gap-3">
-          {selected.size > 0 && (
+          {selected.length > 0 && (
             <>
               {promptTemplates.length > 0 && (
                 <select
@@ -181,18 +250,43 @@ export default function ProductsPage() {
                 }`}
                 title={!user?.is_approved ? '等待管理員核准' : ''}
               >
-                {!user?.is_approved ? '🔒 等待管理員核准' : generating ? '生成中...' : `✨ 生成${selected.size >= 2 ? '比較文' : '開箱文'} (${selected.size})`}
+                {!user?.is_approved ? '🔒 等待管理員核准' : generating ? '生成中...' : `✨ 生成${selected.length >= 2 ? '比較文' : '開箱文'} (${selected.length})`}
               </button>
               <button
                 onClick={handleBatchDelete}
                 className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 active:scale-95 transition-transform"
               >
-                🗑️ 刪除 ({selected.size})
+                🗑️ 刪除 ({selected.length})
               </button>
             </>
           )}
         </div>
       </div>
+
+      {/* 已選商品排序區域 */}
+      {selected.length > 0 && (
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm font-medium text-blue-700">📋 文章商品順序</span>
+            <span className="text-xs text-blue-500">拖拽卡片調整順序，#1 在文章中排最前面</span>
+          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={selected} strategy={horizontalListSortingStrategy}>
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {selected.map((id, index) => (
+                  <SortableProductCard
+                    key={id}
+                    id={id}
+                    product={productsMap[id]}
+                    index={index}
+                    onRemove={handleRemoveFromSelected}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-20 text-gray-400">載入中...</div>
@@ -210,7 +304,7 @@ export default function ProductsPage() {
                 <th className="p-3 w-10">
                   <input
                     type="checkbox"
-                    checked={selected.size === products.length && products.length > 0}
+                    checked={selected.length === products.length && products.length > 0}
                     onChange={selectAll}
                     className="rounded"
                   />
@@ -228,7 +322,7 @@ export default function ProductsPage() {
                   <td className="p-3">
                     <input
                       type="checkbox"
-                      checked={selected.has(product.id)}
+                      checked={selected.includes(product.id)}
                       onChange={() => toggleSelect(product.id)}
                       className="rounded"
                     />
