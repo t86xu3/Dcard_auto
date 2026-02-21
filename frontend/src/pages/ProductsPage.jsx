@@ -520,6 +520,12 @@ export default function ProductsPage() {
                 </span>
               </p>
 
+              {localStorage.getItem('shopeeSubId') && (
+                <div className="mb-3 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+                  請確認在蝦皮後台生成連結時已填入 Sub_id：<code className="font-mono bg-amber-100 px-1.5 py-0.5 rounded">{localStorage.getItem('shopeeSubId')}</code>
+                </div>
+              )}
+
               <textarea
                 value={affiliateUrls}
                 onChange={(e) => setAffiliateUrls(e.target.value)}
