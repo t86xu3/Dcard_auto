@@ -113,7 +113,7 @@ class LLMService:
                 system_instruction=system_prompt,
                 temperature=settings.LLM_TEMPERATURE,
                 max_output_tokens=settings.LLM_MAX_TOKENS,
-                http_options=types.HttpOptions(timeout=300),
+                http_options=types.HttpOptions(timeout=300_000),  # 毫秒，300秒
             )
             attempt_start = time.time()
             try:
@@ -248,12 +248,14 @@ class LLMService:
         # 載入 system prompt（從 DB 或預設）
         if prompt_template_id:
             template = db.query(PromptTemplate).filter(PromptTemplate.id == prompt_template_id).first()
-            system_prompt = template.content if template else get_default_prompt(db)
+            system_prompt = template.content if template else get_default_prompt(db, user_id=user_id)
         else:
-            system_prompt = get_default_prompt(db)
+            system_prompt = get_default_prompt(db, user_id=user_id)
 
-        # 組合使用者訊息（商品資料）
-        user_message = f"目標看板：{target_forum}\n\n以下是商品資料，請根據這些資訊撰寫文章：\n\n{products_info}"
+        # 組合使用者訊息（商品資料），注入當前年份
+        from datetime import datetime
+        current_year = datetime.now().year
+        user_message = f"⚠️ 當前年份是 {current_year} 年，標題和文章中提到年份時必須使用 {current_year}。\n\n目標看板：{target_forum}\n\n以下是商品資料，請根據這些資訊撰寫文章：\n\n{products_info}"
 
         # 組合系統指示（程式碼層級）+ 使用者範本
         full_system_prompt = f"{SYSTEM_INSTRUCTIONS}\n\n---\n\n以下是使用者的寫作風格範本：\n\n{system_prompt}"
@@ -317,6 +319,10 @@ class LLMService:
                         f"{{{{{marker}}}}}",
                         f"\n\n![商品圖片]({img_url})\n\n"
                     )
+
+        # 清除殘留的 {{IMAGE:...}} 標記（LLM 可能產生不存在的索引）
+        content = re.sub(r'\{\{IMAGE:\d+:\d+\}\}', '', content)
+        content_with_images = re.sub(r'\{\{IMAGE:\d+:\d+\}\}', '', content_with_images)
 
         return {
             "title": title,

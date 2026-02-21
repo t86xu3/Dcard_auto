@@ -232,9 +232,22 @@ def seed_default_prompts(db: Session):
             logger.info(f"已建立內建範本: {name}")
 
 
-def get_default_prompt(db: Session) -> str:
-    """取得預設範本內容，若無則回傳內建預設"""
-    template = db.query(PromptTemplate).filter(PromptTemplate.is_default == True).first()
-    if template:
-        return template.content
+def get_default_prompt(db: Session, user_id: int | None = None) -> str:
+    """取得預設範本內容（per-user：先找用戶自訂預設，再找內建預設）"""
+    if user_id:
+        user_default = db.query(PromptTemplate).filter(
+            PromptTemplate.user_id == user_id,
+            PromptTemplate.is_default == True,
+        ).first()
+        if user_default:
+            return user_default.content
+
+    # fallback: 內建預設
+    builtin_default = db.query(PromptTemplate).filter(
+        PromptTemplate.is_builtin == True,
+        PromptTemplate.is_default == True,
+    ).first()
+    if builtin_default:
+        return builtin_default.content
+
     return DEFAULT_SYSTEM_PROMPT

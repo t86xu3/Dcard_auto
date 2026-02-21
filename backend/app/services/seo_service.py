@@ -631,6 +631,7 @@ class SeoService:
                         system_instruction=SEO_OPTIMIZE_PROMPT,
                         temperature=0.5,
                         max_output_tokens=settings.LLM_MAX_TOKENS,
+                        http_options=types.HttpOptions(timeout=300_000),  # 毫秒，300秒
                     ),
                 )
                 optimized_content = response.text

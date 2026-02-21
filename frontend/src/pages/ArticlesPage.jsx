@@ -347,7 +347,19 @@ export default function ArticlesPage() {
       {/* Article List */}
       <div className="w-80 border-r border-gray-200 bg-white overflow-y-auto">
         <div className="p-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800">文章管理</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-800">文章管理</h2>
+            <button
+              onClick={() => { setLoading(true); loadArticles(); }}
+              disabled={loading}
+              className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors active:scale-95 disabled:opacity-50"
+              title="重新整理"
+            >
+              <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          </div>
           <p className="text-xs text-gray-400 mt-1">{articles.length} 篇文章</p>
         </div>
 

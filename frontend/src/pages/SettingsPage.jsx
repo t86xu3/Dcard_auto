@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useExtensionDetect } from '../hooks/useExtensionDetect';
 import { getPrompts, createPrompt, updatePrompt, deletePrompt, setDefaultPrompt, invalidateCache } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function SettingsPage() {
   const { status, extensionInfo, extensionId, retry } = useExtensionDetect();
+  const { user } = useAuth();
   const [llmModel, setLlmModel] = useState(() => localStorage.getItem('llmModel') || 'gemini-2.5-flash');
 
   const handleModelChange = (value) => {
@@ -98,6 +100,8 @@ export default function SettingsPage() {
   };
 
   const selectedTemplate = templates.find(t => t.id === selectedId);
+  const isAdmin = user?.is_admin;
+  const isBuiltinReadonly = selectedTemplate?.is_builtin && !isAdmin;
   const hasChanges = isNew || (selectedTemplate && (editName !== selectedTemplate.name || editContent !== selectedTemplate.content));
 
   return (
@@ -218,89 +222,151 @@ export default function SettingsPage() {
           <div className="text-center py-8 text-gray-400">載入中...</div>
         ) : (
           <div className="flex gap-4" style={{ minHeight: '400px' }}>
-            {/* 左側：範本列表 */}
-            <div className="w-64 shrink-0 border-r border-gray-100 pr-4 space-y-1 overflow-y-auto">
-              {templates.map(t => (
-                <div
-                  key={t.id}
-                  onClick={() => handleSelect(t)}
-                  className={`p-3 rounded-lg cursor-pointer transition-colors group ${
-                    selectedId === t.id ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-gray-800 text-sm truncate">{t.name}</div>
-                      <div className="flex items-center gap-2 mt-1">
-                        {t.is_builtin && (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">內建</span>
-                        )}
-                        {t.is_default && (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-600 rounded">預設</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {!t.is_default && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleSetDefault(t.id); }}
-                          className="text-xs text-blue-500 hover:text-blue-700 px-1 active:scale-95 transition-transform inline-block"
-                          title="設為預設"
-                        >
-                          ⭐ 設預設
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
-                        className="text-xs text-red-400 hover:text-red-600 px-1 active:scale-95 transition-transform inline-block"
-                        title="刪除"
+            {/* 左側：範本列表（分組：內建 / 我的範本） */}
+            <div className="w-64 shrink-0 border-r border-gray-100 pr-4 overflow-y-auto">
+              {/* 內建範本 */}
+              {templates.filter(t => t.is_builtin).length > 0 && (
+                <div className="mb-3">
+                  <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-3 py-1.5">🏛️ 內建範本</div>
+                  <div className="space-y-1">
+                    {templates.filter(t => t.is_builtin).map(t => (
+                      <div
+                        key={t.id}
+                        onClick={() => handleSelect(t)}
+                        className={`p-3 rounded-lg cursor-pointer transition-colors group ${
+                          selectedId === t.id ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
+                        }`}
                       >
-                        🗑️ 刪除
-                      </button>
-                    </div>
+                        <div className="flex items-center justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-gray-800 text-sm truncate">{t.name}</div>
+                            <div className="flex items-center gap-2 mt-1">
+                              {t.is_default && (
+                                <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-600 rounded">預設</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {!t.is_default && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleSetDefault(t.id); }}
+                                className="text-xs text-blue-500 hover:text-blue-700 px-1 active:scale-95 transition-transform inline-block"
+                                title="設為預設"
+                              >
+                                ⭐
+                              </button>
+                            )}
+                            {isAdmin && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
+                                className="text-xs text-red-400 hover:text-red-600 px-1 active:scale-95 transition-transform inline-block"
+                                title="刪除"
+                              >
+                                🗑️
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-              {isNew && (
-                <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
-                  <div className="font-medium text-blue-600 text-sm">新範本</div>
-                </div>
               )}
+
+              {/* 我的範本 */}
+              <div>
+                <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-3 py-1.5">📝 我的範本</div>
+                <div className="space-y-1">
+                  {templates.filter(t => !t.is_builtin).map(t => (
+                    <div
+                      key={t.id}
+                      onClick={() => handleSelect(t)}
+                      className={`p-3 rounded-lg cursor-pointer transition-colors group ${
+                        selectedId === t.id ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-gray-800 text-sm truncate">{t.name}</div>
+                          {t.is_default && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-600 rounded mt-1 inline-block">預設</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {!t.is_default && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleSetDefault(t.id); }}
+                              className="text-xs text-blue-500 hover:text-blue-700 px-1 active:scale-95 transition-transform inline-block"
+                              title="設為預設"
+                            >
+                              ⭐
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
+                            className="text-xs text-red-400 hover:text-red-600 px-1 active:scale-95 transition-transform inline-block"
+                            title="刪除"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {templates.filter(t => !t.is_builtin).length === 0 && !isNew && (
+                    <div className="text-xs text-gray-400 px-3 py-2">尚無自訂範本</div>
+                  )}
+                  {isNew && (
+                    <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                      <div className="font-medium text-blue-600 text-sm">新範本</div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* 右側：編輯區 */}
             <div className="flex-1 flex flex-col min-w-0">
               {(selectedId || isNew) ? (
                 <>
+                  {isBuiltinReadonly && (
+                    <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+                      🔒 內建範本僅管理員可編輯
+                    </div>
+                  )}
                   <input
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     placeholder="範本名稱"
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm mb-3 font-medium"
+                    readOnly={isBuiltinReadonly}
+                    className={`px-3 py-2 border border-gray-200 rounded-lg text-sm mb-3 font-medium ${isBuiltinReadonly ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
                   />
                   <textarea
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
                     placeholder="在此輸入 system prompt..."
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none font-mono leading-relaxed"
+                    readOnly={isBuiltinReadonly}
+                    className={`flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none font-mono leading-relaxed ${isBuiltinReadonly ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
                     style={{ minHeight: '300px' }}
                   />
                   <div className="flex items-center justify-between mt-3">
                     <div className="text-xs text-gray-400">
                       {editContent.length} 字
                     </div>
-                    <button
-                      onClick={handleSave}
-                      disabled={saving || !hasChanges}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium active:scale-95 transition-transform ${
-                        hasChanges
-                          ? 'bg-blue-500 text-white hover:bg-blue-600'
-                          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      }`}
-                    >
-                      {saving ? '儲存中...' : '💾 儲存'}
-                    </button>
+                    {!isBuiltinReadonly && (
+                      <button
+                        onClick={handleSave}
+                        disabled={saving || !hasChanges}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium active:scale-95 transition-transform ${
+                          hasChanges
+                            ? 'bg-blue-500 text-white hover:bg-blue-600'
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}
+                      >
+                        {saving ? '儲存中...' : '💾 儲存'}
+                      </button>
+                    )}
                   </div>
                 </>
               ) : (
