@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#006AA6"/>
+      <stop offset="100%" stop-color="#0088CC"/>
+    </linearGradient>
+  </defs>
+  <!-- Background rounded square -->
+  <rect x="4" y="4" width="120" height="120" rx="24" ry="24" fill="url(#bg)"/>
+  <!-- White bold "D" -->
+  <text x="56" y="96" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="88" fill="white" text-anchor="middle">D</text>
+  <!-- Orange notification badge -->
+  <circle cx="102" cy="26" r="18" fill="#FF6B35"/>
+  <!-- White up arrow on badge -->
+  <path d="M102 17 L110 31 L105 31 L105 35 L99 35 L99 31 L94 31 Z" fill="white"/>
+</svg>
