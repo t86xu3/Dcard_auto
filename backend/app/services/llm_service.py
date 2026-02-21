@@ -35,10 +35,6 @@ class LLMService:
                 raise ValueError("GOOGLE_API_KEY 未設定，請在 .env 中設定")
             self._gemini_client = genai.Client(
                 api_key=settings.GOOGLE_API_KEY,
-                http_options=types.HttpOptions(
-                    timeout=300,
-                    httpx_client=httpx.Client(timeout=httpx.Timeout(300.0)),
-                ),
             )
         return self._gemini_client
 
@@ -110,14 +106,15 @@ class LLMService:
             for img_bytes, mime_type in image_parts:
                 contents.append(types.Part.from_bytes(data=img_bytes, mime_type=mime_type))
 
-        config = types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            temperature=settings.LLM_TEMPERATURE,
-            max_output_tokens=settings.LLM_MAX_TOKENS,
-        )
-
         retry_history = []
         for attempt in range(max_retries):
+            # 每次重試都建立新的 config，帶上 per-request http_options 強制 timeout
+            config = types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=settings.LLM_TEMPERATURE,
+                max_output_tokens=settings.LLM_MAX_TOKENS,
+                http_options=types.HttpOptions(timeout=300),
+            )
             attempt_start = time.time()
             try:
                 response = self.gemini_client.models.generate_content(
