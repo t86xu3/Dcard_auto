@@ -155,22 +155,27 @@ class UsageTracker:
             db.close()
 
 
-    def get_all_users_usage(self, db_session=None) -> Dict:
-        """管理員用：取得所有用戶的費用總覽"""
+    def get_all_users_usage(self, db_session=None, start_date: Optional[date] = None, end_date: Optional[date] = None) -> Dict:
+        """管理員用：取得所有用戶的費用總覽，可按日期篩選 by_user 區塊"""
         from app.models.user import User
 
         db = db_session or SessionLocal()
         try:
-            # 全站總計（復用 get_usage 不帶 user_id）
+            # 全站總計（不受日期影響）
             global_stats = self.get_usage(user_id=None)
 
-            # 按用戶分組統計
-            user_stats_raw = db.query(
+            # 按用戶分組統計（支援日期篩選）
+            user_stats_query = db.query(
                 UsageRecord.user_id,
                 func.sum(UsageRecord.requests).label("requests"),
                 func.sum(UsageRecord.input_tokens).label("input_tokens"),
                 func.sum(UsageRecord.output_tokens).label("output_tokens"),
-            ).group_by(UsageRecord.user_id).all()
+            )
+            if start_date:
+                user_stats_query = user_stats_query.filter(UsageRecord.usage_date >= start_date)
+            if end_date:
+                user_stats_query = user_stats_query.filter(UsageRecord.usage_date <= end_date)
+            user_stats_raw = user_stats_query.group_by(UsageRecord.user_id).all()
 
             # 取得用戶名對照
             user_ids = [r.user_id for r in user_stats_raw if r.user_id is not None]
@@ -179,15 +184,20 @@ class UsageTracker:
                 users = db.query(User.id, User.username).filter(User.id.in_(user_ids)).all()
                 users_map = {u.id: u.username for u in users}
 
-            # 每用戶的模型明細
-            per_user_model = db.query(
+            # 每用戶的模型明細（支援日期篩選）
+            per_user_model_query = db.query(
                 UsageRecord.user_id,
                 UsageRecord.provider,
                 UsageRecord.model,
                 func.sum(UsageRecord.requests).label("requests"),
                 func.sum(UsageRecord.input_tokens).label("input_tokens"),
                 func.sum(UsageRecord.output_tokens).label("output_tokens"),
-            ).group_by(UsageRecord.user_id, UsageRecord.provider, UsageRecord.model).all()
+            )
+            if start_date:
+                per_user_model_query = per_user_model_query.filter(UsageRecord.usage_date >= start_date)
+            if end_date:
+                per_user_model_query = per_user_model_query.filter(UsageRecord.usage_date <= end_date)
+            per_user_model = per_user_model_query.group_by(UsageRecord.user_id, UsageRecord.provider, UsageRecord.model).all()
 
             # 組裝每用戶資料
             by_user = {}

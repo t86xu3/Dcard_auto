@@ -211,8 +211,16 @@ export const analyzeSeoById = (articleId) =>
 export const getUsage = () =>
   cachedGet('usage', () => api.get('/usage').then(r => r.data), 60_000);
 
-export const getAdminUsage = () =>
-  cachedGet('admin-usage', () => api.get('/admin/usage').then(r => r.data), 60_000);
+export const getAdminUsage = ({ startDate, endDate } = {}) => {
+  const params = {};
+  if (startDate) params.start_date = startDate;
+  if (endDate) params.end_date = endDate;
+  const hasDateFilter = startDate || endDate;
+  if (hasDateFilter) {
+    return api.get('/admin/usage', { params }).then(r => r.data);
+  }
+  return cachedGet('admin-usage', () => api.get('/admin/usage').then(r => r.data), 60_000);
+};
 
 export const getSystemPrompts = () =>
   cachedGet('system-prompts', () => api.get('/admin/system-prompts').then(r => r.data), 60_000);

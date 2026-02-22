@@ -22,19 +22,47 @@ function formatTokens(n) {
   return n.toString();
 }
 
+function getDefaultStartDate() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+function getDefaultEndDate() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export default function UsagePage() {
   const { user } = useAuth();
   const isAdmin = user?.is_admin;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('my'); // 'my' | 'all'
+  const [startDate, setStartDate] = useState(getDefaultStartDate);
+  const [endDate, setEndDate] = useState(getDefaultEndDate);
+  const [filterLoading, setFilterLoading] = useState(false);
 
   useEffect(() => {
-    const fetcher = (isAdmin && viewMode === 'all') ? getAdminUsage : getUsage;
-    fetcher()
-      .then(d => { setData(d); setLoading(false); })
-      .catch(err => { console.error('載入用量失敗:', err); setLoading(false); });
+    if (isAdmin && viewMode === 'all') {
+      getAdminUsage({ startDate, endDate })
+        .then(d => { setData(d); setLoading(false); })
+        .catch(err => { console.error('載入用量失敗:', err); setLoading(false); });
+    } else {
+      getUsage()
+        .then(d => { setData(d); setLoading(false); })
+        .catch(err => { console.error('載入用量失敗:', err); setLoading(false); });
+    }
   }, [viewMode, isAdmin]);
+
+  const handleDateFilter = () => {
+    setFilterLoading(true);
+    getAdminUsage({ startDate, endDate })
+      .then(d => {
+        setData(prev => ({ ...prev, by_user: d.by_user }));
+        setFilterLoading(false);
+      })
+      .catch(err => { console.error('篩選失敗:', err); setFilterLoading(false); });
+  };
 
   if (loading) {
     return (
@@ -191,7 +219,31 @@ export default function UsagePage() {
       {viewMode === 'all' && data.by_user && data.by_user.length > 0 && (
         <section className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
           <div className="p-4 border-b border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-800">各用戶使用量</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h3 className="text-lg font-semibold text-gray-800">各用戶使用量</h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <span className="text-gray-400 text-sm">至</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  onClick={handleDateFilter}
+                  disabled={filterLoading}
+                  className="px-3 py-1.5 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {filterLoading ? '篩選中...' : '🔍 篩選'}
+                </button>
+              </div>
+            </div>
           </div>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-left">

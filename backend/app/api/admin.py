@@ -1,10 +1,10 @@
 """
 管理員 API 路由 — 用戶管理、核准/停用
 """
-from typing import List
-from datetime import datetime
+from typing import List, Optional
+from datetime import datetime, date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -95,9 +95,13 @@ async def toggle_user_active(
 
 
 @router.get("/usage")
-async def get_all_usage(_admin: User = Depends(get_current_admin)):
-    """全站費用統計（僅管理員）：含全局總覽 + 按用戶分組"""
-    return usage_tracker.get_all_users_usage()
+async def get_all_usage(
+    start_date: Optional[date] = Query(None, description="篩選起始日期 (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="篩選結束日期 (YYYY-MM-DD)"),
+    _admin: User = Depends(get_current_admin),
+):
+    """全站費用統計（僅管理員）：含全局總覽 + 按用戶分組（可按日期篩選用戶區塊）"""
+    return usage_tracker.get_all_users_usage(start_date=start_date, end_date=end_date)
 
 
 @router.get("/system-prompts")
