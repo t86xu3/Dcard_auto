@@ -389,7 +389,7 @@ export default function ArticlesPage() {
                 </button>
               )}
               <button
-                onClick={() => { setLoading(true); loadArticles(); }}
+                onClick={() => { invalidateCache('articles'); setLoading(true); loadArticles(); }}
                 disabled={loading}
                 className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors active:scale-95 disabled:opacity-50"
                 title="重新整理"

@@ -144,7 +144,7 @@ class SeoService:
 
         return keywords[:10]
 
-    def analyze(self, title: str, content: str, keywords: Optional[list] = None) -> dict:
+    def analyze(self, title: str, content: str, keywords: Optional[list] = None, image_count: Optional[int] = None) -> dict:
         """分析文章 SEO 分數（8 項指標）"""
         breakdown = {}
         suggestions = []
@@ -201,7 +201,7 @@ class SeoService:
         }
 
         # ===== 7. 圖片使用 (5 分) =====
-        media_score, image_count = self._score_media_usage(content, suggestions)
+        media_score, image_count = self._score_media_usage(content, suggestions, known_image_count=image_count)
         breakdown["media_usage"] = {
             "score": media_score,
             "max": self.WEIGHTS["media_usage"],
@@ -501,12 +501,15 @@ class SeoService:
             })
             return 0.0
 
-    def _score_media_usage(self, content: str, suggestions: list) -> tuple:
+    def _score_media_usage(self, content: str, suggestions: list, known_image_count: Optional[int] = None) -> tuple:
         """圖片使用評分"""
         max_score = self.WEIGHTS["media_usage"]
-        image_count = len(re.findall(r'\{\{IMAGE:\d+:\d+\}\}', content))
-        # 也計算已替換的 markdown 圖片
-        image_count += len(re.findall(r'!\[.*?\]\(.*?\)', content))
+        if known_image_count is not None:
+            image_count = known_image_count
+        else:
+            image_count = len(re.findall(r'\{\{IMAGE:\d+:\d+\}\}', content))
+            # 也計算已替換的 markdown 圖片
+            image_count += len(re.findall(r'!\[.*?\]\(.*?\)', content))
 
         if image_count >= 3:
             return max_score, image_count
@@ -576,7 +579,8 @@ class SeoService:
         content = article.content or ""
 
         # 先分析現狀
-        before_analysis = self.analyze(title=article.title, content=content)
+        article_image_count = len(article.image_map) if article.image_map else 0
+        before_analysis = self.analyze(title=article.title, content=content, image_count=article_image_count)
         keywords = before_analysis.get("keywords", [])
 
         # 組合包含具體關鍵字和分數明細的訊息
@@ -654,8 +658,8 @@ class SeoService:
                 optimized_content = '\n'.join(lines[i + 1:]).strip()
                 break
 
-            # 優化後重新分析（使用新標題）
-            after_analysis = self.analyze(title=optimized_title, content=optimized_content)
+            # 優化後重新分析（使用新標題，圖片數量不變）
+            after_analysis = self.analyze(title=optimized_title, content=optimized_content, image_count=article_image_count)
 
             return {
                 "optimized_title": optimized_title,

@@ -122,7 +122,11 @@ def _generate_article_background(
             )
 
             # 自動 SEO 分析
-            seo_result = seo_service.analyze(title=result["title"], content=result["content"])
+            seo_result = seo_service.analyze(
+                title=result["title"],
+                content=result["content"],
+                image_count=len(result.get("image_map", {})),
+            )
 
             # 更新 placeholder 文章
             article = db.query(Article).filter(Article.id == article_id).first()
@@ -361,58 +365,49 @@ async def optimize_seo(
     from app.services.seo_service import seo_service
     import re
 
-    # 記住優化前原始 content 中的圖片標記及其位置（段落索引）
-    original_content = article.content or ""
-    original_paragraphs = [p for p in re.split(r'\n{2,}', original_content) if p.strip()]
-    image_marker_pattern = re.compile(r'\{\{IMAGE:\d+:\d+\}\}')
-    # 建立標記 → 所在段落索引的映射
-    marker_positions = {}
-    for idx, para in enumerate(original_paragraphs):
-        for m in image_marker_pattern.findall(para):
-            marker_positions[m] = idx
+    # 從 content_with_images 中找出圖片的相對位置（段落比例）
+    # content 本身沒有圖片標記（生成時已清除），圖片只在 content_with_images 中
+    image_positions = []  # list of (marker_key, proportional_position)
+    if article.image_map:
+        cwi = article.content_with_images or ""
+        cwi_paragraphs = [p for p in re.split(r'\n{2,}', cwi) if p.strip()]
+        total_cwi = len(cwi_paragraphs) or 1
+        # 建立 URL → marker 反查
+        url_to_marker = {url: marker for marker, url in article.image_map.items()}
+        for idx, para in enumerate(cwi_paragraphs):
+            for match in re.finditer(r'!\[.*?\]\((.*?)\)', para):
+                url = match.group(1)
+                marker = url_to_marker.get(url)
+                if marker:
+                    image_positions.append((marker, idx / total_cwi))
 
     result = seo_service.optimize_with_llm(article, model=model, user_id=current_user.id)
     optimized_title = result.get("optimized_title", article.title)
     optimized_content = result.get("optimized_content", article.content)
 
-    # 先清除 LLM 自創的任何 {{IMAGE:...}} 假標記（非原始格式）
-    valid_markers = {f"{{{{{marker}}}}}" for marker in article.image_map} if article.image_map else set()
-    optimized_content = re.sub(
-        r'\{\{IMAGE:[^}]*\}\}',
-        lambda m: m.group(0) if m.group(0) in valid_markers else '',
-        optimized_content,
-    )
+    # 清除 LLM 自創的任何 {{IMAGE:...}} 假標記
+    optimized_content = re.sub(r'\{\{IMAGE:[^}]*\}\}', '', optimized_content)
 
-    # 檢查 LLM 是否保留了原始圖片標記；若遺失則按原始位置還原
-    if article.image_map and marker_positions:
-        missing_markers = [
-            f"{{{{{marker}}}}}" for marker in article.image_map
-            if f"{{{{{marker}}}}}" not in optimized_content
-        ]
-        if missing_markers:
-            opt_paragraphs = [p for p in re.split(r'\n{2,}', optimized_content) if p.strip()]
-            total_opt = len(opt_paragraphs) or 1
-            total_orig = len(original_paragraphs) or 1
-            inserts = {}
-            for marker_text in missing_markers:
-                orig_idx = marker_positions.get(marker_text, -1)
-                if orig_idx < 0:
-                    opt_idx = total_opt - 1
-                else:
-                    opt_idx = min(int(orig_idx / total_orig * total_opt), total_opt - 1)
-                inserts.setdefault(opt_idx, []).append(marker_text)
-            new_paragraphs = []
-            for i, para in enumerate(opt_paragraphs):
-                new_paragraphs.append(para)
-                if i in inserts:
-                    for mt in inserts[i]:
-                        new_paragraphs.append(mt)
-            optimized_content = '\n\n'.join(new_paragraphs)
+    # 按原始比例位置插入圖片標記
+    if image_positions:
+        opt_paragraphs = [p for p in re.split(r'\n{2,}', optimized_content) if p.strip()]
+        total_opt = len(opt_paragraphs) or 1
+        inserts = {}
+        for marker, proportion in image_positions:
+            opt_idx = min(int(proportion * total_opt), total_opt - 1)
+            inserts.setdefault(opt_idx, []).append(f"{{{{{marker}}}}}")
+        new_paragraphs = []
+        for i, para in enumerate(opt_paragraphs):
+            new_paragraphs.append(para)
+            if i in inserts:
+                for mt in inserts[i]:
+                    new_paragraphs.append(mt)
+        optimized_content = '\n\n'.join(new_paragraphs)
 
     article.title = optimized_title
     article.content = optimized_content
 
-    # 同步更新 content_with_images：重新替換圖片標記
+    # 同步更新 content_with_images：替換圖片標記為實際圖片
     content_with_images = optimized_content
     if article.image_map:
         for marker, img_url in article.image_map.items():
@@ -420,7 +415,7 @@ async def optimize_seo(
                 f"{{{{{marker}}}}}",
                 f"\n\n![商品圖片]({img_url})\n\n"
             )
-    # 清除 content_with_images 中可能殘留的任何 {{IMAGE:...}} 標記
+    # 兜底清除殘留標記
     content_with_images = re.sub(r'\{\{IMAGE:[^}]*\}\}', '', content_with_images)
     article.content_with_images = content_with_images
 

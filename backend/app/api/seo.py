@@ -53,6 +53,7 @@ async def analyze_seo_by_id(
     result = seo_service.analyze(
         title=article.title,
         content=article.content or "",
+        image_count=len(article.image_map) if article.image_map else 0,
     )
 
     article.seo_score = result["score"]
