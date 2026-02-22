@@ -241,9 +241,9 @@ export default function ProductsPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-y-3">
         <h2 className="text-2xl font-bold text-gray-800">商品管理</h2>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap items-center">
           <button
             onClick={() => { invalidateCache('products'); loadProducts(); }}
             className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 active:scale-95 transition-transform"
