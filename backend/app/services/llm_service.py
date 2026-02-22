@@ -320,9 +320,9 @@ class LLMService:
                         f"\n\n![商品圖片]({img_url})\n\n"
                     )
 
-        # 清除殘留的 {{IMAGE:...}} 標記（LLM 可能產生不存在的索引）
-        content = re.sub(r'\{\{IMAGE:\d+:\d+\}\}', '', content)
-        content_with_images = re.sub(r'\{\{IMAGE:\d+:\d+\}\}', '', content_with_images)
+        # 清除殘留的 {{IMAGE:...}} 標記（LLM 可能產生不存在的索引或自創格式）
+        content = re.sub(r'\{\{IMAGE:[^}]*\}\}', '', content)
+        content_with_images = re.sub(r'\{\{IMAGE:[^}]*\}\}', '', content_with_images)
 
         return {
             "title": title,

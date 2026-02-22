@@ -375,7 +375,15 @@ async def optimize_seo(
     optimized_title = result.get("optimized_title", article.title)
     optimized_content = result.get("optimized_content", article.content)
 
-    # 檢查 LLM 是否保留了圖片標記；若遺失則按原始位置還原
+    # 先清除 LLM 自創的任何 {{IMAGE:...}} 假標記（非原始格式）
+    valid_markers = {f"{{{{{marker}}}}}" for marker in article.image_map} if article.image_map else set()
+    optimized_content = re.sub(
+        r'\{\{IMAGE:[^}]*\}\}',
+        lambda m: m.group(0) if m.group(0) in valid_markers else '',
+        optimized_content,
+    )
+
+    # 檢查 LLM 是否保留了原始圖片標記；若遺失則按原始位置還原
     if article.image_map and marker_positions:
         missing_markers = [
             f"{{{{{marker}}}}}" for marker in article.image_map
@@ -385,10 +393,8 @@ async def optimize_seo(
             opt_paragraphs = [p for p in re.split(r'\n{2,}', optimized_content) if p.strip()]
             total_opt = len(opt_paragraphs) or 1
             total_orig = len(original_paragraphs) or 1
-            # 按原始段落比例映射到優化後段落，在對應段落後插入
             inserts = {}
             for marker_text in missing_markers:
-                # marker_positions keys 帶 {{}}，和 marker_text 格式一致
                 orig_idx = marker_positions.get(marker_text, -1)
                 if orig_idx < 0:
                     opt_idx = total_opt - 1
@@ -414,6 +420,8 @@ async def optimize_seo(
                 f"{{{{{marker}}}}}",
                 f"\n\n![商品圖片]({img_url})\n\n"
             )
+    # 清除 content_with_images 中可能殘留的任何 {{IMAGE:...}} 標記
+    content_with_images = re.sub(r'\{\{IMAGE:[^}]*\}\}', '', content_with_images)
     article.content_with_images = content_with_images
 
     article.seo_score = result.get("score")
