@@ -436,7 +436,15 @@ async function loginToBackend(username, password) {
  * 檢查認證狀態（用 /auth/me 驗證 token 是否有效）
  */
 async function getAuthStatus() {
-    if (!authToken) return { loggedIn: false };
+    // Service Worker 重啟後記憶體變數會被清空，需從 storage 重新載入
+    if (!authToken) {
+        const data = await chrome.storage.local.get(['authToken']);
+        if (data.authToken) {
+            authToken = data.authToken;
+        } else {
+            return { loggedIn: false };
+        }
+    }
 
     try {
         const response = await fetch(`${API_BASE_URL}/auth/me`, {
