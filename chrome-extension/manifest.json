@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Dcard 文章生成器",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "擷取蝦皮商品資料，生成 Dcard 文章",
     "externally_connectable": {
         "matches": [

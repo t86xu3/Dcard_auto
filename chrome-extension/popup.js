@@ -17,42 +17,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const loginPassword = document.getElementById('loginPassword');
     const loginError = document.getElementById('loginError');
 
-    // API 模式切換
-    const apiSwitch = document.getElementById('apiSwitch');
-    const apiLabel = document.getElementById('apiLabel');
-    const apiLabelRight = document.getElementById('apiLabelRight');
-    const webUiLink = document.getElementById('webUiLink');
-
     // 顯示版本號
     const manifest = chrome.runtime.getManifest();
     document.getElementById('versionText').textContent = `v${manifest.version}`;
-
-    const modeResponse = await chrome.runtime.sendMessage({ type: 'GET_API_MODE' });
-    updateApiDisplay(modeResponse.mode);
-
-    apiSwitch.addEventListener('change', async () => {
-        const newMode = apiSwitch.checked ? 'local' : 'cloud';
-        const response = await chrome.runtime.sendMessage({ type: 'SET_API_MODE', mode: newMode });
-        if (response.success) {
-            updateApiDisplay(response.mode);
-            showToast(`已切換至${response.mode === 'local' ? '本地' : '雲端'}模式`);
-            // 切換模式後重新檢查登入狀態
-            await checkAuth();
-        }
-    });
-
-    function updateApiDisplay(mode) {
-        apiSwitch.checked = mode === 'local';
-        if (mode === 'local') {
-            apiLabel.style.opacity = '0.4';
-            apiLabelRight.style.opacity = '1';
-            webUiLink.innerHTML = '💡 Web UI: <a href="http://localhost:3001" target="_blank" style="color: #3B82F6;">localhost:3001</a>';
-        } else {
-            apiLabel.style.opacity = '1';
-            apiLabelRight.style.opacity = '0.4';
-            webUiLink.innerHTML = '💡 Web UI: <a href="https://dcard-auto.web.app" target="_blank" style="color: #3B82F6;">dcard-auto.web.app</a>';
-        }
-    }
 
     // === 認證邏輯 ===
 
@@ -177,7 +144,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 清除全部
     clearBtn.addEventListener('click', async () => {
-        if (!confirm('確定要清除所有已擷取的商品嗎？')) return;
         await chrome.runtime.sendMessage({ type: 'CLEAR_PRODUCTS' });
         await loadProducts();
         showToast('🗑️ 已清除所有商品');

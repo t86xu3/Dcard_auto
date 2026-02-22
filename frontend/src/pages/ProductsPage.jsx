@@ -121,7 +121,6 @@ export default function ProductsPage() {
 
   const handleBatchDelete = async () => {
     if (selected.length === 0) return;
-    if (!confirm(`確定刪除 ${selected.length} 個商品？`)) return;
     await batchDeleteProducts(selected);
     invalidateCache('products');
     setSelected([]);

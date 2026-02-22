@@ -3,20 +3,12 @@
  * 資料處理、儲存、後端同步
  */
 
-// API 端點設定（可在 popup 切換）
-const API_URLS = {
-    cloud: 'https://dcard-auto.web.app/api',
-    local: 'http://localhost:8001/api'
-};
-
-let API_BASE_URL = API_URLS.cloud; // 預設雲端
+// API 端點設定
+const API_BASE_URL = 'https://dcard-auto.web.app/api';
 let authToken = null;
 
-// 啟動時從 storage 讀取設定
-chrome.storage.local.get(['apiMode', 'authToken']).then(({ apiMode, authToken: token }) => {
-    if (apiMode && API_URLS[apiMode]) {
-        API_BASE_URL = API_URLS[apiMode];
-    }
+// 啟動時從 storage 讀取 token
+chrome.storage.local.get(['authToken']).then(({ authToken: token }) => {
     if (token) {
         authToken = token;
     }
@@ -144,25 +136,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
-    // 切換 API 模式
-    if (message.type === 'SET_API_MODE') {
-        const mode = message.mode;
-        if (API_URLS[mode]) {
-            API_BASE_URL = API_URLS[mode];
-            chrome.storage.local.set({ apiMode: mode });
-            sendResponse({ success: true, mode, url: API_BASE_URL });
-        } else {
-            sendResponse({ success: false, error: '無效的模式' });
-        }
-        return true;
-    }
-
-    // 取得當前 API 模式
-    if (message.type === 'GET_API_MODE') {
-        const currentMode = API_BASE_URL === API_URLS.local ? 'local' : 'cloud';
-        sendResponse({ mode: currentMode, url: API_BASE_URL });
-        return true;
-    }
 });
 
 /**
