@@ -359,10 +359,50 @@ async def optimize_seo(
         raise HTTPException(status_code=404, detail="文章不存在")
 
     from app.services.seo_service import seo_service
+    import re
+
+    # 記住優化前原始 content 中的圖片標記及其位置（段落索引）
+    original_content = article.content or ""
+    original_paragraphs = [p for p in re.split(r'\n{2,}', original_content) if p.strip()]
+    image_marker_pattern = re.compile(r'\{\{IMAGE:\d+:\d+\}\}')
+    # 建立標記 → 所在段落索引的映射
+    marker_positions = {}
+    for idx, para in enumerate(original_paragraphs):
+        for m in image_marker_pattern.findall(para):
+            marker_positions[m] = idx
 
     result = seo_service.optimize_with_llm(article, model=model, user_id=current_user.id)
     optimized_title = result.get("optimized_title", article.title)
     optimized_content = result.get("optimized_content", article.content)
+
+    # 檢查 LLM 是否保留了圖片標記；若遺失則按原始位置還原
+    if article.image_map and marker_positions:
+        missing_markers = [
+            f"{{{{{marker}}}}}" for marker in article.image_map
+            if f"{{{{{marker}}}}}" not in optimized_content
+        ]
+        if missing_markers:
+            opt_paragraphs = [p for p in re.split(r'\n{2,}', optimized_content) if p.strip()]
+            total_opt = len(opt_paragraphs) or 1
+            total_orig = len(original_paragraphs) or 1
+            # 按原始段落比例映射到優化後段落，在對應段落後插入
+            inserts = {}
+            for marker_text in missing_markers:
+                # marker_positions keys 帶 {{}}，和 marker_text 格式一致
+                orig_idx = marker_positions.get(marker_text, -1)
+                if orig_idx < 0:
+                    opt_idx = total_opt - 1
+                else:
+                    opt_idx = min(int(orig_idx / total_orig * total_opt), total_opt - 1)
+                inserts.setdefault(opt_idx, []).append(marker_text)
+            new_paragraphs = []
+            for i, para in enumerate(opt_paragraphs):
+                new_paragraphs.append(para)
+                if i in inserts:
+                    for mt in inserts[i]:
+                        new_paragraphs.append(mt)
+            optimized_content = '\n\n'.join(new_paragraphs)
+
     article.title = optimized_title
     article.content = optimized_content
 
