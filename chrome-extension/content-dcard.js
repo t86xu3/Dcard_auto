@@ -36,7 +36,7 @@
     // ===== 自動貼上流程 =====
 
     /**
-     * 自動貼上文章：填標題 → 貼內文（含圖片標記）→ 自動逐張插入圖片
+     * 自動貼上文章：填標題 → 逐段建構內容（文字+圖片交替插入）
      */
     async function autoPasteArticle(articleData) {
         const { title, paste_content, plain_content, content, image_positions } = articleData;
@@ -50,7 +50,6 @@
         }
 
         let titleOk = false;
-        let contentOk = false;
 
         // 1. 填入標題
         try {
@@ -59,28 +58,38 @@
             console.error('填入標題失敗:', e);
         }
 
-        // 2. 貼上內文
-        // 有圖片時用 paste_content（含 📷圖N 標記），無圖片時用 plain_content
-        const textToPaste = hasImages
-            ? (paste_content || plain_content || content || '')
-            : (plain_content || content || '');
-
-        try {
-            contentOk = await pasteContent(editor, textToPaste);
-        } catch (e) {
-            console.error('貼上內文失敗:', e);
-        }
-
-        // 3. 自動插入圖片
-        if (contentOk && hasImages) {
+        // 2. 內容 + 圖片
+        if (hasImages && paste_content) {
+            // 逐段建構：文字段 → 圖片 → 文字段 → 圖片 → ...
+            // file input 上傳的圖片會附加在末端，配合逐段建構，位置自然正確
             showProgressPanel(title, image_positions.length);
-            await autoInsertImages(editor, image_positions);
-        } else if (titleOk || contentOk) {
-            showToast('✅ 文章已貼上！', 'success');
+            const { successImages, failImages } = await pasteContentWithImages(
+                editor, paste_content, image_positions
+            );
+            removeProgressPanel();
+
+            if (successImages > 0 || titleOk) {
+                showToast(`✅ 文章已貼上！成功插入 ${successImages} 張圖片` +
+                    (failImages > 0 ? `，${failImages} 張失敗` : ''), 'success');
+            } else {
+                showToast('部分內容插入失敗', 'error');
+            }
         } else {
-            // 全部失敗，fallback 到手動複製
-            showPasteHelper();
-            showToast('自動貼上失敗，請手動複製', 'error');
+            // 無圖片，直接貼純文字
+            const textToPaste = plain_content || content || '';
+            let contentOk = false;
+            try {
+                contentOk = await pasteContent(editor, textToPaste);
+            } catch (e) {
+                console.error('貼上內文失敗:', e);
+            }
+
+            if (titleOk || contentOk) {
+                showToast('✅ 文章已貼上！', 'success');
+            } else {
+                showPasteHelper();
+                showToast('自動貼上失敗，請手動複製', 'error');
+            }
         }
     }
 
@@ -186,91 +195,48 @@
         });
     }
 
-    // ===== 自動圖片插入 =====
+    // ===== 逐段建構（文字+圖片交替插入）=====
 
     /**
-     * 在編輯器中找到文字節點
+     * 將游標移到編輯器最末端
      */
-    function findTextInEditor(editor, searchText) {
-        const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-        while (walker.nextNode()) {
-            const node = walker.currentNode;
-            const idx = node.textContent.indexOf(searchText);
-            if (idx !== -1) {
-                return { node, offset: idx };
-            }
-        }
-        return null;
+    function moveCursorToEnd(editor) {
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        range.collapse(false); // collapse to end
+        sel.removeAllRanges();
+        sel.addRange(range);
     }
 
     /**
-     * 選取並刪除編輯器中的標記文字，將游標定位到該位置
+     * 在編輯器末端貼上一段文字（ClipboardEvent）
      */
-    function selectAndDeleteMarker(editor, markerText) {
-        const found = findTextInEditor(editor, markerText);
-        if (!found) return false;
+    async function pasteTextSegment(editor, text) {
+        if (!text.trim()) return true;
 
-        const range = document.createRange();
-        range.setStart(found.node, found.offset);
-        range.setEnd(found.node, found.offset + markerText.length);
+        editor.focus();
+        moveCursorToEnd(editor);
+        await new Promise(r => setTimeout(r, 200));
 
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
+        const dt = new DataTransfer();
+        dt.setData('text/plain', text);
+        const pasteEvent = new ClipboardEvent('paste', {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dt,
+        });
+        editor.dispatchEvent(pasteEvent);
 
-        // 刪除選取的標記文字
-        document.execCommand('delete');
+        // 等待 Lexical 渲染
+        await new Promise(r => setTimeout(r, 1000));
         return true;
     }
 
     /**
-     * 自動逐張插入圖片：找到 📷圖N 標記 → 定位游標 → 插入圖片
+     * 透過 file input 上傳圖片（Dcard 編輯器會附加在最末端）
      */
-    async function autoInsertImages(editor, imagePositions) {
-        let successCount = 0;
-        let failCount = 0;
-
-        for (let i = 0; i < imagePositions.length; i++) {
-            const img = imagePositions[i];
-            const markerText = `📷圖${img.index || (i + 1)}`;
-
-            updateProgressPanel(i + 1, imagePositions.length);
-
-            // 1. 找到並刪除標記，游標定位到該位置
-            const found = selectAndDeleteMarker(editor, markerText);
-            if (!found) {
-                console.warn(`找不到標記: ${markerText}`);
-                failCount++;
-                continue;
-            }
-
-            // 2. 在游標位置插入圖片
-            await new Promise(r => setTimeout(r, 300));
-            const ok = await insertImageFile(img.url);
-
-            if (ok) {
-                successCount++;
-                // 等待 Dcard 處理圖片上傳
-                await new Promise(r => setTimeout(r, 2000));
-            } else {
-                failCount++;
-            }
-        }
-
-        // 完成
-        removeProgressPanel();
-        if (successCount > 0) {
-            showToast(`✅ 文章已貼上！成功插入 ${successCount} 張圖片` +
-                (failCount > 0 ? `，${failCount} 張失敗` : ''), 'success');
-        } else if (failCount > 0) {
-            showToast(`圖片插入失敗（${failCount} 張），請手動上傳`, 'error');
-        }
-    }
-
-    /**
-     * 在游標位置插入圖片（優先用 paste event，fallback 到 file input）
-     */
-    async function insertImageFile(imageUrl) {
+    async function uploadImageViaFileInput(imageUrl) {
         try {
             // 1. 透過 background.js 下載圖片（避免 CORS）
             const result = await chrome.runtime.sendMessage({
@@ -283,36 +249,14 @@
                 return false;
             }
 
-            // 2. dataUrl → blob → File
+            // 2. dataUrl → File
             const resp = await fetch(result.dataUrl);
             const blob = await resp.blob();
             const mimeType = result.type || 'image/jpeg';
             const ext = mimeType.split('/')[1] || 'jpg';
             const file = new File([blob], `product-image-${Date.now()}.${ext}`, { type: mimeType });
 
-            // 3. 嘗試 paste event（會在游標位置插入）
-            const editor = document.querySelector('[data-lexical-editor="true"]');
-            if (editor) {
-                try {
-                    editor.focus();
-                    const dt = new DataTransfer();
-                    dt.items.add(file);
-                    const pasteEvent = new ClipboardEvent('paste', {
-                        bubbles: true,
-                        cancelable: true,
-                        clipboardData: dt,
-                    });
-                    editor.dispatchEvent(pasteEvent);
-                    // Lexical 處理 paste 時會呼叫 preventDefault()
-                    if (pasteEvent.defaultPrevented) {
-                        return true;
-                    }
-                } catch (e) {
-                    console.warn('Paste event 插入失敗，fallback 到 file input:', e);
-                }
-            }
-
-            // 4. Fallback: 用 file input（會在底部插入）
+            // 3. file input 上傳
             const fileInput = document.querySelector('#editor-image')
                 || document.querySelector('input[type="file"][accept*="image"]');
 
@@ -321,16 +265,63 @@
                 return false;
             }
 
-            const dt2 = new DataTransfer();
-            dt2.items.add(file);
-            fileInput.files = dt2.files;
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
             fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-
             return true;
         } catch (error) {
-            console.error('插入圖片失敗:', error);
+            console.error('上傳圖片失敗:', error);
             return false;
         }
+    }
+
+    /**
+     * 按順序逐段建構文章：文字段 → 圖片 → 文字段 → 圖片 → ...
+     * 核心原理：file input 上傳的圖片會附加在編輯器末端，
+     * 而我們從頭到尾逐段建構，所以「末端」就是正確的位置。
+     */
+    async function pasteContentWithImages(editor, pasteContent, imagePositions) {
+        // 建立 index → image 對照表
+        const imageMap = {};
+        for (const img of imagePositions) {
+            imageMap[img.index] = img;
+        }
+
+        // 用 📷圖N 分割內容（capturing group 保留分隔符）
+        const segments = pasteContent.split(/(📷圖\d+)/);
+
+        let successImages = 0;
+        let failImages = 0;
+        let imageCount = 0;
+        const totalImages = imagePositions.length;
+
+        for (const segment of segments) {
+            const markerMatch = segment.match(/^📷圖(\d+)$/);
+
+            if (markerMatch) {
+                // 圖片標記 → 上傳圖片
+                const idx = parseInt(markerMatch[1]);
+                const img = imageMap[idx];
+                if (img) {
+                    imageCount++;
+                    updateProgressPanel(imageCount, totalImages);
+                    const ok = await uploadImageViaFileInput(img.url);
+                    if (ok) {
+                        successImages++;
+                        // 等待 Dcard 處理圖片上傳
+                        await new Promise(r => setTimeout(r, 2500));
+                    } else {
+                        failImages++;
+                    }
+                }
+            } else if (segment.trim()) {
+                // 文字段 → 貼在編輯器末端
+                await pasteTextSegment(editor, segment);
+            }
+        }
+
+        return { successImages, failImages };
     }
 
     // ===== 進度面板 =====
