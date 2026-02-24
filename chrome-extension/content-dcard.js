@@ -268,7 +268,7 @@
     }
 
     /**
-     * 透過 #editor-image file input 插入圖片
+     * 在游標位置插入圖片（優先用 paste event，fallback 到 file input）
      */
     async function insertImageFile(imageUrl) {
         try {
@@ -286,12 +286,33 @@
             // 2. dataUrl → blob → File
             const resp = await fetch(result.dataUrl);
             const blob = await resp.blob();
-            const ext = (result.type || 'image/jpeg').split('/')[1] || 'jpg';
-            const file = new File([blob], `product-image-${Date.now()}.${ext}`, {
-                type: result.type || 'image/jpeg'
-            });
+            const mimeType = result.type || 'image/jpeg';
+            const ext = mimeType.split('/')[1] || 'jpg';
+            const file = new File([blob], `product-image-${Date.now()}.${ext}`, { type: mimeType });
 
-            // 3. 找到 Dcard 的隱藏 file input
+            // 3. 嘗試 paste event（會在游標位置插入）
+            const editor = document.querySelector('[data-lexical-editor="true"]');
+            if (editor) {
+                try {
+                    editor.focus();
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    const pasteEvent = new ClipboardEvent('paste', {
+                        bubbles: true,
+                        cancelable: true,
+                        clipboardData: dt,
+                    });
+                    editor.dispatchEvent(pasteEvent);
+                    // Lexical 處理 paste 時會呼叫 preventDefault()
+                    if (pasteEvent.defaultPrevented) {
+                        return true;
+                    }
+                } catch (e) {
+                    console.warn('Paste event 插入失敗，fallback 到 file input:', e);
+                }
+            }
+
+            // 4. Fallback: 用 file input（會在底部插入）
             const fileInput = document.querySelector('#editor-image')
                 || document.querySelector('input[type="file"][accept*="image"]');
 
@@ -300,10 +321,9 @@
                 return false;
             }
 
-            // 4. 設定 file 並觸發 change event
-            const dt = new DataTransfer();
-            dt.items.add(file);
-            fileInput.files = dt.files;
+            const dt2 = new DataTransfer();
+            dt2.items.add(file);
+            fileInput.files = dt2.files;
             fileInput.dispatchEvent(new Event('change', { bubbles: true }));
 
             return true;
