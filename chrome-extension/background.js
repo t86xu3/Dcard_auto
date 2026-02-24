@@ -486,11 +486,11 @@ async function handlePasteArticleToDcard(data) {
         const articleData = await response.json();
 
         // 2. 找到或開啟 Dcard 發文頁面
-        const dcardNewUrl = `https://www.dcard.tw/f/${forum || articleData.forum || 'goodthings'}/new`;
+        const dcardNewUrl = 'https://www.dcard.tw/new-post?type=classic';
         let dcardTab = null;
 
         // 先找已開啟的 Dcard 發文頁面
-        const tabs = await chrome.tabs.query({ url: 'https://www.dcard.tw/f/*/new' });
+        const tabs = await chrome.tabs.query({ url: 'https://www.dcard.tw/new-post*' });
         if (tabs.length > 0) {
             dcardTab = tabs[0];
             await chrome.tabs.update(dcardTab.id, { active: true });
