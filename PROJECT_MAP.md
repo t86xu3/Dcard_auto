@@ -165,9 +165,10 @@ Dcard_auto/
 ### Phase 2 - 功能完善
 
 - [x] Dcard 半自動發文（自動填標題 + 貼內文 + 圖片一鍵插入工具列）
+- [x] Dcard 全自動發文（逐段建構文字+圖片 + Lexical state 同步 + Cloudflare 對策）
 - [x] Prompt 範本系統（內建好物推薦文範本 + 前端管理介面）
 - [x] 多模型支援（Gemini Flash/Pro/3Pro + Claude Sonnet/Haiku）
-- [x] 費用追蹤頁面（按模型分組 + 30天趨勢圖）
+- [x] 費用追蹤頁面（按模型分組 + 30天趨勢圖 + 管理員日期篩選 + 每用戶明細）
 - [x] 用量追蹤 Bug 修復（usage_tracker.track → record_usage）
 - [x] LLM 多模態圖片輸入（附圖給 LLM 分析商品規格/成分/尺寸）
 - [x] 商品網址手動編輯 + LLM 正確對應連結
@@ -183,8 +184,17 @@ Dcard_auto/
 - [x] 標題長度規範統一（全站 20-35 字：範本 + SEO prompt + 評分引擎）
 - [x] 內建範本可編輯/刪除（移除 is_builtin 限制）
 - [x] 蝦皮聯盟行銷網址批量匯入（placeholder + upsert + 前往擷取）
+- [x] 商品拖拽排序（@dnd-kit，控制文章中商品出現順序）
+- [x] LLM 呼叫重試機制（指數退避 5s/10s/20s + 詳細錯誤報告含 traceback）
+- [x] 範本 per-user 隔離（自訂範本私有 + 內建範本僅管理員可改）
+- [x] 文章批量選取刪除
+- [x] 文章列表重新整理按鈕
+- [x] Chrome Extension icon 美化（藍色漸層 D 字母 + 橙色通知徽章）
+- [x] Extension popup 顯示版本號 + 下載最新版連結
+- [x] Extension 一鍵清除 Dcard Cookie（排解 Cloudflare 503 封鎖）
+- [x] API 快取層（stale-while-revalidate）+ 路由分割 + 輪詢退避
+- [x] 蝦皮 Sub_id 追蹤（文章生成時填入聯盟行銷追蹤碼）
 - [ ] 批量生成功能
-- [x] Chrome Extension icon 美化（設計正式 logo）
 - [ ] 手機版 RWD 介面（響應式設計適配行動裝置）
 - [ ] 時區問題修正（前後端時間顯示一致）
 - [ ] TG 機器人整合（通知 / 操作自動化）

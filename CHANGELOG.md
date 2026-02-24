@@ -1,5 +1,60 @@
 # Changelog
 
+## v1.1.0 (2026-02-25)
+
+Dcard 全自動發文 + 穩定性大幅提升。
+
+### Dcard 全自動發文
+- 全自動貼文流程：填標題 → 逐段建構內容 → 自動插入圖片（file input 上傳）
+- 圖片逐段建構策略：文字段 → 圖片 → 文字段 → 圖片，位置自然正確
+- Lexical 編輯器 state 同步修復：游標改用鍵盤事件、貼完 blur+refocus reconcile
+- 圖片上傳等待實際出現在編輯器後再繼續（取代盲等固定時間）
+- 隨機延遲模擬人類操作節奏，降低 Cloudflare bot detection 風險
+- 一鍵清除 Dcard Cookie（popup 內建按鈕，排解 Cloudflare 503 封鎖）
+
+### 文章生成強化
+- 非同步文章生成（背景執行緒 + placeholder + 前端 5 秒輪詢）
+- LLM 呼叫重試機制（指數退避 5s/10s/20s，max 3 次，詳細錯誤報告含 traceback）
+- Gemini 圖片處理 fallback（400 錯誤 → 過濾無效圖片 → 純文字重試）
+- 清除 LLM 自創的假圖片標記（regex 清除殘留 `{{IMAGE:...}}`）
+- 動態注入當前年份，避免 LLM 使用舊年份
+
+### 商品管理
+- 商品拖拽排序（@dnd-kit，控制文章中商品出現順序）
+- 蝦皮聯盟行銷網址批量匯入（placeholder + upsert + 前往擷取）
+- 商品網址手動編輯 + LLM 正確對應連結
+- 文章生成時填入 Sub_id 追蹤
+
+### 文章管理
+- 文章批量選取刪除
+- 文章列表重新整理按鈕
+- 文章編輯自動同步 content_with_images
+- SEO 優化自動更新標題（LLM 輸出解析 + DB 同步）
+- SEO 面板折疊（預設收合，點擊展開）
+
+### 範本與權限
+- 範本 per-user 隔離（自訂範本私有 + 內建範本僅管理員可改）
+- 內建範本可編輯/刪除（移除 is_builtin 限制）
+- 標題長度規範統一（全站 20-35 字）
+
+### 管理員
+- 管理員費用追蹤新增日期篩選
+- 全站總覽顯示每用戶使用量明細
+
+### 效能與 UI
+- API 快取層（stale-while-revalidate 策略）+ 路由分割 + 輪詢退避
+- Chrome Extension icon 美化（藍色漸層 D 字母 + 橙色通知徽章）
+- Popup 顯示版本號 + 下載最新版連結
+
+### 修復
+- Extension Service Worker 重啟後 token 遺失（從 storage 還原）
+- Dcard 發文頁面 URL 修正為 /new-post?type=classic
+- 內文重複貼上（ClipboardEvent 後檢查內容長度）
+- SEO 分析圖片計數錯誤 + SEO 優化後圖片標記遺失
+- 聯盟網址解析失敗（query string 干擾 path 解析）
+- Gemini SDK timeout 單位問題（毫秒 vs 秒）
+- Claude API 圖片 media_type 不合法
+
 ## v1.0.0 (2026-02-21)
 
 首次正式版本，涵蓋完整的 Dcard 文章自動生成流程。
