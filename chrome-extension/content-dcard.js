@@ -127,12 +127,15 @@
      * 自動貼上內文到 Lexical 編輯器
      */
     async function pasteContent(editor, text) {
-        editor.focus();
+        // 記錄貼上前的內容長度
+        const beforeLen = (editor.textContent || '').length;
 
-        // 短暫延遲確保 focus 生效
+        editor.focus();
         await new Promise(r => setTimeout(r, 200));
 
         // 方法 1：合成 ClipboardEvent
+        // Lexical 會呼叫 preventDefault() 處理 paste，dispatchEvent 回傳 false
+        // 但內容已經被 Lexical 插入，所以要檢查 editor 內容而非回傳值
         try {
             const dt = new DataTransfer();
             dt.setData('text/plain', text);
@@ -141,28 +144,27 @@
                 cancelable: true,
                 clipboardData: dt
             });
-            const dispatched = editor.dispatchEvent(pasteEvent);
-            if (dispatched) {
-                // 驗證內容是否貼上（等一下再檢查）
-                await new Promise(r => setTimeout(r, 500));
-                if (editor.textContent && editor.textContent.length > 10) {
-                    return true;
-                }
+            editor.dispatchEvent(pasteEvent);
+
+            // 等待 Lexical 處理完成，檢查內容是否增加
+            await new Promise(r => setTimeout(r, 800));
+            const afterLen = (editor.textContent || '').length;
+            if (afterLen > beforeLen + 10) {
+                return true;
             }
         } catch (e) {
             console.warn('ClipboardEvent 方法失敗:', e);
         }
 
-        // 方法 2：document.execCommand('insertText')
+        // 方法 2：document.execCommand('insertText')（僅在方法 1 失敗時）
         try {
             editor.focus();
             await new Promise(r => setTimeout(r, 100));
-            const result = document.execCommand('insertText', false, text);
-            if (result) {
-                await new Promise(r => setTimeout(r, 300));
-                if (editor.textContent && editor.textContent.length > 10) {
-                    return true;
-                }
+            document.execCommand('insertText', false, text);
+            await new Promise(r => setTimeout(r, 500));
+            const afterLen = (editor.textContent || '').length;
+            if (afterLen > beforeLen + 10) {
+                return true;
             }
         } catch (e) {
             console.warn('execCommand 方法失敗:', e);
