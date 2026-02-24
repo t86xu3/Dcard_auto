@@ -25,6 +25,7 @@
         "https://shopee.tw/*",
         "https://*.shopee.tw/*",
         "https://www.dcard.tw/*",
+        "https://down-tw.img.susercontent.com/*",
         "http://localhost:*/*",
         "http://127.0.0.1:*/*",
         "https://dcard-auto.web.app/*",

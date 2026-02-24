@@ -450,17 +450,27 @@ async def copy_article(
 
     # 將圖片標記替換為位置提示
     content = article.content_with_images or article.content or ""
+    plain_content = article.content or ""
     image_positions = []
 
     if article.image_map:
         for marker, url in article.image_map.items():
             placeholder = f"\n\n📷 [在此插入圖片: {marker}]\n\n"
             content = content.replace(f"{{{{{marker}}}}}", placeholder)
+            # plain_content 移除圖片標記（供自動貼上用）
+            plain_content = plain_content.replace(f"{{{{{marker}}}}}", "")
             image_positions.append({"marker": marker, "url": url})
+
+    # 清除 markdown 圖片語法（content_with_images 可能含 ![alt](url)）
+    import re
+    plain_content = re.sub(r'!\[.*?\]\(.*?\)', '', plain_content)
+    # 壓縮連續空行為最多兩個換行
+    plain_content = re.sub(r'\n{3,}', '\n\n', plain_content).strip()
 
     return {
         "title": article.title,
         "content": content,
+        "plain_content": plain_content,
         "forum": article.target_forum,
         "image_positions": image_positions,
     }

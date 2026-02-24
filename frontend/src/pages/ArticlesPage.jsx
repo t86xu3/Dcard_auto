@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { getArticles, getArticle, updateArticle, deleteArticle, batchDeleteArticles, optimizeSeo, copyArticle, analyzeSeo, analyzeSeoById, invalidateCache, fetchArticlesFresh } from '../api/client';
 import SeoPanel from '../components/SeoPanel';
 import { useAuth } from '../contexts/AuthContext';
+import { useExtensionDetect } from '../hooks/useExtensionDetect';
 
 // 複製圖片到剪貼簿（透過後端代理避免跨域）
 async function copyImageToClipboard(imageUrl) {
@@ -110,6 +111,7 @@ function RenderContent({ text }) {
 
 export default function ArticlesPage() {
   const { user } = useAuth();
+  const { isInstalled: extInstalled, extensionId } = useExtensionDetect();
   const [articles, setArticles] = useState([]);
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -123,6 +125,7 @@ export default function ArticlesPage() {
   const [loading, setLoading] = useState(true);
   const [optimizing, setOptimizing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [pasting, setPasting] = useState(false);
   const [toast, setToast] = useState(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -327,9 +330,37 @@ export default function ArticlesPage() {
     try {
       const data = await copyArticle(selectedArticle.id);
       await navigator.clipboard.writeText(`${data.title}\n\n${data.content}`);
-      alert('已複製到剪貼簿！');
+      showToast('success', '已複製到剪貼簿！');
     } catch (err) {
       alert('複製失敗');
+    }
+  };
+
+  const handlePasteToDcard = async () => {
+    if (!selectedArticle || !extensionId) return;
+    setPasting(true);
+    try {
+      chrome.runtime.sendMessage(extensionId, {
+        type: 'PASTE_ARTICLE_TO_DCARD',
+        data: {
+          articleId: selectedArticle.id,
+          forum: selectedArticle.target_forum,
+        }
+      }, (response) => {
+        setPasting(false);
+        if (chrome.runtime.lastError) {
+          showToast('error', `Extension 連線失敗: ${chrome.runtime.lastError.message}`);
+          return;
+        }
+        if (response?.success) {
+          showToast('success', '已開啟 Dcard，自動貼上中...');
+        } else {
+          showToast('error', response?.error || '貼到 Dcard 失敗');
+        }
+      });
+    } catch (err) {
+      setPasting(false);
+      showToast('error', `貼到 Dcard 失敗: ${err.message}`);
     }
   };
 
@@ -510,6 +541,15 @@ export default function ArticlesPage() {
                   <button onClick={handleCopy} className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 active:scale-95 transition-transform">
                     📋 複製
                   </button>
+                  {extInstalled && (
+                    <button
+                      onClick={handlePasteToDcard}
+                      disabled={pasting}
+                      className="px-3 py-1.5 text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform"
+                    >
+                      {pasting ? '⏳ 開啟中...' : '📮 貼到 Dcard'}
+                    </button>
+                  )}
                   <button onClick={handleAnalyzeSeo} disabled={analyzing || optimizing} className="px-3 py-1.5 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform">
                     {analyzing ? '分析中...' : '📊 SEO 分析'}
                   </button>

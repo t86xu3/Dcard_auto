@@ -25,7 +25,7 @@ function getAuthHeaders() {
     return headers;
 }
 
-// 外部訊息監聽（Web UI 偵測用）
+// 外部訊息監聽（Web UI 偵測 + 自動貼文）
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
     if (message.type === 'PING') {
         sendResponse({
@@ -34,6 +34,15 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
             name: chrome.runtime.getManifest().name
         });
     }
+
+    // 從 Web UI 觸發「貼到 Dcard」
+    if (message.type === 'PASTE_ARTICLE_TO_DCARD') {
+        handlePasteArticleToDcard(message.data).then(result => {
+            sendResponse(result);
+        });
+        return true;
+    }
+
     return true;
 });
 
@@ -131,6 +140,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // 取得認證狀態
     if (message.type === 'GET_AUTH_STATUS') {
         getAuthStatus().then(result => {
+            sendResponse(result);
+        });
+        return true;
+    }
+
+    // 下載圖片 blob（供 content-dcard.js 使用，避免 CORS）
+    if (message.type === 'FETCH_IMAGE_BLOB') {
+        fetchImageBlob(message.url).then(result => {
             sendResponse(result);
         });
         return true;
@@ -385,7 +402,7 @@ async function copyArticle(articleId) {
 }
 
 /**
- * 貼到 Dcard 活動頁籤
+ * 貼到 Dcard 活動頁籤（舊版：僅轉發到已開啟的 Dcard 頁面）
  */
 async function pasteToActiveDcardTab(articleData) {
     try {
@@ -402,6 +419,117 @@ async function pasteToActiveDcardTab(articleData) {
             return { success: true };
         }
         return { success: false, error: '請先開啟 Dcard 頁面' };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 下載圖片並回傳 dataUrl（供 content-dcard.js 避免 CORS）
+ */
+async function fetchImageBlob(imageUrl) {
+    try {
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        const type = blob.type || 'image/jpeg';
+
+        // 轉為 dataUrl
+        const reader = new FileReader();
+        const dataUrl = await new Promise((resolve, reject) => {
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+
+        return { success: true, dataUrl, type };
+    } catch (error) {
+        // fallback: 嘗試透過後端 image-proxy
+        try {
+            const proxyUrl = `${API_BASE_URL}/articles/image-proxy?url=${encodeURIComponent(imageUrl)}`;
+            const response = await fetch(proxyUrl, { headers: getAuthHeaders() });
+            if (!response.ok) throw new Error(`Proxy HTTP ${response.status}`);
+            const blob = await response.blob();
+            const type = blob.type || 'image/jpeg';
+            const reader = new FileReader();
+            const dataUrl = await new Promise((resolve, reject) => {
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            return { success: true, dataUrl, type };
+        } catch (proxyError) {
+            return { success: false, error: `圖片下載失敗: ${error.message}` };
+        }
+    }
+}
+
+/**
+ * 從 Web UI 觸發的自動貼文流程：
+ * 1. 先透過後端 API 取得文章資料
+ * 2. 找到或開啟 Dcard 發文頁面
+ * 3. 等待頁面載入完成
+ * 4. 轉發 AUTO_PASTE_ARTICLE 給 content-dcard.js
+ */
+async function handlePasteArticleToDcard(data) {
+    try {
+        const { articleId, forum } = data;
+
+        // 1. 取得文章 copy 資料
+        const response = await fetch(`${API_BASE_URL}/articles/${articleId}/copy`, {
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) {
+            const err = await response.text();
+            return { success: false, error: `取得文章失敗: ${err}` };
+        }
+        const articleData = await response.json();
+
+        // 2. 找到或開啟 Dcard 發文頁面
+        const dcardNewUrl = `https://www.dcard.tw/f/${forum || articleData.forum || 'goodthings'}/new`;
+        let dcardTab = null;
+
+        // 先找已開啟的 Dcard 發文頁面
+        const tabs = await chrome.tabs.query({ url: 'https://www.dcard.tw/f/*/new' });
+        if (tabs.length > 0) {
+            dcardTab = tabs[0];
+            await chrome.tabs.update(dcardTab.id, { active: true });
+        } else {
+            // 開啟新分頁
+            dcardTab = await chrome.tabs.create({ url: dcardNewUrl, active: true });
+        }
+
+        // 3. 等待頁面載入完成後傳送文章資料
+        const waitForTab = (tabId) => new Promise((resolve) => {
+            const check = (updatedTabId, changeInfo) => {
+                if (updatedTabId === tabId && changeInfo.status === 'complete') {
+                    chrome.tabs.onUpdated.removeListener(check);
+                    resolve();
+                }
+            };
+            chrome.tabs.onUpdated.addListener(check);
+
+            // 如果已經載入完成就直接 resolve
+            chrome.tabs.get(tabId, (tab) => {
+                if (tab.status === 'complete') {
+                    chrome.tabs.onUpdated.removeListener(check);
+                    resolve();
+                }
+            });
+        });
+
+        await waitForTab(dcardTab.id);
+
+        // 給頁面一點時間讓編輯器初始化
+        await new Promise(r => setTimeout(r, 1500));
+
+        // 4. 傳送文章到 content-dcard.js
+        await chrome.tabs.sendMessage(dcardTab.id, {
+            type: 'AUTO_PASTE_ARTICLE',
+            data: articleData
+        });
+
+        return { success: true };
     } catch (error) {
         return { success: false, error: error.message };
     }
