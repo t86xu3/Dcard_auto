@@ -198,6 +198,14 @@
     // ===== 逐段建構（文字+圖片交替插入）=====
 
     /**
+     * 隨機延遲（模擬人類操作節奏）
+     */
+    function randomDelay(min, max) {
+        const ms = Math.floor(Math.random() * (max - min + 1)) + min;
+        return new Promise(r => setTimeout(r, ms));
+    }
+
+    /**
      * 將游標移到編輯器最末端
      */
     function moveCursorToEnd(editor) {
@@ -217,7 +225,7 @@
 
         editor.focus();
         moveCursorToEnd(editor);
-        await new Promise(r => setTimeout(r, 200));
+        await randomDelay(150, 400);
 
         const dt = new DataTransfer();
         dt.setData('text/plain', text);
@@ -229,7 +237,7 @@
         editor.dispatchEvent(pasteEvent);
 
         // 等待 Lexical 渲染
-        await new Promise(r => setTimeout(r, 1000));
+        await randomDelay(800, 1500);
         return true;
     }
 
@@ -310,7 +318,7 @@
                     if (ok) {
                         successImages++;
                         // 等待 Dcard 處理圖片上傳
-                        await new Promise(r => setTimeout(r, 2500));
+                        await randomDelay(2000, 3500);
                     } else {
                         failImages++;
                     }
