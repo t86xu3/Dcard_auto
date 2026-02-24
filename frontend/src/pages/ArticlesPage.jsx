@@ -345,6 +345,7 @@ export default function ArticlesPage() {
         data: {
           articleId: selectedArticle.id,
           forum: selectedArticle.target_forum,
+          accessToken: localStorage.getItem('accessToken'),
         }
       }, (response) => {
         setPasting(false);

@@ -473,11 +473,16 @@ async function fetchImageBlob(imageUrl) {
  */
 async function handlePasteArticleToDcard(data) {
     try {
-        const { articleId, forum } = data;
+        const { articleId, forum, accessToken } = data;
 
-        // 1. 取得文章 copy 資料
+        // 1. 取得文章 copy 資料（優先使用前端傳來的 token）
+        const headers = { 'Content-Type': 'application/json' };
+        const token = accessToken || authToken;
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
         const response = await fetch(`${API_BASE_URL}/articles/${articleId}/copy`, {
-            headers: getAuthHeaders()
+            headers
         });
         if (!response.ok) {
             const err = await response.text();
