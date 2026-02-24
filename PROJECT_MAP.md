@@ -164,7 +164,7 @@ Dcard_auto/
 
 ### Phase 2 - 功能完善
 
-- [ ] Dcard 自動發文（content-dcard.js 自動插入圖片）
+- [x] Dcard 半自動發文（自動填標題 + 貼內文 + 圖片一鍵插入工具列）
 - [x] Prompt 範本系統（內建好物推薦文範本 + 前端管理介面）
 - [x] 多模型支援（Gemini Flash/Pro/3Pro + Claude Sonnet/Haiku）
 - [x] 費用追蹤頁面（按模型分組 + 30天趨勢圖）
