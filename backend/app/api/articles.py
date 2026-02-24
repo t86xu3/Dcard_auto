@@ -450,25 +450,38 @@ async def copy_article(
 
     import re
 
-    # 將圖片標記替換為位置提示
-    content = article.content_with_images or article.content or ""
+    # 建立 URL → marker 反查表
+    url_to_marker = {}
+    if article.image_map:
+        url_to_marker = {url: marker for marker, url in article.image_map.items()}
+
+    # content_with_images 含有 ![商品圖片](url)，是圖片資訊的唯一來源
+    cwi = article.content_with_images or article.content or ""
     plain_content = article.content or ""
-    paste_content = article.content or ""  # 供自動貼上用，帶有 📷 圖N 標記
+    paste_content = cwi  # 從含圖片的版本開始建構
+    content = cwi  # 用於顯示
+
     image_positions = []
     img_index = 0
 
-    if article.image_map:
-        for marker, url in article.image_map.items():
-            img_index += 1
-            placeholder = f"\n\n📷 [在此插入圖片: {marker}]\n\n"
-            content = content.replace(f"{{{{{marker}}}}}", placeholder)
-            # plain_content 移除圖片標記
-            plain_content = plain_content.replace(f"{{{{{marker}}}}}", "")
-            # paste_content 替換為簡單編號標記（供 content script 定位插圖）
-            paste_content = paste_content.replace(f"{{{{{marker}}}}}", f"\n\n📷圖{img_index}\n\n")
-            image_positions.append({"marker": marker, "url": url, "index": img_index})
+    # 把 markdown 圖片替換為各用途的格式
+    if url_to_marker:
+        for match in re.finditer(r'!\[.*?\]\((.*?)\)', cwi):
+            url = match.group(1)
+            marker = url_to_marker.get(url)
+            if marker:
+                img_index += 1
+                image_positions.append({"marker": marker, "url": url, "index": img_index})
 
-    # 清除 markdown 圖片語法
+        # content: 顯示用，替換為位置提示
+        for img in image_positions:
+            placeholder = f"\n\n📷 [在此插入圖片: {img['marker']}]\n\n"
+            content = content.replace(f"![商品圖片]({img['url']})", placeholder, 1)
+        # paste_content: 自動貼上用，替換為 📷圖N 標記
+        for img in image_positions:
+            paste_content = paste_content.replace(f"![商品圖片]({img['url']})", f"\n\n📷圖{img['index']}\n\n", 1)
+
+    # 清除殘留的 markdown 圖片語法和多餘空行
     plain_content = re.sub(r'!\[.*?\]\(.*?\)', '', plain_content)
     plain_content = re.sub(r'\n{3,}', '\n\n', plain_content).strip()
     paste_content = re.sub(r'!\[.*?\]\(.*?\)', '', paste_content)
