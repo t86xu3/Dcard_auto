@@ -359,6 +359,46 @@ body {
     cursor: not-allowed;
 }
 
+/* Utilities */
+.utilities {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #E2E8F0;
+}
+
+.btn-utility {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    background: white;
+    color: #64748B;
+    transition: all 0.2s;
+}
+
+.btn-utility:hover {
+    background: #FEF3C7;
+    border-color: #F59E0B;
+    color: #92400E;
+}
+
+.btn-utility:active {
+    transform: scale(0.95);
+}
+
+.btn-utility:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
 /* Footer */
 .footer {
     margin-top: 12px;

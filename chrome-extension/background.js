@@ -153,6 +153,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
+    // 清除 Dcard cookies（排解 Cloudflare 503 封鎖）
+    if (message.type === 'CLEAR_DCARD_COOKIES') {
+        clearDcardCookies().then(result => {
+            sendResponse(result);
+        });
+        return true;
+    }
+
 });
 
 /**
@@ -595,6 +603,34 @@ async function getAuthStatus() {
         }
     } catch (error) {
         return { loggedIn: false, error: '無法連線' };
+    }
+}
+
+/**
+ * 清除 Dcard 相關 cookies（排解 Cloudflare 503 封鎖）
+ * 清除 Cloudflare bot detection cookies，讓 session 重置
+ */
+async function clearDcardCookies() {
+    try {
+        const cookies = await chrome.cookies.getAll({ domain: '.dcard.tw' });
+        let cleared = 0;
+        for (const cookie of cookies) {
+            const url = `https://${cookie.domain.replace(/^\./, '')}${cookie.path}`;
+            await chrome.cookies.remove({ url, name: cookie.name });
+            cleared++;
+        }
+        // 也清除 www.dcard.tw 的 cookies
+        const wwwCookies = await chrome.cookies.getAll({ domain: 'www.dcard.tw' });
+        for (const cookie of wwwCookies) {
+            await chrome.cookies.remove({
+                url: `https://www.dcard.tw${cookie.path}`,
+                name: cookie.name
+            });
+            cleared++;
+        }
+        return { success: true, cleared };
+    } catch (error) {
+        return { success: false, error: error.message };
     }
 }
 

@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const loginPassword = document.getElementById('loginPassword');
     const loginError = document.getElementById('loginError');
 
+    const clearDcardCookiesBtn = document.getElementById('clearDcardCookiesBtn');
+
     // 顯示版本號
     const manifest = chrome.runtime.getManifest();
     document.getElementById('versionText').textContent = `v${manifest.version}`;
@@ -174,6 +176,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         syncBtn.disabled = false;
         syncBtn.innerHTML = '<span class="btn-icon">🔄</span> 同步到後端';
+    });
+
+    // 清除 Dcard Cookie（排解 Cloudflare 封鎖）
+    clearDcardCookiesBtn.addEventListener('click', async () => {
+        clearDcardCookiesBtn.disabled = true;
+        clearDcardCookiesBtn.innerHTML = '<span class="btn-icon">⏳</span> 清除中...';
+
+        const result = await chrome.runtime.sendMessage({ type: 'CLEAR_DCARD_COOKIES' });
+
+        if (result.success) {
+            showToast(`🍪 已清除 ${result.cleared} 個 Dcard Cookie，請重新整理 Dcard 頁面`);
+        } else {
+            showToast(`❌ 清除失敗: ${result.error}`);
+        }
+
+        clearDcardCookiesBtn.disabled = false;
+        clearDcardCookiesBtn.innerHTML = '<span class="btn-icon">🍪</span> 清除 Dcard Cookie';
     });
 
     /**

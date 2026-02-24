@@ -161,6 +161,8 @@
             await new Promise(r => setTimeout(r, 1500));
             const afterLen = (editor.textContent || '').length;
             if (afterLen > beforeLen + 10) {
+                // 貼上成功，強制 Lexical reconcile state 確保發佈不出問題
+                await reconcileLexicalState(editor);
                 return true;
             }
         } catch (e) {
@@ -206,15 +208,16 @@
     }
 
     /**
-     * 將游標移到編輯器最末端
+     * 將游標移到編輯器最末端（透過鍵盤事件，讓 Lexical 自行處理）
      */
     function moveCursorToEnd(editor) {
-        const sel = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(editor);
-        range.collapse(false); // collapse to end
-        sel.removeAllRanges();
-        sel.addRange(range);
+        // 使用 Ctrl+End 鍵盤事件讓 Lexical 自行移動游標，
+        // 避免直接操作 DOM Selection 導致 Lexical 內部 state 不同步
+        editor.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'End', code: 'End',
+            ctrlKey: true, metaKey: true,
+            bubbles: true, cancelable: true,
+        }));
     }
 
     /**
@@ -225,7 +228,8 @@
 
         editor.focus();
         moveCursorToEnd(editor);
-        await randomDelay(150, 400);
+        // 給 Lexical 足夠時間處理游標移動
+        await randomDelay(300, 500);
 
         const dt = new DataTransfer();
         dt.setData('text/plain', text);
@@ -236,16 +240,40 @@
         });
         editor.dispatchEvent(pasteEvent);
 
-        // 等待 Lexical 渲染
-        await randomDelay(800, 1500);
+        // 等待 Lexical 完整渲染 + state 同步
+        await randomDelay(1000, 1800);
         return true;
+    }
+
+    /**
+     * 等待圖片出現在編輯器中（確認 Dcard 已處理上傳）
+     */
+    function waitForImageInEditor(editor, previousImageCount, timeout = 10000) {
+        return new Promise((resolve) => {
+            const startTime = Date.now();
+            const check = setInterval(() => {
+                const currentImages = editor.querySelectorAll('img').length;
+                if (currentImages > previousImageCount) {
+                    clearInterval(check);
+                    resolve(true);
+                }
+                if (Date.now() - startTime > timeout) {
+                    clearInterval(check);
+                    console.warn('⚠️ 等待圖片出現超時，繼續下一步');
+                    resolve(false);
+                }
+            }, 500);
+        });
     }
 
     /**
      * 透過 file input 上傳圖片（Dcard 編輯器會附加在最末端）
      */
-    async function uploadImageViaFileInput(imageUrl) {
+    async function uploadImageViaFileInput(editor, imageUrl) {
         try {
+            // 記錄上傳前的圖片數量
+            const beforeImageCount = editor.querySelectorAll('img').length;
+
             // 1. 透過 background.js 下載圖片（避免 CORS）
             const result = await chrome.runtime.sendMessage({
                 type: 'FETCH_IMAGE_BLOB',
@@ -277,11 +305,33 @@
             dt.items.add(file);
             fileInput.files = dt.files;
             fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // 4. 等待圖片實際出現在編輯器中（而非盲等固定時間）
+            const appeared = await waitForImageInEditor(editor, beforeImageCount, 10000);
+            if (appeared) {
+                // 圖片已出現，給 Dcard 額外時間完成後端上傳
+                await randomDelay(1500, 2500);
+            } else {
+                // 超時但仍給基本等待時間
+                await randomDelay(2000, 3000);
+            }
+
             return true;
         } catch (error) {
             console.error('上傳圖片失敗:', error);
             return false;
         }
+    }
+
+    /**
+     * 強制 Lexical 重新同步 editor state
+     * blur → 等待 → refocus，讓 Lexical reconcile 內部狀態與 DOM
+     */
+    async function reconcileLexicalState(editor) {
+        editor.blur();
+        await new Promise(r => setTimeout(r, 500));
+        editor.focus();
+        await new Promise(r => setTimeout(r, 500));
     }
 
     /**
@@ -314,11 +364,9 @@
                 if (img) {
                     imageCount++;
                     updateProgressPanel(imageCount, totalImages);
-                    const ok = await uploadImageViaFileInput(img.url);
+                    const ok = await uploadImageViaFileInput(editor, img.url);
                     if (ok) {
                         successImages++;
-                        // 等待 Dcard 處理圖片上傳
-                        await randomDelay(2000, 3500);
                     } else {
                         failImages++;
                     }
@@ -328,6 +376,10 @@
                 await pasteTextSegment(editor, segment);
             }
         }
+
+        // 全部完成後，強制 Lexical 重新同步 state
+        // 確保 editor 內部狀態一致，避免發佈時序列化失敗
+        await reconcileLexicalState(editor);
 
         return { successImages, failImages };
     }

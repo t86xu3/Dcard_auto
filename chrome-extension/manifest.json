@@ -19,7 +19,8 @@
     "permissions": [
         "storage",
         "activeTab",
-        "clipboardWrite"
+        "clipboardWrite",
+        "cookies"
     ],
     "host_permissions": [
         "https://shopee.tw/*",
