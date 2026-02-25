@@ -190,9 +190,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
-    // 清除 Dcard 網站資料（Cookie + Cache Storage + Service Worker）
+    // 清除 Dcard cookies（排解 Cloudflare 503 封鎖）
     if (message.type === 'CLEAR_DCARD_COOKIES') {
-        clearDcardSiteData().then(result => {
+        clearDcardCookies().then(result => {
             sendResponse(result);
         });
         return true;
@@ -960,63 +960,28 @@ async function getAuthStatus() {
 }
 
 /**
- * 清除 Dcard 網站資料（Cookie + Cache Storage + Service Worker）
- * 解決自動貼文後「無法連線到 backend server」的問題
- * 原因：圖片上傳可能導致 Service Worker 快取錯誤回應
+ * 清除 Dcard 相關 cookies（排解 Cloudflare 503 封鎖）
+ * 清除 Cloudflare bot detection cookies，讓 session 重置
  */
-async function clearDcardSiteData() {
-    const result = { cookies: 0, cacheCleared: false, swUnregistered: false, tabReloaded: false };
-
+async function clearDcardCookies() {
     try {
-        // 1. 清除 Dcard cookies
         const cookies = await chrome.cookies.getAll({ domain: '.dcard.tw' });
+        let cleared = 0;
         for (const cookie of cookies) {
             const url = `https://${cookie.domain.replace(/^\./, '')}${cookie.path}`;
             await chrome.cookies.remove({ url, name: cookie.name });
-            result.cookies++;
+            cleared++;
         }
+        // 也清除 www.dcard.tw 的 cookies
         const wwwCookies = await chrome.cookies.getAll({ domain: 'www.dcard.tw' });
         for (const cookie of wwwCookies) {
             await chrome.cookies.remove({
                 url: `https://www.dcard.tw${cookie.path}`,
                 name: cookie.name
             });
-            result.cookies++;
+            cleared++;
         }
-
-        // 2. 找到 Dcard 分頁，透過 content script 清除 Cache Storage + Service Worker
-        const dcardTabs = await chrome.tabs.query({ url: 'https://www.dcard.tw/*' });
-        if (dcardTabs.length > 0) {
-            for (const tab of dcardTabs) {
-                try {
-                    const clearResult = await chrome.tabs.sendMessage(tab.id, {
-                        type: 'CLEAR_SITE_DATA'
-                    });
-                    if (clearResult?.cacheCleared) result.cacheCleared = true;
-                    if (clearResult?.swUnregistered) result.swUnregistered = true;
-                } catch (e) {
-                    console.warn('無法向 Dcard 分頁發送清除訊息:', e.message);
-                }
-            }
-
-            // 3. 自動重新載入 Dcard 分頁
-            for (const tab of dcardTabs) {
-                try {
-                    await chrome.tabs.reload(tab.id);
-                    result.tabReloaded = true;
-                } catch (e) {
-                    console.warn('無法重新載入分頁:', e.message);
-                }
-            }
-        }
-
-        return {
-            success: true,
-            cleared: result.cookies,
-            cacheCleared: result.cacheCleared,
-            swUnregistered: result.swUnregistered,
-            tabReloaded: result.tabReloaded
-        };
+        return { success: true, cleared };
     } catch (error) {
         return { success: false, error: error.message };
     }
