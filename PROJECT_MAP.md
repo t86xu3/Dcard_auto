@@ -120,10 +120,10 @@ Dcard_auto/
 | 模組/功能 | 檔案路徑 | 說明 |
 |-----------|----------|------|
 | 蝦皮 API 攔截 | chrome-extension/injected.js | 攔截 fetch/XHR 商品 API |
-| 蝦皮擷取 | chrome-extension/content-shopee.js | 暫存商品、手動擷取觸發 |
+| 蝦皮擷取 | chrome-extension/content-shopee.js | 暫存商品、手動/自動擷取觸發（`#dcard-auto-capture` 模式）|
 | Dcard 發文輔助 | chrome-extension/content-dcard.js | 偵測編輯器、自動填入 |
 | Web UI 偵測 | chrome-extension/content-webui.js | 廣播 Extension ID |
-| Service Worker | chrome-extension/background.js | 資料處理、儲存、同步 |
+| Service Worker | chrome-extension/background.js | 資料處理、儲存、同步、批量擷取狀態機 |
 | JWT 認證模組 | backend/app/auth.py | 密碼雜湊 + Token 簽發/驗證 + 依賴注入 |
 | 認證 API | backend/app/api/auth.py | 註冊/登入/刷新 Token/取得用戶資訊 |
 | 管理員 API | backend/app/api/admin.py | 用戶列表/核准/停用/全站費用總覽 |
@@ -194,6 +194,7 @@ Dcard_auto/
 - [x] Extension 一鍵清除 Dcard Cookie（排解 Cloudflare 503 封鎖）
 - [x] API 快取層（stale-while-revalidate）+ 路由分割 + 輪詢退避
 - [x] 蝦皮 Sub_id 追蹤（文章生成時填入聯盟行銷追蹤碼）
+- [x] 一鍵擷取（批量自動開啟蝦皮分頁擷取待擷取商品 + 進度面板 + beforeunload 防護）
 - [ ] 批量生成功能
 - [ ] 手機版 RWD 介面（響應式設計適配行動裝置）
 - [ ] 時區問題修正（前後端時間顯示一致）
