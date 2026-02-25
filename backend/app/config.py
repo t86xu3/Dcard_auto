@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     ADMIN_EMAIL: str = "admin@dcard-auto.local"
     ADMIN_PASSWORD: str = ""
 
+    # 蝦皮聯盟行銷
+    SHOPEE_APP_ID: str = ""
+    SHOPEE_SECRET: str = ""
+
     # Dcard 預設看板
     DEFAULT_FORUM: str = "goodthings"
 

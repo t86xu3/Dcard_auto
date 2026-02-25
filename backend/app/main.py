@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.db.database import create_tables, SessionLocal, engine
-from app.api import products, articles, seo, usage, prompts
+from app.api import products, articles, seo, usage, prompts, shopee
 from app.api import auth as auth_api
 from app.api import admin as admin_api
 
@@ -78,6 +78,7 @@ app.include_router(articles.router, prefix="/api/articles", tags=["文章管理"
 app.include_router(seo.router, prefix="/api/seo", tags=["SEO 分析"])
 app.include_router(usage.router, prefix="/api/usage", tags=["使用量統計"])
 app.include_router(prompts.router, prefix="/api/prompts", tags=["Prompt 範本"])
+app.include_router(shopee.router, prefix="/api/shopee", tags=["蝦皮聯盟"])
 
 
 def _seed_admin_user():

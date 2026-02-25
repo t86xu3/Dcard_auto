@@ -225,6 +225,19 @@ export const getAdminUsage = ({ startDate, endDate } = {}) => {
 export const getSystemPrompts = () =>
   cachedGet('system-prompts', () => api.get('/admin/system-prompts').then(r => r.data), 60_000);
 
+// 蝦皮聯盟行銷（帶快取，TTL 120 秒）
+export const getShopeeOffers = (limit = 5) =>
+  cachedGet(`shopee-offers:${limit}`, () =>
+    api.get(`/shopee/offers?limit=${limit}`).then(r => r.data));
+
+export const getShopOffers = (limit = 5) =>
+  cachedGet(`shop-offers:${limit}`, () =>
+    api.get(`/shopee/shop-offers?limit=${limit}`).then(r => r.data));
+
+export const getProductOffers = (limit = 5) =>
+  cachedGet(`product-offers:${limit}`, () =>
+    api.get(`/shopee/product-offers?limit=${limit}`).then(r => r.data));
+
 // 不走快取的直接 fetch（輪詢用）
 export const fetchArticlesFresh = (skip = 0, limit = 50) =>
   api.get(`/articles?skip=${skip}&limit=${limit}`).then(r => r.data);
