@@ -7,6 +7,17 @@
 const API_BASE_URL = 'https://dcard-auto.web.app/api';
 let authToken = null;
 
+// 批量擷取狀態
+let batchCapture = {
+    active: false,
+    items: [],          // [{ productId, url }]
+    currentIndex: 0,
+    currentTabId: null,
+    results: [],        // [{ productId, status: 'success'|'failed'|'timeout', name? }]
+    timeoutTimer: null,
+    accessToken: null,  // 前端傳來的 token（備用）
+};
+
 // 啟動時從 storage 讀取 token
 chrome.storage.local.get(['authToken']).then(({ authToken: token }) => {
     if (token) {
@@ -43,13 +54,39 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
         return true;
     }
 
+    // 批量擷取：啟動
+    if (message.type === 'BATCH_CAPTURE_START') {
+        startBatchCapture(message.data).then(result => {
+            sendResponse(result);
+        });
+        return true;
+    }
+
+    // 批量擷取：查詢進度
+    if (message.type === 'BATCH_CAPTURE_STATUS') {
+        sendResponse(getBatchCaptureStatus());
+    }
+
+    // 批量擷取：取消
+    if (message.type === 'BATCH_CAPTURE_CANCEL') {
+        cancelBatchCapture().then(result => {
+            sendResponse(result);
+        });
+        return true;
+    }
+
     return true;
 });
 
 // 內部訊息監聽
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'PRODUCT_DATA') {
-        handleProductData(message.data);
+        // 偵測是否為批量擷取的自動資料
+        if (batchCapture.active && batchCapture.currentTabId && sender.tab?.id === batchCapture.currentTabId) {
+            handleBatchProductData(message.data);
+        } else {
+            handleProductData(message.data);
+        }
         sendResponse({ success: true });
     }
 
@@ -546,6 +583,225 @@ async function handlePasteArticleToDcard(data) {
     } catch (error) {
         return { success: false, error: error.message };
     }
+}
+
+// ==========================================
+// 批量擷取功能
+// ==========================================
+
+/**
+ * 啟動批量擷取
+ * @param {Object} data - { items: [{ productId, url }], accessToken? }
+ */
+async function startBatchCapture(data) {
+    if (batchCapture.active) {
+        return { success: false, error: '已有擷取任務進行中' };
+    }
+
+    const { items, accessToken } = data;
+    if (!items || items.length === 0) {
+        return { success: false, error: '沒有待擷取項目' };
+    }
+
+    // 使用前端傳來的 token（若有）
+    if (accessToken) {
+        batchCapture.accessToken = accessToken;
+    }
+
+    batchCapture.active = true;
+    batchCapture.items = items;
+    batchCapture.currentIndex = 0;
+    batchCapture.currentTabId = null;
+    batchCapture.results = [];
+    batchCapture.timeoutTimer = null;
+
+    console.log(`🚀 批量擷取啟動: ${items.length} 個商品`);
+    processNextItem();
+    return { success: true, total: items.length };
+}
+
+/**
+ * 處理下一個待擷取項目
+ */
+async function processNextItem() {
+    if (!batchCapture.active) return;
+
+    if (batchCapture.currentIndex >= batchCapture.items.length) {
+        finishBatchCapture();
+        return;
+    }
+
+    const item = batchCapture.items[batchCapture.currentIndex];
+    console.log(`📦 批量擷取 [${batchCapture.currentIndex + 1}/${batchCapture.items.length}]: ${item.url}`);
+
+    try {
+        // 背景開啟分頁（active: false）
+        const url = item.url.includes('#') ? item.url.split('#')[0] : item.url;
+        const tab = await chrome.tabs.create({
+            url: `${url}#dcard-auto-capture`,
+            active: false
+        });
+        batchCapture.currentTabId = tab.id;
+
+        // 設定 30 秒逾時
+        batchCapture.timeoutTimer = setTimeout(() => {
+            handleItemTimeout();
+        }, 30000);
+
+    } catch (error) {
+        console.error('❌ 開啟分頁失敗:', error.message);
+        batchCapture.results.push({
+            productId: item.productId,
+            status: 'failed',
+            error: error.message
+        });
+        batchCapture.currentIndex++;
+        processNextItem();
+    }
+}
+
+/**
+ * 處理批量擷取收到的商品資料
+ */
+async function handleBatchProductData(productData) {
+    // 清除逾時計時器
+    if (batchCapture.timeoutTimer) {
+        clearTimeout(batchCapture.timeoutTimer);
+        batchCapture.timeoutTimer = null;
+    }
+
+    const item = batchCapture.items[batchCapture.currentIndex];
+    const productName = productData.name || productData.title || '(未知)';
+    console.log(`✅ 批量擷取成功: ${productName}`);
+
+    // 正常處理商品資料（儲存本地 + 同步後端）
+    await handleProductData(productData);
+
+    // 記錄結果
+    batchCapture.results.push({
+        productId: item.productId,
+        status: 'success',
+        name: productName
+    });
+
+    // 關閉分頁
+    await closeBatchTab();
+
+    // 2-4 秒隨機延遲再處理下一個
+    const delay = 2000 + Math.random() * 2000;
+    batchCapture.currentIndex++;
+    setTimeout(() => processNextItem(), delay);
+}
+
+/**
+ * 處理單項逾時
+ */
+async function handleItemTimeout() {
+    if (!batchCapture.active) return;
+
+    const item = batchCapture.items[batchCapture.currentIndex];
+    console.log(`⏰ 批量擷取逾時: ${item.url}`);
+
+    batchCapture.results.push({
+        productId: item.productId,
+        status: 'timeout',
+        error: '擷取逾時（30秒）'
+    });
+
+    // 關閉分頁
+    await closeBatchTab();
+
+    // 下一個
+    batchCapture.currentIndex++;
+    setTimeout(() => processNextItem(), 1000);
+}
+
+/**
+ * 關閉當前批量擷取的分頁
+ */
+async function closeBatchTab() {
+    if (batchCapture.currentTabId) {
+        try {
+            await chrome.tabs.remove(batchCapture.currentTabId);
+        } catch (e) {
+            // 分頁可能已被手動關閉
+        }
+        batchCapture.currentTabId = null;
+    }
+}
+
+/**
+ * 取得批量擷取進度
+ */
+function getBatchCaptureStatus() {
+    if (!batchCapture.active) {
+        // 檢查是否剛剛完成
+        if (batchCapture.results.length > 0 && batchCapture.items.length > 0) {
+            return {
+                status: 'complete',
+                current: batchCapture.items.length,
+                total: batchCapture.items.length,
+                results: batchCapture.results,
+                successCount: batchCapture.results.filter(r => r.status === 'success').length,
+                failedCount: batchCapture.results.filter(r => r.status !== 'success').length,
+            };
+        }
+        return { status: 'idle' };
+    }
+
+    return {
+        status: 'running',
+        current: batchCapture.currentIndex,
+        total: batchCapture.items.length,
+        results: batchCapture.results,
+        currentItem: batchCapture.items[batchCapture.currentIndex] || null,
+        successCount: batchCapture.results.filter(r => r.status === 'success').length,
+        failedCount: batchCapture.results.filter(r => r.status !== 'success').length,
+    };
+}
+
+/**
+ * 取消批量擷取
+ */
+async function cancelBatchCapture() {
+    if (!batchCapture.active) {
+        return { success: false, error: '沒有進行中的擷取' };
+    }
+
+    console.log('⛔ 批量擷取已取消');
+
+    if (batchCapture.timeoutTimer) {
+        clearTimeout(batchCapture.timeoutTimer);
+        batchCapture.timeoutTimer = null;
+    }
+
+    await closeBatchTab();
+
+    // 未處理的項目標記為 cancelled
+    for (let i = batchCapture.currentIndex; i < batchCapture.items.length; i++) {
+        batchCapture.results.push({
+            productId: batchCapture.items[i].productId,
+            status: 'cancelled'
+        });
+    }
+
+    batchCapture.active = false;
+
+    return {
+        success: true,
+        results: batchCapture.results,
+        successCount: batchCapture.results.filter(r => r.status === 'success').length,
+    };
+}
+
+/**
+ * 完成批量擷取
+ */
+function finishBatchCapture() {
+    console.log(`🎉 批量擷取完成: ${batchCapture.results.filter(r => r.status === 'success').length}/${batchCapture.items.length} 成功`);
+    batchCapture.active = false;
+    batchCapture.currentTabId = null;
+    batchCapture.timeoutTimer = null;
 }
 
 /**

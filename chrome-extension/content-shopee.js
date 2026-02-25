@@ -10,11 +10,64 @@
 
     let currentProductData = null;
 
+    // 偵測是否為自動擷取模式（URL 含 #dcard-auto-capture）
+    const isAutoCapture = window.location.hash.includes('dcard-auto-capture');
+    if (isAutoCapture) {
+        console.log('🤖 自動擷取模式已啟動');
+    }
+
     // 注入攔截腳本到頁面上下文
     const script = document.createElement('script');
     script.src = chrome.runtime.getURL('injected.js');
     script.onload = function () { this.remove(); };
     (document.head || document.documentElement).appendChild(script);
+
+    /**
+     * 從 DOM 補充描述圖片（共用邏輯）
+     */
+    function supplementDescriptionImages(productData) {
+        const descriptionSelectors = [
+            '[class*="product-detail"] img:not([class*="rating"]):not([class*="review"])',
+            '[class*="item-description"] img',
+            '[class*="pdp-desc"] img',
+            '[data-sqe="description"] img'
+        ];
+
+        const excludePatterns = [
+            /\/avatar\//, /\/review\//, /\/rating\//,
+            /\/comment\//, /user.*upload/, /\/icon/
+        ];
+
+        let domImages = [];
+        for (const selector of descriptionSelectors) {
+            try {
+                const imgs = document.querySelectorAll(selector);
+                imgs.forEach(img => {
+                    if (img.src && !img.src.includes('data:image')) {
+                        const shouldExclude = excludePatterns.some(pattern => pattern.test(img.src));
+                        if (!shouldExclude && !domImages.includes(img.src)) {
+                            domImages.push(img.src);
+                        }
+                    }
+                });
+            } catch (e) { }
+        }
+
+        if (domImages.length > 0) {
+            if (!productData.description_images) {
+                productData.description_images = [];
+            }
+            const existing = new Set(productData.description_images);
+            domImages.forEach(url => {
+                const cleanUrl = url.replace(/_tn$/, '');
+                if (!existing.has(cleanUrl)) {
+                    productData.description_images.push(cleanUrl);
+                }
+            });
+        }
+
+        return productData;
+    }
 
     // 監聽來自 injected.js 的商品資料
     window.addEventListener('message', function (event) {
@@ -23,53 +76,25 @@
         if (event.data.type === 'SHOPEE_PRODUCT_DATA') {
             currentProductData = event.data.payload;
             console.log('📦 商品資料已就緒:', currentProductData?.title || currentProductData?.name || '(未知商品)');
+
+            // 自動擷取模式：收到資料後自動發送到 background
+            if (isAutoCapture && currentProductData) {
+                supplementDescriptionImages(currentProductData);
+                chrome.runtime.sendMessage({
+                    type: 'PRODUCT_DATA',
+                    data: currentProductData
+                }, () => {
+                    console.log('🤖 自動擷取完成，已送出資料');
+                });
+            }
         }
     });
 
-    // 監聽來自 popup / background 的擷取請求
+    // 監聯來自 popup / background 的擷取請求（手動模式）
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.type === 'CAPTURE_PRODUCT') {
             if (currentProductData) {
-                // 嘗試從 DOM 補充描述圖片
-                const descriptionSelectors = [
-                    '[class*="product-detail"] img:not([class*="rating"]):not([class*="review"])',
-                    '[class*="item-description"] img',
-                    '[class*="pdp-desc"] img',
-                    '[data-sqe="description"] img'
-                ];
-
-                const excludePatterns = [
-                    /\/avatar\//, /\/review\//, /\/rating\//,
-                    /\/comment\//, /user.*upload/, /\/icon/
-                ];
-
-                let domImages = [];
-                for (const selector of descriptionSelectors) {
-                    try {
-                        const imgs = document.querySelectorAll(selector);
-                        imgs.forEach(img => {
-                            if (img.src && !img.src.includes('data:image')) {
-                                const shouldExclude = excludePatterns.some(pattern => pattern.test(img.src));
-                                if (!shouldExclude && !domImages.includes(img.src)) {
-                                    domImages.push(img.src);
-                                }
-                            }
-                        });
-                    } catch (e) { }
-                }
-
-                if (domImages.length > 0) {
-                    if (!currentProductData.description_images) {
-                        currentProductData.description_images = [];
-                    }
-                    const existing = new Set(currentProductData.description_images);
-                    domImages.forEach(url => {
-                        const cleanUrl = url.replace(/_tn$/, '');
-                        if (!existing.has(cleanUrl)) {
-                            currentProductData.description_images.push(cleanUrl);
-                        }
-                    });
-                }
+                supplementDescriptionImages(currentProductData);
 
                 // 傳送到 background 儲存
                 chrome.runtime.sendMessage({
@@ -87,6 +112,9 @@
     });
 
     function showNotification(productName) {
+        // 自動擷取模式不顯示 toast（避免背景分頁干擾）
+        if (isAutoCapture) return;
+
         const oldNotification = document.getElementById('dcard-scraper-notification');
         if (oldNotification) oldNotification.remove();
 

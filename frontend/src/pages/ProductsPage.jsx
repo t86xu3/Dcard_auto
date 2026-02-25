@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getProducts, deleteProduct, batchDeleteProducts, downloadProductImages, generateArticle, getPrompts, updateProduct, invalidateCache, importAffiliateUrls } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { useExtensionDetect } from '../hooks/useExtensionDetect';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -52,6 +53,7 @@ function SortableProductCard({ id, product, index, onRemove }) {
 
 export default function ProductsPage() {
   const { user } = useAuth();
+  const { extensionId, isInstalled } = useExtensionDetect();
   const [products, setProducts] = useState([]);
   const [selected, setSelected] = useState([]); // Array<number> 有序陣列
   const [loading, setLoading] = useState(true);
@@ -67,6 +69,11 @@ export default function ProductsPage() {
   const [affiliateImporting, setAffiliateImporting] = useState(false);
   const [affiliateResult, setAffiliateResult] = useState(null);
   const [subId, setSubId] = useState('');
+
+  // 批量擷取狀態
+  const [batchCapturing, setBatchCapturing] = useState(false);
+  const [captureProgress, setCaptureProgress] = useState(null);
+  const pollRef = useRef(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -224,6 +231,165 @@ export default function ProductsPage() {
     }
   };
 
+  // ==========================================
+  // 批量擷取功能
+  // ==========================================
+
+  const placeholderProducts = products.filter(p => p.name === '待擷取' && p.product_url);
+  const placeholderCount = placeholderProducts.length;
+
+  // 發送訊息到 Extension
+  const sendToExtension = useCallback((message) => {
+    return new Promise((resolve) => {
+      if (!extensionId || typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
+        resolve({ success: false, error: 'Extension 未安裝' });
+        return;
+      }
+      try {
+        chrome.runtime.sendMessage(extensionId, message, (response) => {
+          if (chrome.runtime.lastError) {
+            resolve({ success: false, error: chrome.runtime.lastError.message });
+            return;
+          }
+          resolve(response || { success: false, error: '無回應' });
+        });
+      } catch (err) {
+        resolve({ success: false, error: err.message });
+      }
+    });
+  }, [extensionId]);
+
+  // 啟動批量擷取
+  const handleBatchCapture = async () => {
+    if (placeholderCount === 0) return;
+
+    const items = placeholderProducts.map(p => ({
+      productId: p.id,
+      url: p.product_url,
+    }));
+
+    const accessToken = localStorage.getItem('accessToken');
+    const result = await sendToExtension({
+      type: 'BATCH_CAPTURE_START',
+      data: { items, accessToken },
+    });
+
+    if (result.success) {
+      setBatchCapturing(true);
+      setCaptureProgress({ status: 'running', current: 0, total: items.length, results: [] });
+    } else {
+      showToast('error', `擷取啟動失敗: ${result.error}`);
+    }
+  };
+
+  // 停止批量擷取
+  const handleStopCapture = async () => {
+    const remaining = captureProgress ? captureProgress.total - captureProgress.current : 0;
+    if (!window.confirm(`確定要停止擷取嗎？還有 ${remaining} 個商品未擷取。`)) return;
+
+    const result = await sendToExtension({ type: 'BATCH_CAPTURE_CANCEL' });
+    if (result.success) {
+      setBatchCapturing(false);
+      setCaptureProgress(prev => prev ? { ...prev, status: 'cancelled' } : null);
+      showToast('success', `已停止擷取，成功 ${result.successCount} 個`);
+      invalidateCache('products');
+      await loadProducts();
+    }
+  };
+
+  // 輪詢進度
+  const pollProgress = useCallback(async () => {
+    const result = await sendToExtension({ type: 'BATCH_CAPTURE_STATUS' });
+
+    if (result.status === 'running') {
+      setCaptureProgress(result);
+      setBatchCapturing(true);
+    } else if (result.status === 'complete') {
+      setCaptureProgress(result);
+      setBatchCapturing(false);
+      // 停止輪詢
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      showToast('success', `擷取完成！成功 ${result.successCount} 個，失敗 ${result.failedCount} 個`);
+      invalidateCache('products');
+      await loadProducts();
+    } else if (result.status === 'idle') {
+      setBatchCapturing(false);
+      setCaptureProgress(null);
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    }
+  }, [sendToExtension]);
+
+  // 擷取中輪詢 + 頁面載入時檢查
+  useEffect(() => {
+    if (!isInstalled) return;
+
+    // 頁面載入時檢查是否有進行中的擷取
+    sendToExtension({ type: 'BATCH_CAPTURE_STATUS' }).then(result => {
+      if (result.status === 'running') {
+        setBatchCapturing(true);
+        setCaptureProgress(result);
+      }
+    });
+  }, [isInstalled, sendToExtension]);
+
+  useEffect(() => {
+    if (batchCapturing) {
+      pollRef.current = setInterval(pollProgress, 2000);
+      return () => {
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+      };
+    }
+  }, [batchCapturing, pollProgress]);
+
+  // beforeunload 防護
+  useEffect(() => {
+    if (!batchCapturing) return;
+
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = '擷取正在進行中，離開頁面不會中斷擷取，但無法看到進度。';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [batchCapturing]);
+
+  // 取得 placeholder 商品的擷取狀態
+  const getCaptureStatus = (productId) => {
+    if (!captureProgress || !captureProgress.results) return null;
+
+    const result = captureProgress.results.find(r => r.productId === productId);
+    if (result) {
+      if (result.status === 'success') return { label: '已擷取', color: 'text-green-600' };
+      if (result.status === 'timeout') return { label: '逾時', color: 'text-red-500' };
+      if (result.status === 'failed') return { label: '失敗', color: 'text-red-500' };
+      if (result.status === 'cancelled') return { label: '已取消', color: 'text-gray-400' };
+    }
+
+    if (!batchCapturing) return null;
+
+    // 找到此商品在 items 陣列中的索引
+    const itemIndex = placeholderProducts.findIndex(p => p.id === productId);
+    if (itemIndex === -1) return null;
+
+    if (itemIndex === captureProgress.current) {
+      return { label: '擷取中...', color: 'text-blue-600', animate: true };
+    }
+    if (itemIndex > captureProgress.current) {
+      return { label: '等待中', color: 'text-gray-400' };
+    }
+
+    return null;
+  };
+
   // 建立 id → product 的查找表
   const productsMap = {};
   for (const p of products) {
@@ -257,6 +423,23 @@ export default function ProductsPage() {
           >
             🔗 匯入聯盟行銷網址
           </button>
+          {/* 一鍵擷取 / 停止按鈕 */}
+          {isInstalled && placeholderCount > 0 && !batchCapturing && (
+            <button
+              onClick={handleBatchCapture}
+              className="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 active:scale-95 transition-transform"
+            >
+              🚀 一鍵擷取 ({placeholderCount})
+            </button>
+          )}
+          {batchCapturing && (
+            <button
+              onClick={handleStopCapture}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 active:scale-95 transition-transform"
+            >
+              ⏹️ 停止擷取
+            </button>
+          )}
           {selected.length > 0 && (
             <>
               {promptTemplates.length > 0 && (
@@ -310,6 +493,50 @@ export default function ProductsPage() {
           )}
         </div>
       </div>
+
+      {/* 批量擷取進度面板 */}
+      {captureProgress && captureProgress.status !== 'idle' && (
+        <div className="mb-4 px-4 py-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-indigo-700">
+                {captureProgress.status === 'running' ? '🚀 擷取進行中' :
+                 captureProgress.status === 'complete' ? '✅ 擷取完成' :
+                 captureProgress.status === 'cancelled' ? '⏹️ 已停止' : ''}
+              </span>
+              <span className="text-xs text-indigo-500">
+                {captureProgress.current}/{captureProgress.total}
+                {captureProgress.successCount > 0 && ` (成功 ${captureProgress.successCount})`}
+                {captureProgress.failedCount > 0 && ` (失敗 ${captureProgress.failedCount})`}
+              </span>
+            </div>
+            {captureProgress.status !== 'running' && (
+              <button
+                onClick={() => setCaptureProgress(null)}
+                className="text-xs text-indigo-400 hover:text-indigo-600 active:scale-95 transition-transform"
+              >
+                ✕ 關閉
+              </button>
+            )}
+          </div>
+          {/* 進度條 */}
+          <div className="w-full h-2 bg-indigo-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                captureProgress.status === 'running' ? 'bg-indigo-500' :
+                captureProgress.status === 'complete' ? 'bg-green-500' : 'bg-gray-400'
+              }`}
+              style={{ width: `${captureProgress.total > 0 ? (captureProgress.current / captureProgress.total) * 100 : 0}%` }}
+            />
+          </div>
+          {/* 當前擷取項 */}
+          {captureProgress.status === 'running' && captureProgress.currentItem && (
+            <div className="mt-2 text-xs text-indigo-500 truncate">
+              正在擷取: {captureProgress.currentItem.url}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 已選商品排序區域 */}
       {selected.length > 0 && (
@@ -367,6 +594,7 @@ export default function ProductsPage() {
             <tbody>
               {products.map(product => {
                 const isPlaceholder = product.name === '待擷取';
+                const captureStatus = isPlaceholder ? getCaptureStatus(product.id) : null;
                 return (
                 <tr key={product.id} className={`border-t border-gray-100 ${isPlaceholder ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-gray-50'}`}>
                   <td className="p-3">
@@ -477,12 +705,18 @@ export default function ProductsPage() {
                   </td>
                   <td className="p-3">
                     {isPlaceholder ? (
-                      <button
-                        onClick={() => window.open(product.product_url, '_blank')}
-                        className="text-xs text-amber-600 hover:text-amber-800 font-medium active:scale-95 transition-transform inline-block"
-                      >
-                        🔗 前往擷取
-                      </button>
+                      captureStatus ? (
+                        <span className={`text-xs font-medium ${captureStatus.color} ${captureStatus.animate ? 'animate-pulse' : ''}`}>
+                          {captureStatus.label}
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => window.open(product.product_url, '_blank')}
+                          className="text-xs text-amber-600 hover:text-amber-800 font-medium active:scale-95 transition-transform inline-block"
+                        >
+                          🔗 前往擷取
+                        </button>
+                      )
                     ) : (
                       <div className="flex gap-2">
                         <button
