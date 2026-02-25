@@ -105,6 +105,7 @@ Dcard_auto/
 │   │   │   ├── ArticlesPage.jsx   # 文章管理
 │   │   │   ├── SettingsPage.jsx
 │   │   │   ├── UsagePage.jsx      # 費用追蹤頁面
+│   │   │   ├── ExplorePage.jsx   # 蝦皮商品探索（4 Tab + 篩選 + 匯入）
 │   │   │   └── GuidePage.jsx     # 測試人員使用說明
 │   │   └── hooks/
 │   │       └── useExtensionDetect.js
@@ -147,8 +148,8 @@ Dcard_auto/
 | 圖片服務 | backend/app/services/image_service.py | 圖片下載、備份、打包 ZIP |
 | 文章任務 | backend/app/tasks/article_tasks.py | Celery 非同步生成 |
 | 時區工具 | backend/app/utils/timezone.py | 集中 TAIPEI_TZ / taipei_now / taipei_today + ORM 事件自動補時區 |
-| 蝦皮聯盟 API | backend/app/api/shopee.py | 3 個代理端點（平台活動/商店佣金/商品佣金）|
-| 蝦皮聯盟服務 | backend/app/services/shopee_service.py | SHA256 簽名 + GraphQL 客戶端（singleton）|
+| 蝦皮聯盟 API | backend/app/api/shopee.py | 4 個端點（平台活動/商店佣金/商品佣金/商品探索）|
+| 蝦皮聯盟服務 | backend/app/services/shopee_service.py | SHA256 簽名 + GraphQL 客戶端 + explore_products 彈性查詢（singleton）|
 | 儀表板 | frontend/src/pages/DashboardPage.jsx | 系統概覽 + 蝦皮聯盟行銷資料 |
 | 商品管理 | frontend/src/pages/ProductsPage.jsx | 商品列表與操作 |
 | 文章管理 | frontend/src/pages/ArticlesPage.jsx | 文章編輯與發佈 |
@@ -156,6 +157,7 @@ Dcard_auto/
 | Extension 偵測 | frontend/src/hooks/useExtensionDetect.js | 自動偵測插件 |
 | 日期格式化工具 | frontend/src/utils/datetime.js | formatDate / formatDateTime / getTaipeiToday / getTaipeiMonthStart |
 | 費用追蹤 | frontend/src/pages/UsagePage.jsx | 按模型分組的費用統計 + 30天趨勢 + 管理員全站總覽 |
+| 商品探索 | frontend/src/pages/ExplorePage.jsx | 蝦皮商品探索（4 Tab：熱門/潛在熱門/高分潤/自定義 + 篩選 + 匯入）|
 | 使用說明 | frontend/src/pages/GuidePage.jsx | 測試人員操作指南 |
 | 認證 Context | frontend/src/contexts/AuthContext.jsx | AuthProvider + useAuth hook |
 | 路由守衛 | frontend/src/components/ProtectedRoute.jsx | 未登入導向 /login |
@@ -211,6 +213,7 @@ Dcard_auto/
 - [x] 蝦皮 Sub_id 追蹤（文章生成時填入聯盟行銷追蹤碼）
 - [x] 一鍵擷取（批量自動開啟蝦皮分頁擷取待擷取商品 + 進度面板 + beforeunload 防護）
 - [x] 儀表板蝦皮聯盟行銷資料（平台活動/商店佣金/高佣金商品 3 區塊，移除 API 用量）
+- [x] 蝦皮商品探索頁面（4 Tab 預設模式 + 彈性篩選 + 匯入 placeholder + 載入更多）
 - [ ] 批量生成功能
 - [ ] 手機版 RWD 介面（響應式設計適配行動裝置）
 - [x] 時區問題修正（前後端時間顯示一致）
