@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 const navItems = [
   { to: '/', label: '儀表板', icon: '📊' },
   { to: '/products', label: '商品管理', icon: '🛒' },
+  { to: '/explore', label: '商品探索', icon: '🔍' },
   { to: '/articles', label: '文章管理', icon: '📝' },
   { to: '/usage', label: '費用追蹤', icon: '💰' },
   { to: '/settings', label: '設定', icon: '⚙️' },

@@ -53,7 +53,8 @@ Dcard_auto/
 │   │   │   ├── article.py     # 文章模型（+user_id FK）
 │   │   │   ├── api_usage.py   # API 用量追蹤（舊，保留）
 │   │   │   ├── usage_record.py # 多供應商/多模型用量追蹤
-│   │   │   └── prompt_template.py # Prompt 範本模型（+user_id FK）
+│   │   │   ├── prompt_template.py # Prompt 範本模型（+user_id FK）
+│   │   │   └── announcement.py # 公告模型
 │   │   ├── auth.py            # JWT 認證模組
 │   │   ├── api/
 │   │   │   ├── auth.py        # 認證 API（register/login/refresh/me）
@@ -63,7 +64,8 @@ Dcard_auto/
 │   │   │   ├── prompts.py     # Prompt 範本 CRUD（+認證）
 │   │   │   ├── seo.py         # SEO 分析/優化（+認證）
 │   │   │   ├── usage.py       # 用量統計（+認證+user過濾）
-│   │   │   └── shopee.py      # 蝦皮聯盟行銷 API 代理（3 端點）
+│   │   │   ├── shopee.py      # 蝦皮聯盟行銷 API 代理（3 端點）
+│   │   │   └── announcements.py # 公告 CRUD + 啟用/停用（管理員）
 │   │   ├── utils/
 │   │   │   └── timezone.py  # 集中時區工具（TAIPEI_TZ + ORM 事件）
 │   │   ├── services/
@@ -158,7 +160,9 @@ Dcard_auto/
 | 認證 Context | frontend/src/contexts/AuthContext.jsx | AuthProvider + useAuth hook |
 | 路由守衛 | frontend/src/components/ProtectedRoute.jsx | 未登入導向 /login |
 | 登入頁 | frontend/src/pages/LoginPage.jsx | 登入/註冊 Tab 切換 |
-| 管理員頁 | frontend/src/pages/AdminPage.jsx | 用戶列表 + 核准/停用 + 系統提示詞檢視（4 區塊）|
+| 公告 API | backend/app/api/announcements.py | 公告 CRUD + 啟用/停用（管理員 + 一般用戶讀取）|
+| 公告模型 | backend/app/models/announcement.py | 公告資料表（title/content/is_active/created_by）|
+| 管理員頁 | frontend/src/pages/AdminPage.jsx | 用戶列表 + 核准/停用 + 公告管理 + 系統提示詞檢視 |
 
 ## 開發進度
 
@@ -210,6 +214,7 @@ Dcard_auto/
 - [ ] 批量生成功能
 - [ ] 手機版 RWD 介面（響應式設計適配行動裝置）
 - [x] 時區問題修正（前後端時間顯示一致）
+- [x] 公告功能（管理員發佈公告 + 儀表板顯示 + CRUD 管理）
 - [ ] TG 機器人整合（通知 / 操作自動化）
 
 ### v2.3 - UI 圖標與點擊回饋（完成）

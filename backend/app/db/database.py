@@ -52,5 +52,5 @@ def get_db_session():
 
 def create_tables():
     """建立所有資料表"""
-    from app.models import User, Product, ProductImage, Article, ApiUsage, PromptTemplate, UsageRecord  # noqa: F401
+    from app.models import User, Product, ProductImage, Article, ApiUsage, PromptTemplate, UsageRecord, Announcement  # noqa: F401
     Base.metadata.create_all(bind=engine)

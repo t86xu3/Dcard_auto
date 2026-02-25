@@ -238,6 +238,34 @@ export const getProductOffers = (limit = 5) =>
   cachedGet(`product-offers:${limit}`, () =>
     api.get(`/shopee/product-offers?limit=${limit}`).then(r => r.data));
 
+// 公告（帶快取，TTL 60 秒）
+export const getAnnouncements = () =>
+  cachedGet('announcements', () => api.get('/announcements').then(r => r.data), 60_000);
+
+export const getAdminAnnouncements = () =>
+  api.get('/announcements/admin').then(r => r.data);
+
+export const createAnnouncement = (data) =>
+  api.post('/announcements', data).then(r => r.data);
+
+export const updateAnnouncement = (id, data) =>
+  api.put(`/announcements/${id}`, data).then(r => r.data);
+
+export const deleteAnnouncement = (id) =>
+  api.delete(`/announcements/${id}`).then(r => r.data);
+
+export const toggleAnnouncement = (id) =>
+  api.post(`/announcements/${id}/toggle`).then(r => r.data);
+
+// 蝦皮商品探索（不走快取，搜尋條件組合多）
+export const exploreProducts = (params = {}) => {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== null && v !== undefined && v !== '') query.append(k, v);
+  });
+  return api.get(`/shopee/explore?${query.toString()}`).then(r => r.data);
+};
+
 // 不走快取的直接 fetch（輪詢用）
 export const fetchArticlesFresh = (skip = 0, limit = 50) =>
   api.get(`/articles?skip=${skip}&limit=${limit}`).then(r => r.data);

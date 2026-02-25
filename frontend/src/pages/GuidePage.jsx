@@ -34,15 +34,15 @@ export default function GuidePage() {
 
         <h3 className="text-sm font-medium text-gray-700 mb-2">2. 安裝 Chrome Extension</h3>
         <a
-          href="https://github.com/t86xu3/Dcard_auto/archive/refs/heads/main.zip"
+          href="https://drive.google.com/drive/folders/1s78EbuUgRMUiCdg5U1wByqgKqWU5u9Ok?usp=sharing"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition-all active:scale-95 cursor-pointer mb-4"
         >
-          <span>⬇️</span> 下載專案 ZIP
+          <span>⬇️</span> 下載 Chrome 插件
         </a>
         <ol className="list-decimal list-inside text-sm text-gray-600 space-y-2 ml-1 mb-4">
-          <li>點擊上方按鈕下載 ZIP，解壓縮後找到 <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">chrome-extension/</code> 資料夾</li>
+          <li>點擊上方按鈕前往 Google Drive，下載插件資料夾</li>
           <li>開啟 Chrome，前往 <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">chrome://extensions/</code></li>
           <li>右上角開啟<strong>「開發者模式」</strong></li>
           <li>點擊<strong>「載入未封裝項目」</strong>，選擇 <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">chrome-extension/</code> 資料夾</li>

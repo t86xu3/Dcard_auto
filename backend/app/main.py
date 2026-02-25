@@ -13,7 +13,7 @@ from sqlalchemy.orm.attributes import set_committed_value
 from app.config import settings
 from app.utils.timezone import TAIPEI_TZ, taipei_now
 from app.db.database import Base, create_tables, SessionLocal, engine
-from app.api import products, articles, seo, usage, prompts, shopee
+from app.api import products, articles, seo, usage, prompts, shopee, announcements
 from app.api import auth as auth_api
 from app.api import admin as admin_api
 
@@ -106,6 +106,7 @@ app.include_router(seo.router, prefix="/api/seo", tags=["SEO 分析"])
 app.include_router(usage.router, prefix="/api/usage", tags=["使用量統計"])
 app.include_router(prompts.router, prefix="/api/prompts", tags=["Prompt 範本"])
 app.include_router(shopee.router, prefix="/api/shopee", tags=["蝦皮聯盟"])
+app.include_router(announcements.router, prefix="/api/announcements", tags=["公告"])
 
 
 def _seed_admin_user():

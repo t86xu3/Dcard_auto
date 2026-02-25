@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import api from '../api/client';
-import { getSystemPrompts } from '../api/client';
+import { getSystemPrompts, getAdminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, toggleAnnouncement } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
-import { formatDate } from '../utils/datetime';
+import { formatDate, formatDateTime } from '../utils/datetime';
 
 export default function AdminPage() {
   const [users, setUsers] = useState([]);
@@ -10,6 +10,15 @@ export default function AdminPage() {
   const { user: currentUser } = useAuth();
   const [systemPrompts, setSystemPrompts] = useState(null);
   const [promptsExpanded, setPromptsExpanded] = useState(false);
+
+  // 公告管理
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementsExpanded, setAnnouncementsExpanded] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newContent, setNewContent] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
 
   const loadUsers = async () => {
     try {
@@ -21,12 +30,64 @@ export default function AdminPage() {
     setLoading(false);
   };
 
+  const loadAnnouncements = async () => {
+    try {
+      const data = await getAdminAnnouncements();
+      setAnnouncements(data);
+    } catch (err) {
+      console.error('載入公告失敗:', err);
+    }
+  };
+
   useEffect(() => {
     loadUsers();
+    loadAnnouncements();
     getSystemPrompts()
       .then(setSystemPrompts)
       .catch(err => console.error('載入系統提示詞失敗:', err));
   }, []);
+
+  const handleCreateAnnouncement = async () => {
+    if (!newTitle.trim() || !newContent.trim()) return;
+    try {
+      await createAnnouncement({ title: newTitle.trim(), content: newContent.trim() });
+      setNewTitle('');
+      setNewContent('');
+      await loadAnnouncements();
+    } catch (err) {
+      alert('新增公告失敗: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const handleUpdateAnnouncement = async (id) => {
+    if (!editTitle.trim() || !editContent.trim()) return;
+    try {
+      await updateAnnouncement(id, { title: editTitle.trim(), content: editContent.trim() });
+      setEditingId(null);
+      await loadAnnouncements();
+    } catch (err) {
+      alert('更新公告失敗: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id) => {
+    if (!confirm('確定刪除此公告？')) return;
+    try {
+      await deleteAnnouncement(id);
+      await loadAnnouncements();
+    } catch (err) {
+      alert('刪除公告失敗: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const handleToggleAnnouncement = async (id) => {
+    try {
+      await toggleAnnouncement(id);
+      await loadAnnouncements();
+    } catch (err) {
+      alert('切換公告狀態失敗: ' + (err.response?.data?.detail || err.message));
+    }
+  };
 
   const handleApprove = async (userId) => {
     try {
@@ -147,6 +208,130 @@ export default function AdminPage() {
           </table>
         </div>
       )}
+
+      {/* 公告管理 */}
+      <div className="mt-8">
+        <button
+          onClick={() => setAnnouncementsExpanded(!announcementsExpanded)}
+          className="flex items-center gap-2 text-xl font-bold text-gray-800 mb-4 hover:text-gray-600 active:scale-95 transition-all cursor-pointer"
+        >
+          <span className={`transition-transform ${announcementsExpanded ? 'rotate-90' : ''}`}>
+            ▶
+          </span>
+          📢 公告管理
+        </button>
+
+        {announcementsExpanded && (
+          <div className="space-y-4">
+            {/* 新增公告表單 */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h4 className="text-sm font-semibold text-gray-600 mb-3">新增公告</h4>
+              <input
+                type="text"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="公告標題"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+              <textarea
+                value={newContent}
+                onChange={(e) => setNewContent(e.target.value)}
+                placeholder="公告內容"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm mb-3 resize-y focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+              <button
+                onClick={handleCreateAnnouncement}
+                disabled={!newTitle.trim() || !newContent.trim()}
+                className="text-sm px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                📢 發佈公告
+              </button>
+            </div>
+
+            {/* 公告列表 */}
+            {announcements.length === 0 ? (
+              <div className="text-center py-8 text-gray-400 text-sm">尚無公告</div>
+            ) : (
+              <div className="space-y-3">
+                {announcements.map((a) => (
+                  <div key={a.id} className={`bg-white rounded-xl border p-4 ${a.is_active ? 'border-blue-200' : 'border-gray-200 opacity-60'}`}>
+                    {editingId === a.id ? (
+                      // 編輯模式
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                        <textarea
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleUpdateAnnouncement(a.id)}
+                            className="text-xs px-3 py-1.5 bg-green-500 text-white rounded-md hover:bg-green-600 active:scale-95 transition-transform"
+                          >
+                            💾 儲存
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="text-xs px-3 py-1.5 bg-gray-400 text-white rounded-md hover:bg-gray-500 active:scale-95 transition-transform"
+                          >
+                            取消
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      // 顯示模式
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-gray-800">{a.title}</h4>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${a.is_active ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                              {a.is_active ? '啟用' : '停用'}
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-400">{formatDateTime(a.created_at)}</span>
+                        </div>
+                        <p className="text-sm text-gray-600 whitespace-pre-wrap mb-3">{a.content}</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingId(a.id);
+                              setEditTitle(a.title);
+                              setEditContent(a.content);
+                            }}
+                            className="text-xs px-2.5 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 active:scale-95 transition-transform"
+                          >
+                            ✏️ 編輯
+                          </button>
+                          <button
+                            onClick={() => handleToggleAnnouncement(a.id)}
+                            className={`text-xs px-2.5 py-1 rounded-md text-white active:scale-95 transition-transform ${a.is_active ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'}`}
+                          >
+                            {a.is_active ? '⏸️ 停用' : '▶️ 啟用'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAnnouncement(a.id)}
+                            className="text-xs px-2.5 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 active:scale-95 transition-transform"
+                          >
+                            🗑️ 刪除
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* 系統提示詞 */}
       {systemPrompts && (

@@ -135,5 +135,134 @@ class ShopeeService:
         data = self._request(query, {"limit": limit})
         return data.get("productOfferV2", {}).get("nodes", [])
 
+    def explore_products(
+        self,
+        keyword: str = None,
+        sort_type: int = 2,
+        list_type: int = 0,
+        is_ams_offer: bool = None,
+        is_key_seller: bool = None,
+        page: int = 1,
+        limit: int = 100,
+        min_commission_rate: float = None,
+        min_sales: int = None,
+        max_sales: int = None,
+        min_price: float = None,
+        max_price: float = None,
+        min_rating: float = None,
+    ) -> dict:
+        """彈性查詢商品，支援後端過濾"""
+        # 組建 GraphQL 變數與參數宣告
+        var_defs = ["$limit: Int", "$page: Int", "$sortType: Int", "$listType: Int"]
+        args = ["limit: $limit", "page: $page", "sortType: $sortType", "listType: $listType"]
+        variables = {
+            "limit": limit,
+            "page": page,
+            "sortType": sort_type,
+            "listType": list_type,
+        }
+
+        if keyword:
+            var_defs.append("$keyword: String")
+            args.append("keyword: $keyword")
+            variables["keyword"] = keyword
+        if is_ams_offer is not None:
+            var_defs.append("$isAmsOffer: Boolean")
+            args.append("isAmsOffer: $isAmsOffer")
+            variables["isAmsOffer"] = is_ams_offer
+        if is_key_seller is not None:
+            var_defs.append("$isKeySeller: Boolean")
+            args.append("isKeySeller: $isKeySeller")
+            variables["isKeySeller"] = is_key_seller
+
+        query = f"""
+        query({', '.join(var_defs)}) {{
+          productOfferV2({', '.join(args)}) {{
+            nodes {{
+              itemId
+              productName
+              offerLink
+              imageUrl
+              priceMin
+              priceMax
+              priceDiscountRate
+              sales
+              commissionRate
+              sellerCommissionRate
+              commission
+              shopName
+              shopType
+              ratingStar
+              productLink
+            }}
+            pageInfo {{
+              page
+              limit
+              hasNextPage
+            }}
+          }}
+        }}
+        """
+
+        data = self._request(query, variables)
+        result = data.get("productOfferV2", {})
+        nodes = result.get("nodes", [])
+        page_info = result.get("pageInfo", {})
+        total_before_filter = len(nodes)
+
+        # 型別轉換 + 後端過濾
+        filtered = []
+        for item in nodes:
+            # String → float 轉換
+            try:
+                cr = float(item.get("commissionRate") or 0)
+            except (ValueError, TypeError):
+                cr = 0
+            try:
+                price = float(item.get("priceMin") or 0)
+            except (ValueError, TypeError):
+                price = 0
+            try:
+                rating = float(item.get("ratingStar") or 0)
+            except (ValueError, TypeError):
+                rating = 0
+            sales_val = item.get("sales") or 0
+            if isinstance(sales_val, str):
+                try:
+                    sales_val = int(sales_val)
+                except (ValueError, TypeError):
+                    sales_val = 0
+
+            # 寫回轉換後的值供前端使用
+            item["_commissionRate"] = cr
+            item["_price"] = price
+            item["_rating"] = rating
+            item["_sales"] = sales_val
+            # commissionRate 是小數（0.9 = 90%），用戶輸入百分比（5 = 5%）
+            item["_commissionPct"] = round(cr * 100, 2)
+
+            # 過濾
+            if min_commission_rate is not None and cr * 100 < min_commission_rate:
+                continue
+            if min_sales is not None and sales_val < min_sales:
+                continue
+            if max_sales is not None and sales_val > max_sales:
+                continue
+            if min_price is not None and price < min_price:
+                continue
+            if max_price is not None and price > max_price:
+                continue
+            if min_rating is not None and rating < min_rating:
+                continue
+
+            filtered.append(item)
+
+        return {
+            "items": filtered,
+            "total_before_filter": total_before_filter,
+            "total_after_filter": len(filtered),
+            "page_info": page_info,
+        }
+
 
 shopee_service = ShopeeService()

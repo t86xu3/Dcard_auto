@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage';
 
 // 路由分割：非首頁頁面延遲載入
 const ProductsPage = lazy(() => import('./pages/ProductsPage'));
+const ExplorePage = lazy(() => import('./pages/ExplorePage'));
 const ArticlesPage = lazy(() => import('./pages/ArticlesPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const UsagePage = lazy(() => import('./pages/UsagePage'));
@@ -36,6 +37,7 @@ function App() {
               <Route element={<Layout />}>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/products" element={<ProductsPage />} />
+                <Route path="/explore" element={<ExplorePage />} />
                 <Route path="/articles" element={<ArticlesPage />} />
                 <Route path="/usage" element={<UsagePage />} />
                 <Route path="/settings" element={<SettingsPage />} />

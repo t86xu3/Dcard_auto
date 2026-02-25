@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { getProducts, getArticles, getShopeeOffers, getShopOffers, getProductOffers } from '../api/client';
+import { getProducts, getArticles, getShopeeOffers, getShopOffers, getProductOffers, getAnnouncements } from '../api/client';
 import { useExtensionDetect } from '../hooks/useExtensionDetect';
+import { formatDateTime } from '../utils/datetime';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({ products: 0, articles: 0 });
@@ -8,6 +9,7 @@ export default function DashboardPage() {
   const [shopOffers, setShopOffers] = useState(null);
   const [productOffers, setProductOffers] = useState(null);
   const [affiliateLoading, setAffiliateLoading] = useState(true);
+  const [announcements, setAnnouncements] = useState([]);
   const { status, extensionInfo, retry } = useExtensionDetect();
 
   useEffect(() => {
@@ -21,6 +23,9 @@ export default function DashboardPage() {
         articles: articles.length,
       });
     });
+
+    // 公告
+    getAnnouncements().then(setAnnouncements).catch(() => {});
 
     // 聯盟行銷資料
     Promise.all([
@@ -38,6 +43,29 @@ export default function DashboardPage() {
   return (
     <div className="p-8">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">儀表板</h2>
+
+      {/* 公告區塊 */}
+      {announcements.length > 0 && (
+        <div className="space-y-3 mb-6">
+          {announcements.map((a) => (
+            <div
+              key={a.id}
+              className="bg-blue-50 border border-blue-200 rounded-xl p-4"
+            >
+              <div className="flex items-start gap-3">
+                <span className="text-xl mt-0.5">📢</span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-blue-800">{a.title}</h3>
+                  <p className="text-sm text-blue-700 mt-1 whitespace-pre-wrap">{a.content}</p>
+                  <span className="text-xs text-blue-400 mt-2 block">
+                    {formatDateTime(a.created_at)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
