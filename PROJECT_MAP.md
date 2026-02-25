@@ -19,6 +19,7 @@
 | 認證 | PyJWT + bcrypt | 2.10.1 / 5.0.0 | JWT Token 認證 |
 | 前端框架 | React + Vite | 19 / 6 | Web UI |
 | CSS | Tailwind CSS | 4 | 樣式 |
+| 蝦皮聯盟 API | Shopee Affiliate Open API | GraphQL | 平台活動/商店佣金/商品佣金查詢 |
 | 擴充功能 | Chrome Manifest V3 | - | 商品擷取 + Dcard 輔助發文 |
 | 前端部署 | Firebase Hosting | - | 免費 CDN，/api 轉發到 Cloud Run |
 | 後端部署 | Cloud Run | - | 容器化 FastAPI，免費額度 |
@@ -61,14 +62,16 @@ Dcard_auto/
 │   │   │   ├── articles.py    # 文章生成/管理（+認證+資料隔離）
 │   │   │   ├── prompts.py     # Prompt 範本 CRUD（+認證）
 │   │   │   ├── seo.py         # SEO 分析/優化（+認證）
-│   │   │   └── usage.py       # 用量統計（+認證+user過濾）
+│   │   │   ├── usage.py       # 用量統計（+認證+user過濾）
+│   │   │   └── shopee.py      # 蝦皮聯盟行銷 API 代理（3 端點）
 │   │   ├── services/
 │   │   │   ├── gemini_utils.py  # Gemini 共用工具（strip_markdown + track_usage）
 │   │   │   ├── llm_service.py # Gemini 文章生成（system_instruction 分離）
 │   │   │   ├── prompts.py     # Prompt 範本服務 + seed
 │   │   │   ├── seo_service.py # SEO 8 項評分引擎 + LLM 優化
 │   │   │   ├── image_service.py # 圖片下載、備份、打包
-│   │   │   └── usage_tracker.py
+│   │   │   ├── usage_tracker.py
+│   │   │   └── shopee_service.py # 蝦皮聯盟行銷 API 服務（SHA256 簽名 + GraphQL）
 │   │   └── tasks/
 │   │       └── article_tasks.py # Celery 非同步任務
 │   ├── alembic/               # DB 遷移
@@ -137,7 +140,9 @@ Dcard_auto/
 | SEO 服務 | backend/app/services/seo_service.py | 8 項 SEO 評分引擎 + LLM 優化（強制使用 gemini-2.5-flash）|
 | 圖片服務 | backend/app/services/image_service.py | 圖片下載、備份、打包 ZIP |
 | 文章任務 | backend/app/tasks/article_tasks.py | Celery 非同步生成 |
-| 儀表板 | frontend/src/pages/DashboardPage.jsx | 系統概覽 |
+| 蝦皮聯盟 API | backend/app/api/shopee.py | 3 個代理端點（平台活動/商店佣金/商品佣金）|
+| 蝦皮聯盟服務 | backend/app/services/shopee_service.py | SHA256 簽名 + GraphQL 客戶端（singleton）|
+| 儀表板 | frontend/src/pages/DashboardPage.jsx | 系統概覽 + 蝦皮聯盟行銷資料 |
 | 商品管理 | frontend/src/pages/ProductsPage.jsx | 商品列表與操作 |
 | 文章管理 | frontend/src/pages/ArticlesPage.jsx | 文章編輯與發佈 |
 | SEO 面板 | frontend/src/components/SeoPanel.jsx | 環形分數圖 + 8 項進度條 + 關鍵字標籤（可折疊，預設收合）|
@@ -195,6 +200,7 @@ Dcard_auto/
 - [x] API 快取層（stale-while-revalidate）+ 路由分割 + 輪詢退避
 - [x] 蝦皮 Sub_id 追蹤（文章生成時填入聯盟行銷追蹤碼）
 - [x] 一鍵擷取（批量自動開啟蝦皮分頁擷取待擷取商品 + 進度面板 + beforeunload 防護）
+- [x] 儀表板蝦皮聯盟行銷資料（平台活動/商店佣金/高佣金商品 3 區塊，移除 API 用量）
 - [ ] 批量生成功能
 - [ ] 手機版 RWD 介面（響應式設計適配行動裝置）
 - [ ] 時區問題修正（前後端時間顯示一致）
