@@ -3,6 +3,7 @@ import { getArticles, getArticle, updateArticle, deleteArticle, batchDeleteArtic
 import SeoPanel from '../components/SeoPanel';
 import { useAuth } from '../contexts/AuthContext';
 import { useExtensionDetect } from '../hooks/useExtensionDetect';
+import { formatDate, formatDateTime } from '../utils/datetime';
 
 // 複製圖片到剪貼簿（透過後端代理避免跨域）
 async function copyImageToClipboard(imageUrl) {
@@ -495,7 +496,7 @@ export default function ArticlesPage() {
                     )}
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    {new Date(article.created_at).toLocaleDateString('zh-TW')}
+                    {formatDate(article.created_at)}
                   </div>
                 </div>
               </div>
@@ -637,7 +638,7 @@ export default function ArticlesPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div>類型: {typeLabels[selectedArticle.article_type]}</div>
                 <div>狀態: {statusLabels[selectedArticle.status] || selectedArticle.status}</div>
-                <div>建立: {new Date(selectedArticle.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</div>
+                <div>建立: {formatDateTime(selectedArticle.created_at)}</div>
                 {selectedArticle.sub_id && (
                   <div>Sub_id: <code className="font-mono bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-xs">{selectedArticle.sub_id}</code></div>
                 )}

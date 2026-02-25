@@ -1,15 +1,10 @@
 """
 用戶模型
 """
-from datetime import datetime, timezone, timedelta
-
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 
 from app.db.database import Base
-
-
-def _taipei_now():
-    return datetime.now(timezone(timedelta(hours=8)))
+from app.utils.timezone import taipei_now
 
 
 class User(Base):
@@ -24,7 +19,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
     is_approved = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=_taipei_now)
+    created_at = Column(DateTime, default=taipei_now)
 
     def __repr__(self):
         return f"<User {self.id}: {self.username}>"

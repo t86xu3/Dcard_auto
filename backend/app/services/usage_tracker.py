@@ -5,6 +5,8 @@ from datetime import date, timedelta
 from typing import Dict, List, Optional
 import logging
 
+from app.utils.timezone import taipei_today
+
 from sqlalchemy import func
 
 from app.db.database import SessionLocal
@@ -32,7 +34,7 @@ class UsageTracker:
     """API 使用量追蹤器（多供應商/多模型）"""
 
     def _get_or_create_record(self, db, provider: str, model: str, user_id: Optional[int] = None) -> UsageRecord:
-        today = date.today()
+        today = taipei_today()
         query = db.query(UsageRecord).filter(
             UsageRecord.provider == provider,
             UsageRecord.model == model,
@@ -112,7 +114,7 @@ class UsageTracker:
                 })
 
             # 30 天每日歷史
-            thirty_days_ago = date.today() - timedelta(days=30)
+            thirty_days_ago = taipei_today() - timedelta(days=30)
             history_query = db.query(
                 UsageRecord.usage_date,
                 UsageRecord.provider,

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../api/client';
 import { getSystemPrompts } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { formatDate } from '../utils/datetime';
 
 export default function AdminPage() {
   const [users, setUsers] = useState([]);
@@ -109,7 +110,7 @@ export default function AdminPage() {
                     </span>
                   </td>
                   <td className="p-3 text-xs text-gray-400">
-                    {new Date(u.created_at).toLocaleDateString('zh-TW')}
+                    {formatDate(u.created_at)}
                   </td>
                   <td className="p-3">
                     {!u.is_admin && (

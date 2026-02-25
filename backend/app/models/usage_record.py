@@ -1,16 +1,10 @@
 """
 API 使用量記錄模型（可擴充多供應商/多模型/多用戶）
 """
-from datetime import datetime, date, timezone, timedelta
-
 from sqlalchemy import Column, Integer, String, DateTime, Date, UniqueConstraint
 
-
-def _taipei_now():
-    return datetime.now(timezone(timedelta(hours=8)))
-
-
 from app.db.database import Base
+from app.utils.timezone import taipei_now, taipei_today
 
 
 class UsageRecord(Base):
@@ -22,12 +16,12 @@ class UsageRecord(Base):
     provider = Column(String, nullable=False, index=True)       # "google" / "openai" / "anthropic"
     model = Column(String, nullable=False, index=True)          # "gemini-2.5-flash" / "gemini-2.5-pro"
     user_id = Column(Integer, nullable=True, index=True)        # 未來多用戶時 FK → users
-    usage_date = Column(Date, nullable=False, index=True, default=date.today)
+    usage_date = Column(Date, nullable=False, index=True, default=taipei_today)
     requests = Column(Integer, default=0)
     input_tokens = Column(Integer, default=0)
     output_tokens = Column(Integer, default=0)
-    created_at = Column(DateTime, default=_taipei_now)
-    updated_at = Column(DateTime, default=_taipei_now, onupdate=_taipei_now)
+    created_at = Column(DateTime, default=taipei_now)
+    updated_at = Column(DateTime, default=taipei_now, onupdate=taipei_now)
 
     __table_args__ = (
         UniqueConstraint('provider', 'model', 'usage_date', 'user_id', name='uq_usage_record'),

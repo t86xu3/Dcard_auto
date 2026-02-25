@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getUsage, getAdminUsage } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { getTaipeiMonthStart, getTaipeiToday } from '../utils/datetime';
 
 const MODEL_COLORS = {
   'google/gemini-2.5-flash': { bg: 'bg-blue-50', text: 'text-blue-700', bar: 'bg-blue-500', badge: 'bg-blue-100 text-blue-700' },
@@ -23,13 +24,11 @@ function formatTokens(n) {
 }
 
 function getDefaultStartDate() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  return getTaipeiMonthStart();
 }
 
 function getDefaultEndDate() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return getTaipeiToday();
 }
 
 export default function UsagePage() {
