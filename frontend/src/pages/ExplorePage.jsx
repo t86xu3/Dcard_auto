@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { exploreProducts, importAffiliateUrls } from '../api/client';
+import { exploreProducts } from '../api/client';
 
 const TABS = [
   {
@@ -49,7 +49,7 @@ function ShopBadge({ shopType }) {
   return null;
 }
 
-function ProductCard({ item, onImport, importing }) {
+function ProductCard({ item }) {
   const price = item._price || 0;
   const commPct = item._commissionPct || 0;
   const sales = item._sales || 0;
@@ -112,23 +112,14 @@ function ProductCard({ item, onImport, importing }) {
         )}
 
         {/* 操作按鈕 */}
-        <div className="flex gap-2">
-          <a
-            href={item.offerLink || item.productLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 text-center text-xs font-medium py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 active:scale-95 transition-all"
-          >
-            🔗 蝦皮
-          </a>
-          <button
-            onClick={() => onImport(item)}
-            disabled={importing}
-            className="flex-1 text-xs font-medium py-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 active:scale-95 transition-all disabled:opacity-50"
-          >
-            📥 匯入
-          </button>
-        </div>
+        <a
+          href={item.offerLink || item.productLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-center text-xs font-medium py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 active:scale-95 transition-all"
+        >
+          🔗 蝦皮
+        </a>
       </div>
     </div>
   );
@@ -143,8 +134,6 @@ export default function ExplorePage() {
   const [stats, setStats] = useState({ before: 0, after: 0 });
   const [pageInfo, setPageInfo] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
-  const [importingId, setImportingId] = useState(null);
-  const [importMsg, setImportMsg] = useState(null);
 
   // 篩選表單狀態
   const [filters, setFilters] = useState({
@@ -173,18 +162,19 @@ export default function ExplorePage() {
     if (filters.is_key_seller !== null) params.is_key_seller = filters.is_key_seller;
     if (filters.is_ams_offer !== null) params.is_ams_offer = filters.is_ams_offer;
 
-    // 自定義模式下使用完整篩選
+    // 自定義模式：完整篩選；其他 Tab：進階篩選作為覆蓋值
     if (activeTab === 'custom') {
       params.sort_type = filters.sort_type;
       params.list_type = filters.list_type;
       params.limit = filters.limit;
-      if (filters.min_commission_rate !== '') params.min_commission_rate = filters.min_commission_rate;
-      if (filters.min_sales !== '') params.min_sales = filters.min_sales;
-      if (filters.max_sales !== '') params.max_sales = filters.max_sales;
-      if (filters.min_price !== '') params.min_price = filters.min_price;
-      if (filters.max_price !== '') params.max_price = filters.max_price;
-      if (filters.min_rating !== '') params.min_rating = filters.min_rating;
     }
+    // 數值篩選在所有 Tab 都生效（用戶輸入值覆蓋 Tab 預設值）
+    if (filters.min_commission_rate !== '') params.min_commission_rate = filters.min_commission_rate;
+    if (filters.min_sales !== '') params.min_sales = filters.min_sales;
+    if (filters.max_sales !== '') params.max_sales = filters.max_sales;
+    if (filters.min_price !== '') params.min_price = filters.min_price;
+    if (filters.max_price !== '') params.max_price = filters.max_price;
+    if (filters.min_rating !== '') params.min_rating = filters.min_rating;
 
     return params;
   }, [activeTab, filters]);
@@ -223,22 +213,6 @@ export default function ExplorePage() {
       setLoadingMore(false);
     }
   }, [currentPage, buildParams]);
-
-  const handleImport = useCallback(async (item) => {
-    const url = item.offerLink || item.productLink;
-    if (!url) return;
-    setImportingId(item.itemId);
-    setImportMsg(null);
-    try {
-      await importAffiliateUrls([url]);
-      setImportMsg({ type: 'success', text: `已匯入「${item.productName?.slice(0, 20)}...」` });
-    } catch (err) {
-      setImportMsg({ type: 'error', text: '匯入失敗: ' + (err.response?.data?.detail || err.message) });
-    } finally {
-      setImportingId(null);
-      setTimeout(() => setImportMsg(null), 3000);
-    }
-  }, []);
 
   // 非自定義 Tab 自動載入推薦結果
   const autoLoadRef = useRef(false);
@@ -446,15 +420,6 @@ export default function ExplorePage() {
         )}
       </div>
 
-      {/* 匯入提示 */}
-      {importMsg && (
-        <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${
-          importMsg.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-        }`}>
-          {importMsg.text}
-        </div>
-      )}
-
       {/* 結果 */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -479,8 +444,6 @@ export default function ExplorePage() {
               <ProductCard
                 key={`${item.itemId}-${idx}`}
                 item={item}
-                onImport={handleImport}
-                importing={importingId === item.itemId}
               />
             ))}
           </div>
