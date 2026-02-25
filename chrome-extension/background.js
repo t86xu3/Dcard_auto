@@ -621,7 +621,60 @@ async function startBatchCapture(data) {
 }
 
 /**
+ * 等待分頁載入完成
+ */
+function waitForTabLoad(tabId) {
+    return new Promise((resolve) => {
+        const check = (updatedTabId, changeInfo) => {
+            if (updatedTabId === tabId && changeInfo.status === 'complete') {
+                chrome.tabs.onUpdated.removeListener(check);
+                resolve();
+            }
+        };
+        chrome.tabs.onUpdated.addListener(check);
+
+        // 如果已經載入完成就直接 resolve
+        chrome.tabs.get(tabId, (tab) => {
+            if (chrome.runtime.lastError) {
+                chrome.tabs.onUpdated.removeListener(check);
+                resolve();
+                return;
+            }
+            if (tab?.status === 'complete') {
+                chrome.tabs.onUpdated.removeListener(check);
+                resolve();
+            }
+        });
+    });
+}
+
+/**
+ * 向分頁的 content script 發送 CAPTURE_PRODUCT 並取得結果
+ */
+function sendCaptureToTab(tabId) {
+    return new Promise((resolve) => {
+        try {
+            chrome.tabs.sendMessage(tabId, { type: 'CAPTURE_PRODUCT' }, (response) => {
+                if (chrome.runtime.lastError) {
+                    resolve({ success: false, error: chrome.runtime.lastError.message });
+                    return;
+                }
+                resolve(response || { success: false, error: '無回應' });
+            });
+        } catch (e) {
+            resolve({ success: false, error: e.message });
+        }
+    });
+}
+
+/**
  * 處理下一個待擷取項目
+ *
+ * 策略：
+ * 1. 開啟分頁（帶 #dcard-auto-capture hash，觸發自動送出快速路徑）
+ * 2. 等待分頁載入完成
+ * 3. 若自動送出未在 8 秒內觸發 → 主動發 CAPTURE_PRODUCT 輪詢（最多 5 次，每次間隔 3 秒）
+ * 4. 總逾時 60 秒
  */
 async function processNextItem() {
     if (!batchCapture.active) return;
@@ -634,8 +687,11 @@ async function processNextItem() {
     const item = batchCapture.items[batchCapture.currentIndex];
     console.log(`📦 批量擷取 [${batchCapture.currentIndex + 1}/${batchCapture.items.length}]: ${item.url}`);
 
+    // 標記：此項目的自動送出是否已被 handleBatchProductData 處理
+    batchCapture.currentHandled = false;
+
     try {
-        // 背景開啟分頁（active: false）
+        // 背景開啟分頁
         const url = item.url.includes('#') ? item.url.split('#')[0] : item.url;
         const tab = await chrome.tabs.create({
             url: `${url}#dcard-auto-capture`,
@@ -643,13 +699,50 @@ async function processNextItem() {
         });
         batchCapture.currentTabId = tab.id;
 
-        // 設定 30 秒逾時
+        // 設定 60 秒總逾時
         batchCapture.timeoutTimer = setTimeout(() => {
             handleItemTimeout();
-        }, 30000);
+        }, 60000);
+
+        // 等待分頁載入完成
+        await waitForTabLoad(tab.id);
+        console.log(`📄 分頁載入完成: ${item.url}`);
+
+        // 等 8 秒看自動送出是否觸發（hash 快速路徑）
+        await new Promise(r => setTimeout(r, 8000));
+
+        // 若自動送出已處理，不需要再輪詢
+        if (batchCapture.currentHandled || !batchCapture.active) return;
+
+        // Fallback: 主動發 CAPTURE_PRODUCT 輪詢
+        console.log(`🔄 自動送出未觸發，改用主動擷取: ${item.url}`);
+        for (let retry = 0; retry < 5; retry++) {
+            if (batchCapture.currentHandled || !batchCapture.active) return;
+
+            const result = await sendCaptureToTab(tab.id);
+            if (result.success) {
+                // CAPTURE_PRODUCT 成功 → content script 會發 PRODUCT_DATA → handleBatchProductData 處理
+                // 等一下讓 handleBatchProductData 完成
+                await new Promise(r => setTimeout(r, 2000));
+                if (batchCapture.currentHandled) return;
+            }
+
+            console.log(`⏳ 重試 ${retry + 1}/5: 等待商品資料...`);
+            await new Promise(r => setTimeout(r, 3000));
+        }
+
+        // 5 次都沒拿到 → 逾時（由 60 秒 timer 處理，或手動觸發）
+        if (!batchCapture.currentHandled && batchCapture.active) {
+            console.log(`❌ 主動擷取失敗: ${item.url}`);
+            // 讓 timeout handler 處理（如果還沒觸發）
+        }
 
     } catch (error) {
         console.error('❌ 開啟分頁失敗:', error.message);
+        if (batchCapture.timeoutTimer) {
+            clearTimeout(batchCapture.timeoutTimer);
+            batchCapture.timeoutTimer = null;
+        }
         batchCapture.results.push({
             productId: item.productId,
             status: 'failed',
@@ -664,6 +757,10 @@ async function processNextItem() {
  * 處理批量擷取收到的商品資料
  */
 async function handleBatchProductData(productData) {
+    // 防止重複處理（自動送出 + 主動輪詢可能同時觸發）
+    if (batchCapture.currentHandled) return;
+    batchCapture.currentHandled = true;
+
     // 清除逾時計時器
     if (batchCapture.timeoutTimer) {
         clearTimeout(batchCapture.timeoutTimer);
@@ -697,7 +794,7 @@ async function handleBatchProductData(productData) {
  * 處理單項逾時
  */
 async function handleItemTimeout() {
-    if (!batchCapture.active) return;
+    if (!batchCapture.active || batchCapture.currentHandled) return;
 
     const item = batchCapture.items[batchCapture.currentIndex];
     console.log(`⏰ 批量擷取逾時: ${item.url}`);
@@ -705,7 +802,7 @@ async function handleItemTimeout() {
     batchCapture.results.push({
         productId: item.productId,
         status: 'timeout',
-        error: '擷取逾時（30秒）'
+        error: '擷取逾時（60秒）'
     });
 
     // 關閉分頁
