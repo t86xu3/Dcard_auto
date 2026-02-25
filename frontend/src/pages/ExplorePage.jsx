@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { exploreProducts, importAffiliateUrls } from '../api/client';
 
 const TABS = [
@@ -239,6 +239,16 @@ export default function ExplorePage() {
       setTimeout(() => setImportMsg(null), 3000);
     }
   }, []);
+
+  // 非自定義 Tab 自動載入推薦結果
+  const autoLoadRef = useRef(false);
+  useEffect(() => {
+    if (activeTab !== 'custom') {
+      autoLoadRef.current = true;
+      handleSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const handleTabChange = (tabKey) => {
     setActiveTab(tabKey);

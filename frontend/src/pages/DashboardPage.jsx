@@ -138,7 +138,7 @@ export default function DashboardPage() {
             >
               <div className="font-medium text-gray-800 text-sm truncate">{item.offerName}</div>
               <div className="flex items-center justify-between mt-1">
-                <span className="text-orange-600 font-semibold text-sm">佣金 {item.commissionRate}%</span>
+                <span className="text-orange-600 font-semibold text-sm">佣金 {parseFloat(item.commissionRate || 0) * 100}%</span>
                 <span className="text-xs text-gray-400">
                   {formatTimestamp(item.periodStartTime)} ~ {formatTimestamp(item.periodEndTime)}
                 </span>
@@ -164,14 +164,14 @@ export default function DashboardPage() {
             >
               <div className="flex items-center gap-2">
                 <span className="font-medium text-gray-800 text-sm truncate">{item.shopName}</span>
-                {item.shopType === 1 && <ShopBadge label="Mall" color="red" />}
-                {item.shopType === 2 && <ShopBadge label="Star" color="yellow" />}
-                {item.shopType === 4 && <ShopBadge label="Star+" color="purple" />}
+                {(Array.isArray(item.shopType) ? item.shopType : []).includes(1) && <ShopBadge label="Mall" color="red" />}
+                {(Array.isArray(item.shopType) ? item.shopType : []).includes(2) && <ShopBadge label="Star" color="yellow" />}
+                {(Array.isArray(item.shopType) ? item.shopType : []).includes(4) && <ShopBadge label="Star+" color="purple" />}
               </div>
               <div className="flex items-center justify-between mt-1">
-                <span className="text-amber-600 font-semibold text-sm">佣金 {item.commissionRate}%</span>
-                {item.ratingStar > 0 && (
-                  <span className="text-xs text-gray-400">⭐ {item.ratingStar.toFixed(1)}</span>
+                <span className="text-amber-600 font-semibold text-sm">佣金 {parseFloat(item.commissionRate || 0) * 100}%</span>
+                {parseFloat(item.ratingStar || 0) > 0 && (
+                  <span className="text-xs text-gray-400">⭐ {parseFloat(item.ratingStar).toFixed(1)}</span>
                 )}
               </div>
             </a>
@@ -195,17 +195,17 @@ export default function DashboardPage() {
             >
               <div className="font-medium text-gray-800 text-sm truncate">{item.productName}</div>
               <div className="flex items-center justify-between mt-1">
-                <span className="text-cyan-600 font-semibold text-sm">佣金 {item.commissionRate}%</span>
+                <span className="text-cyan-600 font-semibold text-sm">佣金 {parseFloat(item.commissionRate || 0) * 100}%</span>
                 <span className="text-xs text-gray-500">
-                  ${item.priceMin?.toFixed(0)}{item.priceMax > item.priceMin ? `~$${item.priceMax?.toFixed(0)}` : ''}
+                  ${Math.round(parseFloat(item.priceMin || 0))}{parseFloat(item.priceMax || 0) > parseFloat(item.priceMin || 0) ? `~$${Math.round(parseFloat(item.priceMax))}` : ''}
                 </span>
               </div>
               <div className="flex items-center justify-between mt-0.5">
-                {item.commission > 0 && (
-                  <span className="text-xs text-green-600">預估 ${item.commission?.toFixed(0)}</span>
+                {parseFloat(item.commission || 0) > 0 && (
+                  <span className="text-xs text-green-600">預估 ${Math.round(parseFloat(item.commission))}</span>
                 )}
-                {item.sales > 0 && (
-                  <span className="text-xs text-gray-400">銷量 {item.sales.toLocaleString()}</span>
+                {(item.sales || 0) > 0 && (
+                  <span className="text-xs text-gray-400">銷量 {Number(item.sales).toLocaleString()}</span>
                 )}
               </div>
             </a>
