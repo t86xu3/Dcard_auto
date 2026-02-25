@@ -143,7 +143,7 @@ class ShopeeService:
         is_ams_offer: bool = None,
         is_key_seller: bool = None,
         page: int = 1,
-        limit: int = 100,
+        limit: int = 50,
         min_commission_rate: float = None,
         min_sales: int = None,
         max_sales: int = None,

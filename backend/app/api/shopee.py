@@ -45,7 +45,7 @@ def explore_products(
     is_ams_offer: bool = Query(None),
     is_key_seller: bool = Query(None),
     page: int = Query(1, ge=1),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(50, ge=1, le=50),
     min_commission_rate: float = Query(None, ge=0),
     min_sales: int = Query(None, ge=0),
     max_sales: int = Query(None, ge=0),

@@ -5,19 +5,19 @@ const TABS = [
   {
     key: 'hot',
     label: '🔥 熱門商品',
-    params: { sort_type: 2, list_type: 2, limit: 100 },
+    params: { sort_type: 2, list_type: 2, limit: 50 },
     desc: '高銷量 + 表現最佳',
   },
   {
     key: 'potential',
     label: '🌱 潛在熱門',
-    params: { sort_type: 2, list_type: 0, min_commission_rate: 3, min_sales: 10, max_sales: 5000, limit: 100 },
+    params: { sort_type: 2, list_type: 0, min_commission_rate: 3, min_sales: 10, max_sales: 5000, limit: 50 },
     desc: '有佣金 + 有銷量但未爆量',
   },
   {
     key: 'high_commission',
     label: '💰 高分潤',
-    params: { sort_type: 5, list_type: 0, limit: 100 },
+    params: { sort_type: 5, list_type: 0, limit: 50 },
     desc: '按佣金率排序',
   },
   {
@@ -153,7 +153,7 @@ export default function ExplorePage() {
     list_type: 0,
     is_ams_offer: null,
     is_key_seller: null,
-    limit: 100,
+    limit: 50,
     min_commission_rate: '',
     min_sales: '',
     max_sales: '',
