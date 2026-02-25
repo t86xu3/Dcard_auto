@@ -1,16 +1,11 @@
 """
 商品資料模型
 """
-from datetime import datetime, timezone, timedelta
-
-
-def _taipei_now():
-    return datetime.now(timezone(timedelta(hours=8)))
-
 from sqlalchemy import Column, Integer, String, Float, Text, DateTime, JSON, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
+from app.utils.timezone import taipei_now
 
 
 class Product(Base):
@@ -38,7 +33,7 @@ class Product(Base):
     product_url = Column(String(1000))
     affiliate_url = Column(String(1000))  # 蝦皮聯盟行銷短網址
     captured_at = Column(DateTime)
-    created_at = Column(DateTime, default=_taipei_now)
+    created_at = Column(DateTime, default=taipei_now)
 
     # 關聯
     product_images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan")

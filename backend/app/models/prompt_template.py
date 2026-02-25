@@ -1,15 +1,10 @@
 """
 Prompt 範本模型
 """
-from datetime import datetime, timezone, timedelta
-
-
-def _taipei_now():
-    return datetime.now(timezone(timedelta(hours=8)))
-
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey
 
 from app.db.database import Base
+from app.utils.timezone import taipei_now
 
 
 class PromptTemplate(Base):
@@ -23,8 +18,8 @@ class PromptTemplate(Base):
     content = Column(Text, nullable=False)
     is_default = Column(Boolean, default=False)
     is_builtin = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=_taipei_now)
-    updated_at = Column(DateTime, default=_taipei_now, onupdate=_taipei_now)
+    created_at = Column(DateTime, default=taipei_now)
+    updated_at = Column(DateTime, default=taipei_now, onupdate=taipei_now)
 
     def __repr__(self):
         return f"<PromptTemplate {self.id}: {self.name}>"

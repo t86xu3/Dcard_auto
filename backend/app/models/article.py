@@ -1,15 +1,10 @@
 """
 文章模型
 """
-from datetime import datetime, timezone, timedelta
-
-
-def _taipei_now():
-    return datetime.now(timezone(timedelta(hours=8)))
-
 from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Float, ForeignKey
 
 from app.db.database import Base
+from app.utils.timezone import taipei_now
 
 
 class Article(Base):
@@ -31,8 +26,8 @@ class Article(Base):
     sub_id = Column(String(100))  # 蝦皮聯盟行銷追蹤 Sub_id
     status = Column(String(20), default="draft")  # draft / optimized / published
     published_url = Column(String(1000))
-    created_at = Column(DateTime, default=_taipei_now)
-    updated_at = Column(DateTime, default=_taipei_now, onupdate=_taipei_now)
+    created_at = Column(DateTime, default=taipei_now)
+    updated_at = Column(DateTime, default=taipei_now, onupdate=taipei_now)
 
     def __repr__(self):
         return f"<Article {self.id}: {self.title[:30]}>"

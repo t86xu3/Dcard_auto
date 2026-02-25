@@ -2,16 +2,43 @@
 Dcard 自動文章生成系統 - FastAPI 後端
 """
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import event, DateTime
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app.config import settings
-from app.db.database import create_tables, SessionLocal, engine
+from app.utils.timezone import TAIPEI_TZ, taipei_now
+from app.db.database import Base, create_tables, SessionLocal, engine
 from app.api import products, articles, seo, usage, prompts, shopee
 from app.api import auth as auth_api
 from app.api import admin as admin_api
+
+
+# === 全域 DateTime 時區修正 ===
+# SQLite / PostgreSQL(TIMESTAMP WITHOUT TIME ZONE) 讀取的 datetime 無時區，
+# 透過 ORM 事件在載入時自動補上 Asia/Taipei (+08:00)
+
+def _ensure_datetime_tz(instance):
+    """確保所有 DateTime 屬性帶有時區資訊"""
+    for col in instance.__class__.__table__.columns:
+        if isinstance(col.type, DateTime):
+            val = getattr(instance, col.name, None)
+            if isinstance(val, datetime) and val.tzinfo is None:
+                set_committed_value(instance, col.name, val.replace(tzinfo=TAIPEI_TZ))
+
+
+@event.listens_for(Base, "load", propagate=True)
+def _on_load(instance, context):
+    _ensure_datetime_tz(instance)
+
+
+@event.listens_for(Base, "refresh", propagate=True)
+def _on_refresh(instance, context, attrs):
+    _ensure_datetime_tz(instance)
 
 
 @asynccontextmanager
@@ -111,8 +138,7 @@ def _seed_admin_user():
         else:
             # 修補 migration 建立的帳號缺少 created_at 的問題
             if existing.created_at is None:
-                from datetime import datetime, timezone, timedelta
-                existing.created_at = datetime.now(timezone(timedelta(hours=8)))
+                existing.created_at = taipei_now()
                 db.commit()
             logger.info("管理員帳號已存在，跳過")
     finally:
