@@ -64,6 +64,8 @@ Dcard_auto/
 │   │   │   ├── seo.py         # SEO 分析/優化（+認證）
 │   │   │   ├── usage.py       # 用量統計（+認證+user過濾）
 │   │   │   └── shopee.py      # 蝦皮聯盟行銷 API 代理（3 端點）
+│   │   ├── utils/
+│   │   │   └── timezone.py  # 集中時區工具（TAIPEI_TZ + ORM 事件）
 │   │   ├── services/
 │   │   │   ├── gemini_utils.py  # Gemini 共用工具（strip_markdown + track_usage）
 │   │   │   ├── llm_service.py # Gemini 文章生成（system_instruction 分離）
@@ -91,6 +93,8 @@ Dcard_auto/
 │   │   │   ├── Layout.jsx     # 側邊欄（含用戶資訊+登出+管理員導航）
 │   │   │   ├── ProtectedRoute.jsx # 路由守衛
 │   │   │   └── SeoPanel.jsx   # SEO 分析面板（環形分數圖 + 8 項進度條）
+│   │   ├── utils/
+│   │   │   └── datetime.js   # 日期格式化工具（Asia/Taipei）
 │   │   ├── pages/
 │   │   │   ├── LoginPage.jsx      # 登入/註冊頁
 │   │   │   ├── AdminPage.jsx      # 管理員：用戶管理
@@ -140,6 +144,7 @@ Dcard_auto/
 | SEO 服務 | backend/app/services/seo_service.py | 8 項 SEO 評分引擎 + LLM 優化（強制使用 gemini-2.5-flash）|
 | 圖片服務 | backend/app/services/image_service.py | 圖片下載、備份、打包 ZIP |
 | 文章任務 | backend/app/tasks/article_tasks.py | Celery 非同步生成 |
+| 時區工具 | backend/app/utils/timezone.py | 集中 TAIPEI_TZ / taipei_now / taipei_today + ORM 事件自動補時區 |
 | 蝦皮聯盟 API | backend/app/api/shopee.py | 3 個代理端點（平台活動/商店佣金/商品佣金）|
 | 蝦皮聯盟服務 | backend/app/services/shopee_service.py | SHA256 簽名 + GraphQL 客戶端（singleton）|
 | 儀表板 | frontend/src/pages/DashboardPage.jsx | 系統概覽 + 蝦皮聯盟行銷資料 |
@@ -147,6 +152,7 @@ Dcard_auto/
 | 文章管理 | frontend/src/pages/ArticlesPage.jsx | 文章編輯與發佈 |
 | SEO 面板 | frontend/src/components/SeoPanel.jsx | 環形分數圖 + 8 項進度條 + 關鍵字標籤（可折疊，預設收合）|
 | Extension 偵測 | frontend/src/hooks/useExtensionDetect.js | 自動偵測插件 |
+| 日期格式化工具 | frontend/src/utils/datetime.js | formatDate / formatDateTime / getTaipeiToday / getTaipeiMonthStart |
 | 費用追蹤 | frontend/src/pages/UsagePage.jsx | 按模型分組的費用統計 + 30天趨勢 + 管理員全站總覽 |
 | 使用說明 | frontend/src/pages/GuidePage.jsx | 測試人員操作指南 |
 | 認證 Context | frontend/src/contexts/AuthContext.jsx | AuthProvider + useAuth hook |
@@ -203,7 +209,7 @@ Dcard_auto/
 - [x] 儀表板蝦皮聯盟行銷資料（平台活動/商店佣金/高佣金商品 3 區塊，移除 API 用量）
 - [ ] 批量生成功能
 - [ ] 手機版 RWD 介面（響應式設計適配行動裝置）
-- [ ] 時區問題修正（前後端時間顯示一致）
+- [x] 時區問題修正（前後端時間顯示一致）
 - [ ] TG 機器人整合（通知 / 操作自動化）
 
 ### v2.3 - UI 圖標與點擊回饋（完成）
