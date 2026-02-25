@@ -49,14 +49,22 @@ function ShopBadge({ shopType }) {
   return null;
 }
 
+function parseNum(val) {
+  if (typeof val === 'number') return val;
+  if (!val) return 0;
+  const n = parseFloat(val);
+  return isNaN(n) ? 0 : n;
+}
+
 function ProductCard({ item }) {
-  const price = item._price || 0;
-  const commPct = item._commissionPct || 0;
-  const sales = item._sales || 0;
-  const rating = item._rating || 0;
+  const price = parseNum(item._price || item.priceMin);
+  const commRate = parseNum(item._commissionRate || item.commissionRate);
+  const commPct = item._commissionPct || round2(commRate * 100);
+  const sales = parseNum(item._sales || item.sales);
+  const rating = parseNum(item._rating || item.ratingStar);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
       {/* 圖片 */}
       <div className="aspect-square bg-gray-50 relative overflow-hidden">
         {item.imageUrl ? (
@@ -70,7 +78,6 @@ function ProductCard({ item }) {
         ) : (
           <div className="w-full h-full flex items-center justify-center text-4xl text-gray-300">📦</div>
         )}
-        {/* 佣金率標籤 */}
         {commPct > 0 && (
           <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
             {commPct}%
@@ -79,51 +86,53 @@ function ProductCard({ item }) {
       </div>
 
       {/* 資訊 */}
-      <div className="p-3">
-        <h4 className="text-sm font-medium text-gray-800 line-clamp-2 mb-2 leading-snug" title={item.productName}>
+      <div className="p-3 flex flex-col flex-1">
+        <h4 className="text-sm font-medium text-gray-800 line-clamp-2 mb-2 leading-snug min-h-[2.5rem]" title={item.productName}>
           {item.productName}
         </h4>
 
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-baseline justify-between mb-2">
           <span className="text-lg font-bold text-red-600">
             ${price > 0 ? Math.round(price).toLocaleString() : '—'}
           </span>
           {item.priceDiscountRate && (
-            <span className="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
+            <span className="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded ml-1 shrink-0">
               省 {item.priceDiscountRate}
             </span>
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-500 mb-3">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-500 mb-2">
           <div>💰 佣金 {commPct}%</div>
           <div>📦 銷量 {sales.toLocaleString()}</div>
-          {rating > 0 && <div>⭐ {rating}</div>}
+          {rating > 0 && <div>⭐ {rating.toFixed ? rating.toFixed(1) : rating}</div>}
           {item.shopName && (
             <div className="truncate" title={item.shopName}>🏪 {item.shopName}</div>
           )}
         </div>
 
-        {/* ShopBadge */}
-        {item.shopType && (
-          <div className="mb-3">
-            <ShopBadge shopType={item.shopType} />
-          </div>
-        )}
-
-        {/* 操作按鈕 */}
-        <a
-          href={item.offerLink || item.productLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block text-center text-xs font-medium py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 active:scale-95 transition-all"
-        >
-          🔗 蝦皮
-        </a>
+        {/* ShopBadge + 按鈕推到底部 */}
+        <div className="mt-auto">
+          {item.shopType && (
+            <div className="mb-2">
+              <ShopBadge shopType={item.shopType} />
+            </div>
+          )}
+          <a
+            href={item.offerLink || item.productLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-center text-xs font-medium py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 active:scale-95 transition-all"
+          >
+            🔗 蝦皮
+          </a>
+        </div>
       </div>
     </div>
   );
 }
+
+function round2(n) { return Math.round(n * 100) / 100; }
 
 export default function ExplorePage() {
   const [activeTab, setActiveTab] = useState('hot');
