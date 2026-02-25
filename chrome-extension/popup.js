@@ -186,7 +186,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const result = await chrome.runtime.sendMessage({ type: 'CLEAR_DCARD_COOKIES' });
 
         if (result.success) {
-            showToast(`🍪 已清除 ${result.cleared} 個 Dcard Cookie，請重新整理 Dcard 頁面`);
+            const parts = [`${result.cleared} 個 Cookie`];
+            if (result.cacheCleared) parts.push('Cache Storage');
+            if (result.swUnregistered) parts.push('Service Worker');
+            const reloadMsg = result.tabReloaded ? '，已自動重新整理' : '';
+            showToast(`🧹 已清除 ${parts.join(' + ')}${reloadMsg}`);
         } else {
             showToast(`❌ 清除失敗: ${result.error}`);
         }

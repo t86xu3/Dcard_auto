@@ -30,6 +30,12 @@
             sendResponse({ article: pendingArticle });
         }
 
+        // 清除 Cache Storage + Service Worker（解決發文失敗問題）
+        if (message.type === 'CLEAR_SITE_DATA') {
+            clearSiteData().then(result => sendResponse(result));
+            return true;
+        }
+
         return true;
     });
 
@@ -37,6 +43,7 @@
 
     /**
      * 自動貼上文章：填標題 → 逐段建構內容（文字+圖片交替插入）
+     * 延遲策略：模擬人類操作節奏，降低 Cloudflare bot detection 風險
      */
     async function autoPasteArticle(articleData) {
         const { title, paste_content, plain_content, content, image_positions } = articleData;
@@ -58,10 +65,11 @@
             console.error('填入標題失敗:', e);
         }
 
+        // 標題和內容之間的緩衝（模擬人類思考）
+        await randomDelay(2000, 4000);
+
         // 2. 內容 + 圖片
         if (hasImages && paste_content) {
-            // 逐段建構：文字段 → 圖片 → 文字段 → 圖片 → ...
-            // file input 上傳的圖片會附加在末端，配合逐段建構，位置自然正確
             showProgressPanel(title, image_positions.length);
             const { successImages, failImages } = await pasteContentWithImages(
                 editor, paste_content, image_positions
@@ -69,8 +77,7 @@
             removeProgressPanel();
 
             if (successImages > 0 || titleOk) {
-                showToast(`✅ 文章已貼上！成功插入 ${successImages} 張圖片` +
-                    (failImages > 0 ? `，${failImages} 張失敗` : ''), 'success');
+                showCooldownPanel(successImages, failImages);
             } else {
                 showToast('部分內容插入失敗', 'error');
             }
@@ -85,7 +92,7 @@
             }
 
             if (titleOk || contentOk) {
-                showToast('✅ 文章已貼上！', 'success');
+                showCooldownPanel(0, 0);
             } else {
                 showPasteHelper();
                 showToast('自動貼上失敗，請手動複製', 'error');
@@ -144,7 +151,7 @@
         const beforeLen = (editor.textContent || '').length;
 
         editor.focus();
-        await new Promise(r => setTimeout(r, 300));
+        await randomDelay(1500, 3000);
 
         // 合成 ClipboardEvent — Lexical 會攔截並自行處理
         try {
@@ -158,10 +165,9 @@
             editor.dispatchEvent(pasteEvent);
 
             // 等待 Lexical 渲染完成
-            await new Promise(r => setTimeout(r, 1500));
+            await randomDelay(3000, 5000);
             const afterLen = (editor.textContent || '').length;
             if (afterLen > beforeLen + 10) {
-                // 貼上成功，強制 Lexical reconcile state 確保發佈不出問題
                 await reconcileLexicalState(editor);
                 return true;
             }
@@ -173,7 +179,6 @@
         try {
             await navigator.clipboard.writeText(text);
             showToast('請按 Ctrl+V 貼上內文（自動貼上未生效）');
-            // 等使用者貼上
             await waitForEditorContent(editor, beforeLen, 30000);
             return (editor.textContent || '').length > beforeLen + 10;
         } catch (e) {
@@ -208,16 +213,16 @@
     }
 
     /**
-     * 將游標移到編輯器最末端（透過鍵盤事件，讓 Lexical 自行處理）
+     * 將游標移到編輯器最末端（使用 Selection API，不產生 synthetic event）
+     * Lexical 會在下一次 paste event 時讀取當前 selection 位置
      */
     function moveCursorToEnd(editor) {
-        // 使用 Ctrl+End 鍵盤事件讓 Lexical 自行移動游標，
-        // 避免直接操作 DOM Selection 導致 Lexical 內部 state 不同步
-        editor.dispatchEvent(new KeyboardEvent('keydown', {
-            key: 'End', code: 'End',
-            ctrlKey: true, metaKey: true,
-            bubbles: true, cancelable: true,
-        }));
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        range.collapse(false); // collapse to end
+        selection.removeAllRanges();
+        selection.addRange(range);
     }
 
     /**
@@ -228,8 +233,8 @@
 
         editor.focus();
         moveCursorToEnd(editor);
-        // 給 Lexical 足夠時間處理游標移動
-        await randomDelay(300, 500);
+        // 模擬人類閱讀/準備節奏
+        await randomDelay(2000, 4000);
 
         const dt = new DataTransfer();
         dt.setData('text/plain', text);
@@ -241,7 +246,7 @@
         editor.dispatchEvent(pasteEvent);
 
         // 等待 Lexical 完整渲染 + state 同步
-        await randomDelay(1000, 1800);
+        await randomDelay(3000, 6000);
         return true;
     }
 
@@ -307,13 +312,13 @@
             fileInput.dispatchEvent(new Event('change', { bubbles: true }));
 
             // 4. 等待圖片實際出現在編輯器中（而非盲等固定時間）
-            const appeared = await waitForImageInEditor(editor, beforeImageCount, 10000);
+            const appeared = await waitForImageInEditor(editor, beforeImageCount, 15000);
             if (appeared) {
-                // 圖片已出現，給 Dcard 額外時間完成後端上傳
-                await randomDelay(1500, 2500);
+                // 圖片已出現，給 Dcard 充足時間完成後端上傳 + 降低自動化特徵
+                await randomDelay(4000, 7000);
             } else {
-                // 超時但仍給基本等待時間
-                await randomDelay(2000, 3000);
+                // 超時但仍給充足等待時間
+                await randomDelay(5000, 8000);
             }
 
             return true;
@@ -329,9 +334,9 @@
      */
     async function reconcileLexicalState(editor) {
         editor.blur();
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 1000));
         editor.focus();
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 1000));
     }
 
     /**
@@ -438,6 +443,74 @@
         if (panel) panel.remove();
     }
 
+    /**
+     * 顯示冷卻倒數面板（自動貼上完成後，提醒等待再發文）
+     */
+    function showCooldownPanel(successImages, failImages) {
+        const COOLDOWN_SECONDS = 30;
+        let remaining = COOLDOWN_SECONDS;
+
+        const imgMsg = successImages > 0
+            ? `成功插入 ${successImages} 張圖片` + (failImages > 0 ? `，${failImages} 張失敗` : '')
+            : '';
+
+        const panel = document.createElement('div');
+        panel.id = 'dcard-cooldown-panel';
+        panel.innerHTML = `
+            <div style="
+                position: fixed; bottom: 24px; right: 24px;
+                background: white; border-radius: 16px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+                z-index: 999999; font-size: 14px;
+                min-width: 300px; overflow: hidden;
+                font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                border: 1px solid #e5e7eb;
+            ">
+                <div style="
+                    background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+                    color: white; padding: 14px 16px;
+                ">
+                    <div style="font-weight: 700;">✅ 文章已貼上！</div>
+                    ${imgMsg ? `<div style="font-size: 12px; opacity: 0.9; margin-top: 3px;">${imgMsg}</div>` : ''}
+                </div>
+                <div style="padding: 12px 16px;">
+                    <div id="dcard-cooldown-text" style="font-size: 13px; color: #374151; margin-bottom: 8px;">
+                        ⏳ 建議等待 ${remaining} 秒後再發文（避免被 Cloudflare 攔截）
+                    </div>
+                    <div style="height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
+                        <div id="dcard-cooldown-bar" style="
+                            height: 100%; background: linear-gradient(90deg, #059669, #10B981);
+                            border-radius: 3px; width: 100%; transition: width 1s linear;
+                        "></div>
+                    </div>
+                    <button id="dcard-cooldown-dismiss" style="
+                        margin-top: 10px; padding: 6px 16px; border: 1px solid #d1d5db;
+                        border-radius: 8px; background: white; color: #374151;
+                        font-size: 12px; cursor: pointer; width: 100%;
+                    ">知道了，關閉</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(panel);
+
+        const textEl = document.getElementById('dcard-cooldown-text');
+        const barEl = document.getElementById('dcard-cooldown-bar');
+        document.getElementById('dcard-cooldown-dismiss').addEventListener('click', () => panel.remove());
+
+        const timer = setInterval(() => {
+            remaining--;
+            if (remaining <= 0) {
+                clearInterval(timer);
+                if (textEl) textEl.textContent = '✅ 可以發文了！';
+                if (barEl) barEl.style.width = '0%';
+                setTimeout(() => panel.remove(), 3000);
+            } else {
+                if (textEl) textEl.textContent = `⏳ 建議等待 ${remaining} 秒後再發文（避免被 Cloudflare 攔截）`;
+                if (barEl) barEl.style.width = `${(remaining / COOLDOWN_SECONDS) * 100}%`;
+            }
+        }, 1000);
+    }
+
     // ===== 手動複製模式（fallback）=====
 
     function showPasteHelper() {
@@ -541,6 +614,41 @@
         toast.textContent = message;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 4000);
+    }
+
+    /**
+     * 清除 Cache Storage + Service Worker
+     * 解決自動貼文後「無法連線到 backend server」的問題
+     */
+    async function clearSiteData() {
+        let cacheCleared = false;
+        let swUnregistered = false;
+
+        // 1. 清除 Cache Storage
+        try {
+            const cacheNames = await caches.keys();
+            for (const name of cacheNames) {
+                await caches.delete(name);
+            }
+            cacheCleared = cacheNames.length > 0;
+            console.log(`🧹 已清除 ${cacheNames.length} 個 Cache Storage`);
+        } catch (e) {
+            console.warn('清除 Cache Storage 失敗:', e);
+        }
+
+        // 2. 註銷 Service Worker
+        try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const reg of registrations) {
+                await reg.unregister();
+            }
+            swUnregistered = registrations.length > 0;
+            console.log(`🧹 已註銷 ${registrations.length} 個 Service Worker`);
+        } catch (e) {
+            console.warn('註銷 Service Worker 失敗:', e);
+        }
+
+        return { cacheCleared, swUnregistered };
     }
 
     // 頁面載入後檢查 pending 文章
