@@ -267,9 +267,12 @@
     }
 
     /**
-     * 透過 file input 上傳圖片（Dcard 編輯器會附加在最末端）
+     * 透過 ClipboardEvent 貼上圖片（讓 Lexical 的 paste handler 處理上傳+插入）
+     *
+     * 舊做法（file input）繞過 Lexical，導致 state 不同步 → 發文 503。
+     * 新做法走 Lexical 的原生 paste 流程，state 由 Lexical 內部管理。
      */
-    async function uploadImageViaFileInput(editor, imageUrl) {
+    async function uploadImageViaClipboard(editor, imageUrl) {
         try {
             // 記錄上傳前的圖片數量
             const beforeImageCount = editor.querySelectorAll('img').length;
@@ -292,27 +295,30 @@
             const ext = mimeType.split('/')[1] || 'jpg';
             const file = new File([blob], `product-image-${Date.now()}.${ext}`, { type: mimeType });
 
-            // 3. file input 上傳
-            const fileInput = document.querySelector('#editor-image')
-                || document.querySelector('input[type="file"][accept*="image"]');
-
-            if (!fileInput) {
-                console.error('找不到圖片上傳 input');
-                return false;
-            }
+            // 3. 透過 ClipboardEvent 貼上圖片（Lexical 原生處理）
+            editor.focus();
+            moveCursorToEnd(editor);
+            await randomDelay(300, 600);
 
             const dt = new DataTransfer();
             dt.items.add(file);
-            fileInput.files = dt.files;
-            fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+            const pasteEvent = new ClipboardEvent('paste', {
+                bubbles: true,
+                cancelable: true,
+                clipboardData: dt,
+            });
+            editor.dispatchEvent(pasteEvent);
 
-            // 4. 等待圖片實際出現在編輯器中（而非盲等固定時間）
-            const appeared = await waitForImageInEditor(editor, beforeImageCount, 10000);
+            // 4. 等待圖片實際出現在編輯器中
+            const appeared = await waitForImageInEditor(editor, beforeImageCount, 15000);
             if (appeared) {
-                // 圖片已出現，給 Dcard 額外時間完成後端上傳
-                await randomDelay(1500, 2500);
+                // 圖片已出現，給 Dcard 充足時間完成後端上傳
+                await randomDelay(2000, 4000);
             } else {
-                // 超時但仍給基本等待時間
+                // Clipboard paste 失敗，fallback 到 file input
+                console.warn('⚠️ Clipboard paste 未生效，嘗試 file input fallback');
+                const fallbackOk = await uploadImageViaFileInput(editor, file, beforeImageCount);
+                if (fallbackOk) return true;
                 await randomDelay(2000, 3000);
             }
 
@@ -321,6 +327,32 @@
             console.error('上傳圖片失敗:', error);
             return false;
         }
+    }
+
+    /**
+     * File input fallback（當 clipboard paste 失敗時使用）
+     */
+    async function uploadImageViaFileInput(editor, file, beforeImageCount) {
+        const fileInput = document.querySelector('#editor-image')
+            || document.querySelector('input[type="file"][accept*="image"]');
+
+        if (!fileInput) {
+            console.error('找不到圖片上傳 input');
+            return false;
+        }
+
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+        const appeared = await waitForImageInEditor(editor, beforeImageCount, 10000);
+        if (appeared) {
+            await randomDelay(1500, 2500);
+        } else {
+            await randomDelay(2000, 3000);
+        }
+        return appeared;
     }
 
     /**
@@ -364,7 +396,7 @@
                 if (img) {
                     imageCount++;
                     updateProgressPanel(imageCount, totalImages);
-                    const ok = await uploadImageViaFileInput(editor, img.url);
+                    const ok = await uploadImageViaClipboard(editor, img.url);
                     if (ok) {
                         successImages++;
                     } else {
