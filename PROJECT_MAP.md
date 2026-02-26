@@ -96,7 +96,8 @@ Dcard_auto/
 │   │   │   ├── ProtectedRoute.jsx # 路由守衛
 │   │   │   └── SeoPanel.jsx   # SEO 分析面板（環形分數圖 + 8 項進度條）
 │   │   ├── utils/
-│   │   │   └── datetime.js   # 日期格式化工具（Asia/Taipei）
+│   │   │   ├── datetime.js   # 日期格式化工具（Asia/Taipei）
+│   │   │   └── savedLinks.js # 已儲存商品連結工具（localStorage CRUD）
 │   │   ├── pages/
 │   │   │   ├── LoginPage.jsx      # 登入/註冊頁
 │   │   │   ├── AdminPage.jsx      # 管理員：用戶管理
@@ -156,6 +157,7 @@ Dcard_auto/
 | SEO 面板 | frontend/src/components/SeoPanel.jsx | 環形分數圖 + 8 項進度條 + 關鍵字標籤（可折疊，預設收合）|
 | Extension 偵測 | frontend/src/hooks/useExtensionDetect.js | 自動偵測插件 |
 | 日期格式化工具 | frontend/src/utils/datetime.js | formatDate / formatDateTime / getTaipeiToday / getTaipeiMonthStart |
+| 已儲存連結工具 | frontend/src/utils/savedLinks.js | localStorage 暫存商品連結（add/remove/clear/markAsCopied）|
 | 費用追蹤 | frontend/src/pages/UsagePage.jsx | 按模型分組的費用統計 + 30天趨勢 + 管理員全站總覽 |
 | 商品探索 | frontend/src/pages/ExplorePage.jsx | 蝦皮商品探索（4 Tab：熱門/潛在熱門/高分潤/自定義 + 篩選 + 匯入）|
 | 使用說明 | frontend/src/pages/GuidePage.jsx | 測試人員操作指南 |
@@ -214,6 +216,8 @@ Dcard_auto/
 - [x] 一鍵擷取（批量自動開啟蝦皮分頁擷取待擷取商品 + 進度面板 + beforeunload 防護）
 - [x] 儀表板蝦皮聯盟行銷資料（平台活動/商店佣金/高佣金商品 3 區塊，移除 API 用量）
 - [x] 蝦皮商品探索頁面（4 Tab 預設模式 + 彈性篩選 + 匯入 placeholder + 載入更多）
+- [x] 商品探索儲存連結（📌存連結 + 勾選複製面板，最多 5 個 + 已複製標記）
+- [x] 文章發佈狀態管理（貼到 Dcard 自動標記已發佈 + 手動切換草稿/已優化/已發佈）
 - [ ] 批量生成功能
 - [ ] 手機版 RWD 介面（響應式設計適配行動裝置）
 - [x] 時區問題修正（前後端時間顯示一致）
