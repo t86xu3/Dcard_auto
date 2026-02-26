@@ -574,7 +574,7 @@ class SeoService:
         else:
             return "D"
 
-    def optimize_with_llm(self, article, model: Optional[str] = None, user_id: Optional[int] = None) -> dict:
+    def optimize_with_llm(self, article, model: Optional[str] = None, user_id: Optional[int] = None, disable_seo_prompt: bool = False) -> dict:
         """使用 LLM 進行 SEO 優化"""
         content = article.content or ""
 
@@ -616,12 +616,14 @@ class SeoService:
 
         # SEO 優化強制使用最便宜的模型（節省成本，SEO 改寫不需要高階模型）
         use_model = "gemini-2.5-flash"
+        seo_prompt = ("請優化以下文章的 SEO，保持文章風格不變，"
+                      "重點改善標題（20-35字）和關鍵字分佈。") if disable_seo_prompt else SEO_OPTIMIZE_PROMPT
         try:
             if is_anthropic_model(use_model):
                 response = self.anthropic_client.messages.create(
                     model=use_model,
                     max_tokens=settings.LLM_MAX_TOKENS,
-                    system=SEO_OPTIMIZE_PROMPT,
+                    system=seo_prompt,
                     messages=[{"role": "user", "content": user_message}],
                 )
                 optimized_content = response.content[0].text
@@ -632,7 +634,7 @@ class SeoService:
                     model=use_model,
                     contents=user_message,
                     config=types.GenerateContentConfig(
-                        system_instruction=SEO_OPTIMIZE_PROMPT,
+                        system_instruction=seo_prompt,
                         temperature=0.5,
                         max_output_tokens=settings.LLM_MAX_TOKENS,
                         http_options=types.HttpOptions(timeout=300_000),  # 毫秒，300秒

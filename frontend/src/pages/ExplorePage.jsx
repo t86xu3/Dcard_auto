@@ -6,7 +6,7 @@ const TABS = [
   {
     key: 'hot',
     label: '🔥 熱門商品',
-    params: { sort_type: 2, list_type: 2, limit: 50 },
+    params: { sort_type: 2, list_type: 0, limit: 50 },
     desc: '高銷量 + 表現最佳',
   },
   {
@@ -35,11 +35,7 @@ const SORT_OPTIONS = [
   { value: 3, label: '價格（低→高）' },
   { value: 4, label: '價格（高→低）' },
   { value: 5, label: '佣金率' },
-];
-
-const LIST_OPTIONS = [
-  { value: 0, label: '推薦' },
-  { value: 2, label: '表現最佳' },
+  { value: 6, label: '銷量＋佣金率' },
 ];
 
 function ShopBadge({ shopType }) {
@@ -58,11 +54,10 @@ function parseNum(val) {
 }
 
 function ProductCard({ item, onFindCompetitors, onSave, isSaved: saved }) {
-  const price = parseNum(item._price || item.priceMin);
-  const commRate = parseNum(item._commissionRate || item.commissionRate);
-  const commPct = item._commissionPct || round2(commRate * 100);
-  const sales = parseNum(item._sales || item.sales);
-  const rating = parseNum(item._rating || item.ratingStar);
+  const price = parseNum(item._price ?? item.priceMin);
+  const commPct = item._commissionPct ?? round2(parseNum(item._commissionRate ?? item.commissionRate) * 100);
+  const sales = parseNum(item._sales ?? item.sales);
+  const rating = parseNum(item._rating ?? item.ratingStar);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
@@ -153,10 +148,10 @@ function ProductCard({ item, onFindCompetitors, onSave, isSaved: saved }) {
 }
 
 function CompetitorRow({ item, rank, sourcePrice, onSave, isSaved: saved }) {
-  const price = parseNum(item._price || item.priceMin);
-  const commPct = item._commissionPct || round2(parseNum(item._commissionRate || item.commissionRate) * 100);
-  const sales = parseNum(item._sales || item.sales);
-  const rating = parseNum(item._rating || item.ratingStar);
+  const price = parseNum(item._price ?? item.priceMin);
+  const commPct = item._commissionPct ?? round2(parseNum(item._commissionRate ?? item.commissionRate) * 100);
+  const sales = parseNum(item._sales ?? item.sales);
+  const rating = parseNum(item._rating ?? item.ratingStar);
   const score = item._competitorScore || 0;
 
   // 價格差異百分比
@@ -260,10 +255,10 @@ function CompetitorRow({ item, rank, sourcePrice, onSave, isSaved: saved }) {
 function CompetitorModal({ isOpen, onClose, sourceItem, data, loading, onSave, savedIds }) {
   if (!isOpen) return null;
 
-  const sourcePrice = sourceItem ? parseNum(sourceItem._price || sourceItem.priceMin) : 0;
-  const sourceComm = sourceItem ? (sourceItem._commissionPct || round2(parseNum(sourceItem._commissionRate || sourceItem.commissionRate) * 100)) : 0;
-  const sourceSales = sourceItem ? parseNum(sourceItem._sales || sourceItem.sales) : 0;
-  const sourceRating = sourceItem ? parseNum(sourceItem._rating || sourceItem.ratingStar) : 0;
+  const sourcePrice = sourceItem ? parseNum(sourceItem._price ?? sourceItem.priceMin) : 0;
+  const sourceComm = sourceItem ? (sourceItem._commissionPct ?? round2(parseNum(sourceItem._commissionRate ?? sourceItem.commissionRate) * 100)) : 0;
+  const sourceSales = sourceItem ? parseNum(sourceItem._sales ?? sourceItem.sales) : 0;
+  const sourceRating = sourceItem ? parseNum(sourceItem._rating ?? sourceItem.ratingStar) : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
@@ -385,8 +380,6 @@ export default function ExplorePage() {
   const [filters, setFilters] = useState({
     keyword: '',
     sort_type: 2,
-    list_type: 0,
-    is_ams_offer: null,
     is_key_seller: null,
     limit: 50,
     min_commission_rate: '',
@@ -406,12 +399,10 @@ export default function ExplorePage() {
     // 覆蓋：keyword、is_key_seller、is_ams_offer 在所有 Tab 都可用
     if (filters.keyword) params.keyword = filters.keyword;
     if (filters.is_key_seller !== null) params.is_key_seller = filters.is_key_seller;
-    if (filters.is_ams_offer !== null) params.is_ams_offer = filters.is_ams_offer;
 
     // 自定義模式：完整篩選；其他 Tab：進階篩選作為覆蓋值
     if (activeTab === 'custom') {
       params.sort_type = filters.sort_type;
-      params.list_type = filters.list_type;
       params.limit = filters.limit;
     }
     // 數值篩選在所有 Tab 都生效（用戶輸入值覆蓋 Tab 預設值）
@@ -542,15 +533,6 @@ export default function ExplorePage() {
             />
             重點賣家
           </label>
-          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={filters.is_ams_offer === true}
-              onChange={e => updateFilter('is_ams_offer', e.target.checked ? true : null)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            賣家加碼
-          </label>
           <button
             onClick={handleSearch}
             disabled={loading}
@@ -580,16 +562,6 @@ export default function ExplorePage() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">列表類型</label>
-              <select
-                value={filters.list_type}
-                onChange={e => updateFilter('list_type', parseInt(e.target.value))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {LIST_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div>

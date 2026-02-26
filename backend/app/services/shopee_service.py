@@ -153,30 +153,33 @@ class ShopeeService:
         min_price: float = None,
         max_price: float = None,
         min_rating: float = None,
+        min_results: int = 20,
     ) -> dict:
-        """彈性查詢商品，支援後端過濾"""
-        # 組建 GraphQL 變數與參數宣告
+        """彈性查詢商品，支援後端過濾 + 自動分頁填滿"""
+        # sort_type 6 = 銷量+佣金率（自訂複合排序），API 用 sort_type=2（銷量）
+        api_sort_type = 2 if sort_type == 6 else sort_type
+
+        # 組建 GraphQL 查詢模板（page 動態替換）
         var_defs = ["$limit: Int", "$page: Int", "$sortType: Int", "$listType: Int"]
         args = ["limit: $limit", "page: $page", "sortType: $sortType", "listType: $listType"]
-        variables = {
+        base_variables = {
             "limit": limit,
-            "page": page,
-            "sortType": sort_type,
+            "sortType": api_sort_type,
             "listType": list_type,
         }
 
         if keyword:
             var_defs.append("$keyword: String")
             args.append("keyword: $keyword")
-            variables["keyword"] = keyword
+            base_variables["keyword"] = keyword
         if is_ams_offer is not None:
             var_defs.append("$isAmsOffer: Boolean")
             args.append("isAmsOffer: $isAmsOffer")
-            variables["isAmsOffer"] = is_ams_offer
+            base_variables["isAmsOffer"] = is_ams_offer
         if is_key_seller is not None:
             var_defs.append("$isKeySeller: Boolean")
             args.append("isKeySeller: $isKeySeller")
-            variables["isKeySeller"] = is_key_seller
+            base_variables["isKeySeller"] = is_key_seller
 
         query = f"""
         query({', '.join(var_defs)}) {{
@@ -207,64 +210,100 @@ class ShopeeService:
         }}
         """
 
-        data = self._request(query, variables)
-        result = data.get("productOfferV2", {})
-        nodes = result.get("nodes", [])
-        page_info = result.get("pageInfo", {})
-        total_before_filter = len(nodes)
+        all_filtered = []
+        total_before = 0
+        current_page = page
+        final_page_info = {}
+        max_pages = 5  # 安全上限，避免無限迴圈
+        seen_ids = set()  # 去重
 
-        # 型別轉換 + 後端過濾
-        filtered = []
-        for item in nodes:
-            # String → float 轉換
-            try:
-                cr = float(item.get("commissionRate") or 0)
-            except (ValueError, TypeError):
-                cr = 0
-            try:
-                price = float(item.get("priceMin") or 0)
-            except (ValueError, TypeError):
-                price = 0
-            try:
-                rating = float(item.get("ratingStar") or 0)
-            except (ValueError, TypeError):
-                rating = 0
-            sales_val = item.get("sales") or 0
-            if isinstance(sales_val, str):
+        for _ in range(max_pages):
+            variables = {**base_variables, "page": current_page}
+            data = self._request(query, variables)
+            result = data.get("productOfferV2", {})
+            nodes = result.get("nodes", [])
+            final_page_info = result.get("pageInfo", {})
+            total_before += len(nodes)
+
+            # 型別轉換 + 後端過濾
+            for item in nodes:
+                item_id = item.get("itemId")
+                if item_id in seen_ids:
+                    continue
+                seen_ids.add(item_id)
+
+                # String → float 轉換（佣金率使用賣家加碼佣金，非平台基礎佣金）
                 try:
-                    sales_val = int(sales_val)
+                    cr = float(item.get("sellerCommissionRate") or 0)
                 except (ValueError, TypeError):
-                    sales_val = 0
+                    cr = 0
+                try:
+                    price = float(item.get("priceMin") or 0)
+                except (ValueError, TypeError):
+                    price = 0
+                try:
+                    rating = float(item.get("ratingStar") or 0)
+                except (ValueError, TypeError):
+                    rating = 0
+                sales_val = item.get("sales") or 0
+                if isinstance(sales_val, str):
+                    try:
+                        sales_val = int(sales_val)
+                    except (ValueError, TypeError):
+                        sales_val = 0
 
-            # 寫回轉換後的值供前端使用
-            item["_commissionRate"] = cr
-            item["_price"] = price
-            item["_rating"] = rating
-            item["_sales"] = sales_val
-            # commissionRate 是小數（0.9 = 90%），用戶輸入百分比（5 = 5%）
-            item["_commissionPct"] = round(cr * 100, 2)
+                # 寫回轉換後的值供前端使用
+                item["_commissionRate"] = cr
+                item["_price"] = price
+                item["_rating"] = rating
+                item["_sales"] = sales_val
+                # sellerCommissionRate 是小數（0.26 = 26%），用戶輸入百分比（5 = 5%）
+                item["_commissionPct"] = round(cr * 100, 2)
 
-            # 過濾
-            if min_commission_rate is not None and cr * 100 < min_commission_rate:
-                continue
-            if min_sales is not None and sales_val < min_sales:
-                continue
-            if max_sales is not None and sales_val > max_sales:
-                continue
-            if min_price is not None and price < min_price:
-                continue
-            if max_price is not None and price > max_price:
-                continue
-            if min_rating is not None and rating < min_rating:
-                continue
+                # 過濾
+                if min_commission_rate is not None and cr * 100 < min_commission_rate:
+                    continue
+                if min_sales is not None and sales_val < min_sales:
+                    continue
+                if max_sales is not None and sales_val > max_sales:
+                    continue
+                if min_price is not None and price < min_price:
+                    continue
+                if max_price is not None and price > max_price:
+                    continue
+                if min_rating is not None and rating < min_rating:
+                    continue
 
-            filtered.append(item)
+                all_filtered.append(item)
+
+            # 已達目標數量或沒有下一頁 → 跳出
+            if len(all_filtered) >= min_results or not final_page_info.get("hasNextPage"):
+                break
+            current_page += 1
+
+        # 根據 sort_type 重新排序（API 排序可能因後端過濾而亂序）
+        if sort_type == 6:
+            # 銷量+佣金率複合排序：銷量歸一化 (log10) * 0.5 + 佣金率歸一化 * 0.5
+            def _combined_score(x):
+                s = math.log10(x.get("_sales", 0) + 1)  # log10(銷量+1)
+                c = x.get("_commissionPct", 0)  # 百分比 0-100
+                return s * 0.5 + (c / 100) * 5 * 0.5  # 銷量 log10 max~5, 佣金率歸一化到 0-5
+            all_filtered.sort(key=_combined_score, reverse=True)
+        elif sort_type == 2:
+            all_filtered.sort(key=lambda x: x.get("_sales", 0), reverse=True)
+        elif sort_type == 3:
+            all_filtered.sort(key=lambda x: x.get("_price", 0))
+        elif sort_type == 4:
+            all_filtered.sort(key=lambda x: x.get("_price", 0), reverse=True)
+        elif sort_type == 5:
+            all_filtered.sort(key=lambda x: x.get("_commissionPct", 0), reverse=True)
 
         return {
-            "items": filtered,
-            "total_before_filter": total_before_filter,
-            "total_after_filter": len(filtered),
-            "page_info": page_info,
+            "items": all_filtered,
+            "total_before_filter": total_before,
+            "total_after_filter": len(all_filtered),
+            "page_info": final_page_info,
+            "pages_fetched": current_page - page + 1,
         }
 
 

@@ -238,7 +238,7 @@ class LLMService:
         error.retry_history = retry_history
         raise error
 
-    def generate_article(self, products, db: Session, article_type: str = "comparison", target_forum: str = "goodthings", prompt_template_id: Optional[int] = None, model: Optional[str] = None, user_id: Optional[int] = None, include_images: bool = False, image_sources: list[str] | None = None) -> dict:
+    def generate_article(self, products, db: Session, article_type: str = "comparison", target_forum: str = "goodthings", prompt_template_id: Optional[int] = None, model: Optional[str] = None, user_id: Optional[int] = None, include_images: bool = False, image_sources: list[str] | None = None, disable_system_instructions: bool = False) -> dict:
         """生成文章"""
         product_ids = [p.id for p in products]
 
@@ -258,7 +258,10 @@ class LLMService:
         user_message = f"⚠️ 當前年份是 {current_year} 年，標題和文章中提到年份時必須使用 {current_year}。\n\n目標看板：{target_forum}\n\n以下是商品資料，請根據這些資訊撰寫文章：\n\n{products_info}"
 
         # 組合系統指示（程式碼層級）+ 使用者範本
-        full_system_prompt = f"{SYSTEM_INSTRUCTIONS}\n\n---\n\n以下是使用者的寫作風格範本：\n\n{system_prompt}"
+        if disable_system_instructions:
+            full_system_prompt = system_prompt
+        else:
+            full_system_prompt = f"{SYSTEM_INSTRUCTIONS}\n\n---\n\n以下是使用者的寫作風格範本：\n\n{system_prompt}"
 
         # 下載圖片供 LLM 多模態分析
         image_parts = None

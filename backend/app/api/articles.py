@@ -33,6 +33,7 @@ class ArticleGenerateRequest(BaseModel):
     include_images: bool = False  # 是否附圖給 LLM 分析
     image_sources: List[str] = ["description"]  # "main" / "description" / 兩者
     sub_id: Optional[str] = None  # 蝦皮聯盟行銷追蹤 Sub_id
+    disable_system_instructions: bool = False  # 停用系統寫作指示
 
 
 class ArticleUpdateRequest(BaseModel):
@@ -90,6 +91,7 @@ def _generate_article_background(
     user_id: int,
     include_images: bool,
     image_sources: List[str],
+    disable_system_instructions: bool = False,
 ):
     """背景執行緒：實際執行 LLM 文章生成"""
     import time as _time
@@ -119,6 +121,7 @@ def _generate_article_background(
                 user_id=user_id,
                 include_images=include_images,
                 image_sources=image_sources,
+                disable_system_instructions=disable_system_instructions,
             )
 
             # 自動 SEO 分析
@@ -241,6 +244,7 @@ async def generate_article(
             current_user.id,
             request.include_images,
             request.image_sources,
+            request.disable_system_instructions,
         ),
         daemon=True,
     )
@@ -354,6 +358,7 @@ async def batch_delete_articles(
 async def optimize_seo(
     article_id: int,
     model: Optional[str] = None,
+    disable_seo_prompt: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_approved_user),
 ):
@@ -381,7 +386,7 @@ async def optimize_seo(
                 if marker:
                     image_positions.append((marker, idx / total_cwi))
 
-    result = seo_service.optimize_with_llm(article, model=model, user_id=current_user.id)
+    result = seo_service.optimize_with_llm(article, model=model, user_id=current_user.id, disable_seo_prompt=disable_seo_prompt)
     optimized_title = result.get("optimized_title", article.title)
     optimized_content = result.get("optimized_content", article.content)
 

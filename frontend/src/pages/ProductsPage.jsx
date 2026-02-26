@@ -204,6 +204,9 @@ export default function ProductsPage() {
         payload.include_images = true;
         payload.image_sources = ['description'];
       }
+      if (localStorage.getItem('disableSystemInstructions') === 'true') {
+        payload.disable_system_instructions = true;
+      }
       await generateArticle(payload);
       showToast('success', '文章生成中，可到文章管理頁查看進度');
     } catch (err) {

@@ -206,6 +206,53 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      {/* 進階設定 */}
+      <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">進階設定</h3>
+        <p className="text-xs text-gray-400 mb-3">停用後，LLM 將只使用你選擇的提示詞範本，不注入系統預設指示。適合進階用戶自訂完整 prompt。</p>
+        <div className="space-y-3">
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={localStorage.getItem('disableSystemInstructions') === 'true'}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  localStorage.setItem('disableSystemInstructions', 'true');
+                } else {
+                  localStorage.removeItem('disableSystemInstructions');
+                }
+                // 強制重繪
+                setLlmModel(prev => prev);
+              }}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <div>
+              <span className="text-sm text-gray-700 group-hover:text-gray-900">停用系統寫作指示</span>
+              <p className="text-xs text-gray-400">生成文章時不注入內建的 SYSTEM_INSTRUCTIONS（格式要求、Markdown 清除等）</p>
+            </div>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={localStorage.getItem('disableSeoPrompt') === 'true'}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  localStorage.setItem('disableSeoPrompt', 'true');
+                } else {
+                  localStorage.removeItem('disableSeoPrompt');
+                }
+                setLlmModel(prev => prev);
+              }}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <div>
+              <span className="text-sm text-gray-700 group-hover:text-gray-900">停用 SEO 優化提示詞</span>
+              <p className="text-xs text-gray-400">SEO 優化時不使用內建的 SEO 專用提示詞（標題格式、關鍵字策略等）</p>
+            </div>
+          </label>
+        </div>
+      </section>
+
       {/* Prompt 範本 */}
       <section className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">

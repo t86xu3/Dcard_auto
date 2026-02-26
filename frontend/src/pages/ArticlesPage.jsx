@@ -294,7 +294,11 @@ export default function ArticlesPage() {
     if (!selectedArticle) return;
     setOptimizing(true);
     try {
-      const resp = await optimizeSeo(selectedArticle.id, localStorage.getItem('llmModel'));
+      const resp = await optimizeSeo(
+        selectedArticle.id,
+        localStorage.getItem('llmModel'),
+        localStorage.getItem('disableSeoPrompt') === 'true',
+      );
       setSelectedArticle(resp.article);
       setEditTitle(resp.article.title || '');
       setEditContent(resp.article.content || '');

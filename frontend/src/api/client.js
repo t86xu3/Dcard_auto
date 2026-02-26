@@ -175,8 +175,11 @@ export const deleteArticle = (id) =>
 export const batchDeleteArticles = (ids) =>
   api.post('/articles/batch-delete', { ids }).then(r => r.data);
 
-export const optimizeSeo = (id, model) =>
-  api.post(`/articles/${id}/optimize-seo`, null, { params: model ? { model } : {}, timeout: 180000 }).then(r => r.data);
+export const optimizeSeo = (id, model, disableSeoPrompt) =>
+  api.post(`/articles/${id}/optimize-seo`, null, {
+    params: { ...(model ? { model } : {}), ...(disableSeoPrompt ? { disable_seo_prompt: true } : {}) },
+    timeout: 180000,
+  }).then(r => r.data);
 
 export const copyArticle = (id) =>
   api.get(`/articles/${id}/copy`).then(r => r.data);
