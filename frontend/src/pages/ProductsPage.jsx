@@ -103,6 +103,18 @@ export default function ProductsPage() {
     }
   };
 
+  const [copiedAll, setCopiedAll] = useState(false);
+  const handleCopyAllLinks = async () => {
+    const text = savedLinksData.map(item => item.link).join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedAll(true);
+      setTimeout(() => setCopiedAll(false), 1500);
+    } catch {
+      showToast('error', '複製失敗');
+    }
+  };
+
   // 批量擷取狀態
   const [batchCapturing, setBatchCapturing] = useState(false);
   const [captureProgress, setCaptureProgress] = useState(null);
@@ -593,7 +605,13 @@ export default function ProductsPage() {
                   </div>
                 ))}
               </div>
-              <div className="px-4 py-2.5 border-t border-gray-100 flex justify-end">
+              <div className="px-4 py-2.5 border-t border-gray-100 flex justify-between">
+                <button
+                  onClick={handleCopyAllLinks}
+                  className="text-xs px-3 py-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 active:scale-95 transition-all"
+                >
+                  {copiedAll ? '✓ 已複製全部' : `📋 全部複製 (${savedLinksData.length})`}
+                </button>
                 <button
                   onClick={handleClearSavedLinks}
                   className="text-xs px-3 py-1.5 rounded-md bg-red-50 text-red-500 hover:bg-red-100 active:scale-95 transition-all"
