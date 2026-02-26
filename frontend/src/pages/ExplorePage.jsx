@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { exploreProducts, findCompetitors } from '../api/client';
+import { addSavedLink } from '../utils/savedLinks';
 
 const TABS = [
   {
@@ -56,7 +57,7 @@ function parseNum(val) {
   return isNaN(n) ? 0 : n;
 }
 
-function ProductCard({ item, onFindCompetitors }) {
+function ProductCard({ item, onFindCompetitors, onSave, isSaved: saved }) {
   const price = parseNum(item._price || item.priceMin);
   const commRate = parseNum(item._commissionRate || item.commissionRate);
   const commPct = item._commissionPct || round2(commRate * 100);
@@ -118,7 +119,7 @@ function ProductCard({ item, onFindCompetitors }) {
               <ShopBadge shopType={item.shopType} />
             </div>
           )}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-1.5">
             <a
               href={item.offerLink || item.productLink}
               target="_blank"
@@ -128,10 +129,21 @@ function ProductCard({ item, onFindCompetitors }) {
               🔗 蝦皮
             </a>
             <button
+              onClick={() => onSave(item)}
+              disabled={saved}
+              className={`text-center text-xs font-medium py-1.5 rounded-lg active:scale-95 transition-all ${
+                saved
+                  ? 'bg-gray-100 text-gray-400 cursor-default'
+                  : 'bg-green-50 text-green-600 hover:bg-green-100'
+              }`}
+            >
+              {saved ? '✓ 已存' : '📌 存連結'}
+            </button>
+            <button
               onClick={() => onFindCompetitors(item)}
               className="text-center text-xs font-medium py-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 active:scale-95 transition-all"
             >
-              🔍 找競品
+              🔍 競品
             </button>
           </div>
         </div>
@@ -140,7 +152,7 @@ function ProductCard({ item, onFindCompetitors }) {
   );
 }
 
-function CompetitorRow({ item, rank, sourcePrice }) {
+function CompetitorRow({ item, rank, sourcePrice, onSave, isSaved: saved }) {
   const price = parseNum(item._price || item.priceMin);
   const commPct = item._commissionPct || round2(parseNum(item._commissionRate || item.commissionRate) * 100);
   const sales = parseNum(item._sales || item.sales);
@@ -219,21 +231,33 @@ function CompetitorRow({ item, rank, sourcePrice }) {
         {score}
       </div>
 
-      {/* 連結 */}
-      <a
-        href={item.offerLink || item.productLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="shrink-0 text-blue-500 hover:text-blue-600 active:scale-95 transition-all text-sm"
-        title="前往蝦皮"
-      >
-        🔗
-      </a>
+      {/* 連結 + 存連結 */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        <a
+          href={item.offerLink || item.productLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 hover:text-blue-600 active:scale-95 transition-all text-sm"
+          title="前往蝦皮"
+        >
+          🔗
+        </a>
+        <button
+          onClick={() => onSave(item)}
+          disabled={saved}
+          className={`text-sm active:scale-95 transition-all ${
+            saved ? 'text-gray-300 cursor-default' : 'text-green-500 hover:text-green-600'
+          }`}
+          title={saved ? '已儲存' : '儲存連結'}
+        >
+          {saved ? '✓' : '📌'}
+        </button>
+      </div>
     </div>
   );
 }
 
-function CompetitorModal({ isOpen, onClose, sourceItem, data, loading }) {
+function CompetitorModal({ isOpen, onClose, sourceItem, data, loading, onSave, savedIds }) {
   if (!isOpen) return null;
 
   const sourcePrice = sourceItem ? parseNum(sourceItem._price || sourceItem.priceMin) : 0;
@@ -301,6 +325,8 @@ function CompetitorModal({ isOpen, onClose, sourceItem, data, loading }) {
                   item={item}
                   rank={idx + 1}
                   sourcePrice={sourcePrice}
+                  onSave={onSave}
+                  isSaved={savedIds.has(String(item.itemId))}
                 />
               ))}
             </div>
@@ -322,6 +348,21 @@ export default function ExplorePage() {
   const [stats, setStats] = useState({ before: 0, after: 0 });
   const [pageInfo, setPageInfo] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
+
+  // 已儲存連結追蹤
+  const [savedIds, setSavedIds] = useState(() => {
+    try {
+      const links = JSON.parse(localStorage.getItem('savedProductLinks')) || [];
+      return new Set(links.map(l => l.id));
+    } catch { return new Set(); }
+  });
+
+  const handleSaveLink = useCallback((item) => {
+    const added = addSavedLink(item);
+    if (added) {
+      setSavedIds(prev => new Set(prev).add(String(item.itemId || item.id)));
+    }
+  }, []);
 
   // 競品 Modal 狀態
   const [competitorModal, setCompetitorModal] = useState({
@@ -650,6 +691,8 @@ export default function ExplorePage() {
                 key={`${item.itemId}-${idx}`}
                 item={item}
                 onFindCompetitors={handleFindCompetitors}
+                onSave={handleSaveLink}
+                isSaved={savedIds.has(String(item.itemId))}
               />
             ))}
           </div>
@@ -676,6 +719,8 @@ export default function ExplorePage() {
         sourceItem={competitorModal.sourceItem}
         data={competitorModal.data}
         loading={competitorModal.loading}
+        onSave={handleSaveLink}
+        savedIds={savedIds}
       />
     </div>
   );

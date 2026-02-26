@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getProducts, deleteProduct, batchDeleteProducts, downloadProductImages, generateArticle, getPrompts, updateProduct, invalidateCache, importAffiliateUrls } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import { useExtensionDetect } from '../hooks/useExtensionDetect';
+import { getSavedLinks, removeSavedLink, clearSavedLinks } from '../utils/savedLinks';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -69,6 +70,38 @@ export default function ProductsPage() {
   const [affiliateImporting, setAffiliateImporting] = useState(false);
   const [affiliateResult, setAffiliateResult] = useState(null);
   const [subId, setSubId] = useState('');
+
+  // 已儲存連結
+  const [savedLinksData, setSavedLinksData] = useState([]);
+  const [showSavedLinks, setShowSavedLinks] = useState(false);
+  const [copiedLinkId, setCopiedLinkId] = useState(null);
+
+  const refreshSavedLinks = useCallback(() => {
+    setSavedLinksData(getSavedLinks());
+  }, []);
+
+  useEffect(() => { refreshSavedLinks(); }, [refreshSavedLinks]);
+
+  const handleRemoveSavedLink = (id) => {
+    removeSavedLink(id);
+    refreshSavedLinks();
+  };
+
+  const handleClearSavedLinks = () => {
+    if (!confirm('確定清除所有已儲存的連結？')) return;
+    clearSavedLinks();
+    refreshSavedLinks();
+  };
+
+  const handleCopyLink = async (link, id) => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedLinkId(id);
+      setTimeout(() => setCopiedLinkId(null), 1500);
+    } catch {
+      showToast('error', '複製失敗');
+    }
+  };
 
   // 批量擷取狀態
   const [batchCapturing, setBatchCapturing] = useState(false);
@@ -493,6 +526,85 @@ export default function ProductsPage() {
           )}
         </div>
       </div>
+
+      {/* 已儲存的商品連結面板 */}
+      {savedLinksData.length > 0 && (
+        <div className="mb-4 border border-green-200 rounded-xl overflow-hidden">
+          <button
+            onClick={() => setShowSavedLinks(!showSavedLinks)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-green-50 hover:bg-green-100 active:scale-[0.995] transition-all"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-green-700">📌 已儲存的商品連結</span>
+              <span className="text-xs px-2 py-0.5 bg-green-200 text-green-700 rounded-full font-medium">{savedLinksData.length}</span>
+            </div>
+            <span className="text-green-500 text-xs">{showSavedLinks ? '▲ 收起' : '▼ 展開'}</span>
+          </button>
+
+          {showSavedLinks && (
+            <div className="bg-white">
+              <div className="divide-y divide-gray-100">
+                {savedLinksData.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50">
+                    {/* 圖片 */}
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.target.style.display = 'none'; }} />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-lg text-gray-300">📦</div>
+                      )}
+                    </div>
+                    {/* 名稱 + 價格 */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-800 truncate" title={item.productName}>
+                        {item.productName || '未知商品'}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                        {item.price && <span className="text-red-500 font-medium">${parseFloat(item.price).toLocaleString()}</span>}
+                        <span>{new Date(item.savedAt).toLocaleDateString('zh-TW')}</span>
+                      </div>
+                    </div>
+                    {/* 操作 */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleCopyLink(item.link, item.id)}
+                        className="text-xs px-2 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all"
+                        title="複製連結"
+                      >
+                        {copiedLinkId === item.id ? '✓ 已複製' : '📋 複製'}
+                      </button>
+                      <a
+                        href={item.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 active:scale-95 transition-all"
+                        title="開啟蝦皮"
+                      >
+                        🔗 蝦皮
+                      </a>
+                      <button
+                        onClick={() => handleRemoveSavedLink(item.id)}
+                        className="text-xs px-2 py-1 rounded-md bg-red-50 text-red-500 hover:bg-red-100 active:scale-95 transition-all"
+                        title="刪除"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="px-4 py-2.5 border-t border-gray-100 flex justify-end">
+                <button
+                  onClick={handleClearSavedLinks}
+                  className="text-xs px-3 py-1.5 rounded-md bg-red-50 text-red-500 hover:bg-red-100 active:scale-95 transition-all"
+                >
+                  🗑️ 清除全部
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 批量擷取進度面板 */}
       {captureProgress && captureProgress.status !== 'idle' && (
