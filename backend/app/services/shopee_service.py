@@ -214,7 +214,7 @@ class ShopeeService:
         total_before = 0
         current_page = page
         final_page_info = {}
-        max_pages = 5  # 安全上限，避免無限迴圈
+        max_pages = 10  # 安全上限，避免無限迴圈
         seen_ids = set()  # 去重
 
         for _ in range(max_pages):
