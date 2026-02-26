@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { exploreProducts } from '../api/client';
+import { exploreProducts, findCompetitors } from '../api/client';
 
 const TABS = [
   {
@@ -56,7 +56,7 @@ function parseNum(val) {
   return isNaN(n) ? 0 : n;
 }
 
-function ProductCard({ item }) {
+function ProductCard({ item, onFindCompetitors }) {
   const price = parseNum(item._price || item.priceMin);
   const commRate = parseNum(item._commissionRate || item.commissionRate);
   const commPct = item._commissionPct || round2(commRate * 100);
@@ -118,14 +118,193 @@ function ProductCard({ item }) {
               <ShopBadge shopType={item.shopType} />
             </div>
           )}
-          <a
-            href={item.offerLink || item.productLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block text-center text-xs font-medium py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 active:scale-95 transition-all"
-          >
-            🔗 蝦皮
-          </a>
+          <div className="grid grid-cols-2 gap-2">
+            <a
+              href={item.offerLink || item.productLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-center text-xs font-medium py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 active:scale-95 transition-all"
+            >
+              🔗 蝦皮
+            </a>
+            <button
+              onClick={() => onFindCompetitors(item)}
+              className="text-center text-xs font-medium py-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 active:scale-95 transition-all"
+            >
+              🔍 找競品
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompetitorRow({ item, rank, sourcePrice }) {
+  const price = parseNum(item._price || item.priceMin);
+  const commPct = item._commissionPct || round2(parseNum(item._commissionRate || item.commissionRate) * 100);
+  const sales = parseNum(item._sales || item.sales);
+  const rating = parseNum(item._rating || item.ratingStar);
+  const score = item._competitorScore || 0;
+
+  // 價格差異百分比
+  let priceDiff = null;
+  if (sourcePrice && sourcePrice > 0 && price > 0) {
+    priceDiff = Math.round(((price - sourcePrice) / sourcePrice) * 100);
+  }
+
+  // 分數顏色
+  const scoreColor = score >= 70 ? 'bg-green-100 text-green-700' :
+    score >= 40 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600';
+
+  return (
+    <div className="flex items-center gap-3 py-3 px-4 hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
+      {/* 排名 */}
+      <div className="w-7 text-center font-bold text-gray-400 text-sm shrink-0">
+        {rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : `#${rank}`}
+      </div>
+
+      {/* 圖片 */}
+      <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+        {item.imageUrl ? (
+          <img src={item.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.target.style.display = 'none'; }} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-lg text-gray-300">📦</div>
+        )}
+      </div>
+
+      {/* 名稱 */}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-gray-800 truncate" title={item.productName}>
+          {item.productName}
+        </div>
+        <div className="flex items-center gap-2 mt-0.5">
+          {item.shopName && <span className="text-xs text-gray-400 truncate max-w-[120px]">{item.shopName}</span>}
+          {item.shopType && <ShopBadge shopType={item.shopType} />}
+        </div>
+      </div>
+
+      {/* 價格 */}
+      <div className="text-right shrink-0 w-24">
+        <div className="text-sm font-bold text-red-600">
+          ${price > 0 ? Math.round(price).toLocaleString() : '—'}
+        </div>
+        {priceDiff !== null && (
+          <div className={`text-xs ${priceDiff > 0 ? 'text-red-400' : priceDiff < 0 ? 'text-green-500' : 'text-gray-400'}`}>
+            {priceDiff > 0 ? '+' : ''}{priceDiff}%
+          </div>
+        )}
+      </div>
+
+      {/* 佣金率 */}
+      <div className="text-center shrink-0 w-16">
+        <div className="text-xs text-gray-500">佣金</div>
+        <div className="text-sm font-medium text-amber-600">{commPct}%</div>
+      </div>
+
+      {/* 銷量 */}
+      <div className="text-center shrink-0 w-16">
+        <div className="text-xs text-gray-500">銷量</div>
+        <div className="text-sm font-medium text-gray-700">{sales.toLocaleString()}</div>
+      </div>
+
+      {/* 評分 */}
+      <div className="text-center shrink-0 w-14">
+        <div className="text-xs text-gray-500">評分</div>
+        <div className="text-sm font-medium text-gray-700">{rating > 0 ? rating.toFixed(1) : '—'}</div>
+      </div>
+
+      {/* 分數 */}
+      <div className={`shrink-0 px-2 py-1 rounded-full text-xs font-bold ${scoreColor}`}>
+        {score}
+      </div>
+
+      {/* 連結 */}
+      <a
+        href={item.offerLink || item.productLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="shrink-0 text-blue-500 hover:text-blue-600 active:scale-95 transition-all text-sm"
+        title="前往蝦皮"
+      >
+        🔗
+      </a>
+    </div>
+  );
+}
+
+function CompetitorModal({ isOpen, onClose, sourceItem, data, loading }) {
+  if (!isOpen) return null;
+
+  const sourcePrice = sourceItem ? parseNum(sourceItem._price || sourceItem.priceMin) : 0;
+  const sourceComm = sourceItem ? (sourceItem._commissionPct || round2(parseNum(sourceItem._commissionRate || sourceItem.commissionRate) * 100)) : 0;
+  const sourceSales = sourceItem ? parseNum(sourceItem._sales || sourceItem.sales) : 0;
+  const sourceRating = sourceItem ? parseNum(sourceItem._rating || sourceItem.ratingStar) : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-[95vw] max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="p-5 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-bold text-gray-800">🔍 競品分析</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 active:scale-95 transition-all text-xl leading-none">✕</button>
+          </div>
+
+          {sourceItem && (
+            <div className="bg-blue-50 rounded-lg p-3">
+              <div className="text-sm font-medium text-blue-800 truncate mb-1" title={sourceItem.productName}>
+                📌 {sourceItem.productName}
+              </div>
+              <div className="flex items-center gap-4 text-xs text-blue-600">
+                <span>${sourcePrice > 0 ? Math.round(sourcePrice).toLocaleString() : '—'}</span>
+                <span>💰 {sourceComm}%</span>
+                <span>📦 {sourceSales.toLocaleString()}</span>
+                {sourceRating > 0 && <span>⭐ {sourceRating.toFixed(1)}</span>}
+              </div>
+            </div>
+          )}
+
+          {/* 關鍵字標籤 */}
+          {data?.keywords && data.keywords.length > 0 && (
+            <div className="flex items-center gap-2 mt-3">
+              <span className="text-xs text-gray-500">搜尋關鍵字：</span>
+              {data.keywords.map((kw, i) => (
+                <span key={i} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{kw}</span>
+              ))}
+              {data.total_candidates > 0 && (
+                <span className="text-xs text-gray-400 ml-auto">共找到 {data.total_candidates} 個候選，顯示 Top {data.items?.length || 0}</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+              <div className="text-4xl mb-3 animate-pulse">🔍</div>
+              <p className="text-sm">正在搜尋競品...</p>
+              <p className="text-xs mt-1 text-gray-300">LLM 提取關鍵字 + 蝦皮 API 查詢</p>
+            </div>
+          ) : !data?.items || data.items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+              <div className="text-4xl mb-3">📭</div>
+              <p className="text-sm">沒有找到競品</p>
+              <p className="text-xs mt-1">可能是商品類別較特殊</p>
+            </div>
+          ) : (
+            <div>
+              {data.items.map((item, idx) => (
+                <CompetitorRow
+                  key={item.itemId || idx}
+                  item={item}
+                  rank={idx + 1}
+                  sourcePrice={sourcePrice}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -143,6 +322,23 @@ export default function ExplorePage() {
   const [stats, setStats] = useState({ before: 0, after: 0 });
   const [pageInfo, setPageInfo] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
+
+  // 競品 Modal 狀態
+  const [competitorModal, setCompetitorModal] = useState({
+    open: false, sourceItem: null, data: null, loading: false,
+  });
+
+  const handleFindCompetitors = useCallback(async (item) => {
+    const price = parseNum(item._price || item.priceMin);
+    setCompetitorModal({ open: true, sourceItem: item, data: null, loading: true });
+    try {
+      const data = await findCompetitors(item.productName, price > 0 ? price : undefined);
+      setCompetitorModal(prev => ({ ...prev, data, loading: false }));
+    } catch (err) {
+      console.error('競品搜尋失敗:', err);
+      setCompetitorModal(prev => ({ ...prev, data: { items: [], keywords: [], total_candidates: 0 }, loading: false }));
+    }
+  }, []);
 
   // 篩選表單狀態
   const [filters, setFilters] = useState({
@@ -453,6 +649,7 @@ export default function ExplorePage() {
               <ProductCard
                 key={`${item.itemId}-${idx}`}
                 item={item}
+                onFindCompetitors={handleFindCompetitors}
               />
             ))}
           </div>
@@ -471,6 +668,15 @@ export default function ExplorePage() {
           )}
         </>
       )}
+
+      {/* 競品分析 Modal */}
+      <CompetitorModal
+        isOpen={competitorModal.open}
+        onClose={() => setCompetitorModal({ open: false, sourceItem: null, data: null, loading: false })}
+        sourceItem={competitorModal.sourceItem}
+        data={competitorModal.data}
+        loading={competitorModal.loading}
+      />
     </div>
   );
 }

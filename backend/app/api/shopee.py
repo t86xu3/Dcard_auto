@@ -3,9 +3,13 @@
 """
 from fastapi import APIRouter, Depends, Query
 
-from app.auth import get_current_user
+from app.auth import get_current_user, get_approved_user
 from app.models.user import User
-from app.services.shopee_service import shopee_service
+from app.services.shopee_service import (
+    shopee_service,
+    extract_search_keywords,
+    calculate_competitor_score,
+)
 
 router = APIRouter()
 
@@ -35,6 +39,41 @@ def get_product_offers(
 ):
     """高佣金商品"""
     return shopee_service.get_product_offers(limit=limit)
+
+
+@router.get("/find-competitors")
+def find_competitors(
+    product_name: str = Query(..., min_length=2, max_length=200),
+    price: float = Query(None, ge=0),
+    current_user: User = Depends(get_approved_user),
+):
+    """找出商品的 Top 10 競品"""
+    # 1. LLM 提取關鍵字
+    keywords = extract_search_keywords(product_name, user_id=current_user.id)
+
+    # 2. 每個關鍵字搜尋（按相關度排序）
+    seen_ids = set()
+    all_items = []
+    for kw in keywords:
+        result = shopee_service.explore_products(keyword=kw, sort_type=1, limit=50)
+        for item in result.get("items", []):
+            item_id = item.get("itemId")
+            if item_id and item_id not in seen_ids:
+                seen_ids.add(item_id)
+                all_items.append(item)
+
+    # 3. 計算競品分數並排序
+    for item in all_items:
+        item["_competitorScore"] = calculate_competitor_score(item, source_price=price)
+
+    all_items.sort(key=lambda x: x["_competitorScore"], reverse=True)
+    top_items = all_items[:10]
+
+    return {
+        "keywords": keywords,
+        "items": top_items,
+        "total_candidates": len(all_items),
+    }
 
 
 @router.get("/explore")

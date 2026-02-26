@@ -5,9 +5,12 @@ GraphQL API + SHA256 簽名認證
 import hashlib
 import json
 import logging
+import math
 import time
 
 import requests
+from google import genai
+from google.genai import types
 
 from app.config import settings
 
@@ -266,3 +269,67 @@ class ShopeeService:
 
 
 shopee_service = ShopeeService()
+
+
+# ─── 競品搜尋輔助函數 ───
+
+def extract_search_keywords(product_name: str, user_id: int = None) -> list[str]:
+    """用 Gemini Flash 從商品名稱提取 2-3 個搜尋關鍵字"""
+    from app.services.gemini_utils import track_gemini_usage
+
+    model = "gemini-2.5-flash"
+    try:
+        client = genai.Client(api_key=settings.GOOGLE_API_KEY)
+        response = client.models.generate_content(
+            model=model,
+            contents=f"商品名稱：{product_name}",
+            config=types.GenerateContentConfig(
+                system_instruction=(
+                    "你是搜尋關鍵字提取器。從商品名稱中提取 2-3 個品類搜尋關鍵字。\n"
+                    "規則：\n"
+                    "- 去除品牌名、型號、促銷文案（如「限時特價」「買一送一」）\n"
+                    "- 保留核心品類詞（如「無線藍牙耳機」→「藍牙耳機」「無線耳機」）\n"
+                    "- 每行一個關鍵字，不要編號，不要其他文字"
+                ),
+                temperature=0.1,
+                max_output_tokens=100,
+            ),
+        )
+        track_gemini_usage(response, model=model, user_id=user_id)
+
+        text = response.text.strip()
+        keywords = [kw.strip() for kw in text.split("\n") if kw.strip()]
+        if keywords:
+            return keywords[:3]
+    except Exception as e:
+        logger.warning(f"關鍵字提取失敗: {e}")
+
+    # Fallback：截取商品名前 10 字
+    return [product_name[:10]]
+
+
+def calculate_competitor_score(item: dict, source_price: float = None) -> float:
+    """計算競品分數（0-100）"""
+    sales = item.get("_sales") or 0
+    rating = item.get("_rating") or 0
+    comm_pct = item.get("_commissionPct") or 0
+    price = item.get("_price") or 0
+
+    # 銷量 30%：log10 映射（0-5 對應 0-100）
+    sales_score = min((math.log10(sales + 1) / 5) * 100, 100) * 0.3
+
+    # 評分 25%：3.5-5.0 映射
+    rating_clamped = max(rating - 3.5, 0)
+    rating_score = min((rating_clamped / 1.5) * 100, 100) * 0.25
+
+    # 佣金率 25%：0-30% 映射
+    comm_score = min((comm_pct / 30) * 100, 100) * 0.25
+
+    # 價格相似度 20%
+    price_score = 0
+    if source_price and source_price > 0 and price > 0:
+        price_score = (min(source_price, price) / max(source_price, price)) * 100 * 0.2
+    else:
+        price_score = 50 * 0.2  # 無法比較時給 50 分
+
+    return round(sales_score + rating_score + comm_score + price_score, 1)

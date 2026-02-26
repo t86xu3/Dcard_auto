@@ -257,6 +257,13 @@ export const deleteAnnouncement = (id) =>
 export const toggleAnnouncement = (id) =>
   api.post(`/announcements/${id}/toggle`).then(r => r.data);
 
+// 蝦皮競品搜尋（不走快取，LLM 即時提取關鍵字）
+export const findCompetitors = (productName, price) =>
+  api.get('/shopee/find-competitors', {
+    params: { product_name: productName, ...(price ? { price } : {}) },
+    timeout: 30000,
+  }).then(r => r.data);
+
 // 蝦皮商品探索（不走快取，搜尋條件組合多）
 export const exploreProducts = (params = {}) => {
   const query = new URLSearchParams();
