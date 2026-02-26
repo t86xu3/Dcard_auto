@@ -348,7 +348,7 @@ export default function ArticlesPage() {
           forum: selectedArticle.target_forum,
           accessToken: localStorage.getItem('accessToken'),
         }
-      }, (response) => {
+      }, async (response) => {
         setPasting(false);
         if (chrome.runtime.lastError) {
           showToast('error', `Extension 連線失敗: ${chrome.runtime.lastError.message}`);
@@ -356,6 +356,13 @@ export default function ArticlesPage() {
         }
         if (response?.success) {
           showToast('success', '已開啟 Dcard，自動貼上中...');
+          // 自動標記為已發佈
+          try {
+            const updated = await updateArticle(selectedArticle.id, { status: 'published' });
+            setSelectedArticle(updated);
+            invalidateCache('articles');
+            loadArticles();
+          } catch {}
         } else {
           showToast('error', response?.error || '貼到 Dcard 失敗');
         }
@@ -637,7 +644,29 @@ export default function ArticlesPage() {
             <div className="mt-4 p-4 bg-gray-50 rounded-xl text-sm text-gray-500">
               <div className="grid grid-cols-2 gap-2">
                 <div>類型: {typeLabels[selectedArticle.article_type]}</div>
-                <div>狀態: {statusLabels[selectedArticle.status] || selectedArticle.status}</div>
+                <div className="flex items-center gap-2">
+                  狀態:
+                  <select
+                    value={selectedArticle.status}
+                    onChange={async (e) => {
+                      const newStatus = e.target.value;
+                      try {
+                        const updated = await updateArticle(selectedArticle.id, { status: newStatus });
+                        setSelectedArticle(updated);
+                        invalidateCache('articles');
+                        loadArticles();
+                        showToast('success', `狀態已更新為「${statusLabels[newStatus]}」`);
+                      } catch {
+                        showToast('error', '狀態更新失敗');
+                      }
+                    }}
+                    className={`text-xs px-2 py-0.5 rounded-full border-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400 ${statusColors[selectedArticle.status] || ''}`}
+                  >
+                    <option value="draft">草稿</option>
+                    <option value="optimized">已優化</option>
+                    <option value="published">已發佈</option>
+                  </select>
+                </div>
                 <div>建立: {formatDateTime(selectedArticle.created_at)}</div>
                 {selectedArticle.sub_id && (
                   <div>Sub_id: <code className="font-mono bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-xs">{selectedArticle.sub_id}</code></div>
