@@ -69,7 +69,6 @@ export default function ProductsPage() {
   const [affiliateUrls, setAffiliateUrls] = useState('');
   const [affiliateImporting, setAffiliateImporting] = useState(false);
   const [affiliateResult, setAffiliateResult] = useState(null);
-  const [subId, setSubId] = useState('');
 
   // 已儲存連結
   const [savedLinksData, setSavedLinksData] = useState([]);
@@ -204,9 +203,6 @@ export default function ProductsPage() {
       if (includeImages) {
         payload.include_images = true;
         payload.image_sources = ['description'];
-      }
-      if (subId.trim()) {
-        payload.sub_id = subId.trim();
       }
       await generateArticle(payload);
       showToast('success', '文章生成中，可到文章管理頁查看進度');
@@ -512,14 +508,7 @@ export default function ProductsPage() {
                 />
                 <span>🖼️ 附描述圖給 LLM</span>
               </label>
-              <input
-                type="text"
-                value={subId}
-                onChange={(e) => setSubId(e.target.value)}
-                placeholder="Sub_id（選填）"
-                className="w-36 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                title="蝦皮聯盟行銷追蹤用 Sub_id"
-              />
+
               <button
                 onClick={handleGenerate}
                 disabled={generating || !user?.is_approved}
