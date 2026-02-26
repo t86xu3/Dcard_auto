@@ -37,3 +37,11 @@ export function clearSavedLinks() {
 export function isSaved(id) {
   return getSavedLinks().some(l => l.id === String(id));
 }
+
+export function markAsCopied(ids) {
+  const idSet = new Set(ids.map(String));
+  const links = getSavedLinks().map(l =>
+    idSet.has(l.id) ? { ...l, copied: true } : l
+  );
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+}

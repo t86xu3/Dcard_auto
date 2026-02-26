@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getProducts, deleteProduct, batchDeleteProducts, downloadProductImages, generateArticle, getPrompts, updateProduct, invalidateCache, importAffiliateUrls } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import { useExtensionDetect } from '../hooks/useExtensionDetect';
-import { getSavedLinks, removeSavedLink, clearSavedLinks } from '../utils/savedLinks';
+import { getSavedLinks, removeSavedLink, clearSavedLinks, markAsCopied } from '../utils/savedLinks';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -74,7 +74,7 @@ export default function ProductsPage() {
   // 已儲存連結
   const [savedLinksData, setSavedLinksData] = useState([]);
   const [showSavedLinks, setShowSavedLinks] = useState(false);
-  const [copiedLinkId, setCopiedLinkId] = useState(null);
+  const [checkedLinkIds, setCheckedLinkIds] = useState(new Set());
 
   const refreshSavedLinks = useCallback(() => {
     setSavedLinksData(getSavedLinks());
@@ -84,32 +84,35 @@ export default function ProductsPage() {
 
   const handleRemoveSavedLink = (id) => {
     removeSavedLink(id);
+    setCheckedLinkIds(prev => { const s = new Set(prev); s.delete(id); return s; });
     refreshSavedLinks();
   };
 
   const handleClearSavedLinks = () => {
     if (!confirm('確定清除所有已儲存的連結？')) return;
     clearSavedLinks();
+    setCheckedLinkIds(new Set());
     refreshSavedLinks();
   };
 
-  const handleCopyLink = async (link, id) => {
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopiedLinkId(id);
-      setTimeout(() => setCopiedLinkId(null), 1500);
-    } catch {
-      showToast('error', '複製失敗');
-    }
+  const toggleCheckLink = (id) => {
+    setCheckedLinkIds(prev => {
+      const s = new Set(prev);
+      if (s.has(id)) { s.delete(id); } else if (s.size < 5) { s.add(id); }
+      return s;
+    });
   };
 
-  const [copiedAll, setCopiedAll] = useState(false);
-  const handleCopyAllLinks = async () => {
-    const text = savedLinksData.map(item => item.link).join('\n');
+  const handleCopyChecked = async () => {
+    const ids = Array.from(checkedLinkIds);
+    const links = savedLinksData.filter(l => ids.includes(l.id)).map(l => l.link);
+    if (links.length === 0) return;
     try {
-      await navigator.clipboard.writeText(text);
-      setCopiedAll(true);
-      setTimeout(() => setCopiedAll(false), 1500);
+      await navigator.clipboard.writeText(links.join('\n'));
+      markAsCopied(ids);
+      refreshSavedLinks();
+      setCheckedLinkIds(new Set());
+      showToast('success', `已複製 ${links.length} 個連結`);
     } catch {
       showToast('error', '複製失敗');
     }
@@ -556,62 +559,86 @@ export default function ProductsPage() {
           {showSavedLinks && (
             <div className="bg-white">
               <div className="divide-y divide-gray-100">
-                {savedLinksData.map((item) => (
-                  <div key={item.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50">
-                    {/* 圖片 */}
-                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                      {item.imageUrl ? (
-                        <img src={item.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.target.style.display = 'none'; }} />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-lg text-gray-300">📦</div>
-                      )}
-                    </div>
-                    {/* 名稱 + 價格 */}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-800 truncate" title={item.productName}>
-                        {item.productName || '未知商品'}
+                {savedLinksData.map((item) => {
+                  const isChecked = checkedLinkIds.has(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => toggleCheckLink(item.id)}
+                      className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
+                        isChecked ? 'bg-green-50' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      {/* 勾選 */}
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleCheckLink(item.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        disabled={!isChecked && checkedLinkIds.size >= 5}
+                        className="w-4 h-4 rounded border-gray-300 text-green-500 focus:ring-green-400 shrink-0"
+                      />
+                      {/* 圖片 */}
+                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.target.style.display = 'none'; }} />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-lg text-gray-300">📦</div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-gray-400">
-                        {item.price && <span className="text-red-500 font-medium">${parseFloat(item.price).toLocaleString()}</span>}
-                        <span>{new Date(item.savedAt).toLocaleDateString('zh-TW')}</span>
+                      {/* 名稱 + 價格 + 已複製標記 */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-800 truncate" title={item.productName}>
+                            {item.productName || '未知商品'}
+                          </span>
+                          {item.copied && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-600 rounded-full font-medium shrink-0">已複製</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-400">
+                          {item.price && <span className="text-red-500 font-medium">${parseFloat(item.price).toLocaleString()}</span>}
+                          <span>{new Date(item.savedAt).toLocaleDateString('zh-TW')}</span>
+                        </div>
+                      </div>
+                      {/* 操作 */}
+                      <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <a
+                          href={item.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 active:scale-95 transition-all"
+                          title="開啟蝦皮"
+                        >
+                          🔗 蝦皮
+                        </a>
+                        <button
+                          onClick={() => handleRemoveSavedLink(item.id)}
+                          className="text-xs px-2 py-1 rounded-md bg-red-50 text-red-500 hover:bg-red-100 active:scale-95 transition-all"
+                          title="刪除"
+                        >
+                          🗑️
+                        </button>
                       </div>
                     </div>
-                    {/* 操作 */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => handleCopyLink(item.link, item.id)}
-                        className="text-xs px-2 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all"
-                        title="複製連結"
-                      >
-                        {copiedLinkId === item.id ? '✓ 已複製' : '📋 複製'}
-                      </button>
-                      <a
-                        href={item.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 active:scale-95 transition-all"
-                        title="開啟蝦皮"
-                      >
-                        🔗 蝦皮
-                      </a>
-                      <button
-                        onClick={() => handleRemoveSavedLink(item.id)}
-                        className="text-xs px-2 py-1 rounded-md bg-red-50 text-red-500 hover:bg-red-100 active:scale-95 transition-all"
-                        title="刪除"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-              <div className="px-4 py-2.5 border-t border-gray-100 flex justify-between">
-                <button
-                  onClick={handleCopyAllLinks}
-                  className="text-xs px-3 py-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 active:scale-95 transition-all"
-                >
-                  {copiedAll ? '✓ 已複製全部' : `📋 全部複製 (${savedLinksData.length})`}
-                </button>
+              <div className="px-4 py-2.5 border-t border-gray-100 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleCopyChecked}
+                    disabled={checkedLinkIds.size === 0}
+                    className={`text-xs px-3 py-1.5 rounded-md active:scale-95 transition-all ${
+                      checkedLinkIds.size > 0
+                        ? 'bg-green-500 text-white hover:bg-green-600'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    📋 複製所選 ({checkedLinkIds.size}/5)
+                  </button>
+                  <span className="text-[11px] text-gray-400">勾選後複製，最多 5 個</span>
+                </div>
                 <button
                   onClick={handleClearSavedLinks}
                   className="text-xs px-3 py-1.5 rounded-md bg-red-50 text-red-500 hover:bg-red-100 active:scale-95 transition-all"
