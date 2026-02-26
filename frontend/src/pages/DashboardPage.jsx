@@ -1,15 +1,10 @@
 import { useState, useEffect } from 'react';
-import { getProducts, getArticles, getShopeeOffers, getShopOffers, getProductOffers, getAnnouncements } from '../api/client';
+import { getProducts, getArticles, getAnnouncements } from '../api/client';
 import { useExtensionDetect } from '../hooks/useExtensionDetect';
 import { formatDateTime } from '../utils/datetime';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({ products: 0, articles: 0 });
-  const [shopeeOffers, setShopeeOffers] = useState(null);
-  const [shopOffers, setShopOffers] = useState(null);
-  const [productOffers, setProductOffers] = useState(null);
-  const [affiliateLoading, setAffiliateLoading] = useState(true);
-  const [affiliateLoadingMore, setAffiliateLoadingMore] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const { status, extensionInfo, retry } = useExtensionDetect();
 
@@ -27,33 +22,7 @@ export default function DashboardPage() {
 
     // 公告
     getAnnouncements().then(setAnnouncements).catch(() => {});
-
-    // 聯盟行銷資料
-    Promise.all([
-      getShopeeOffers().catch(() => []),
-      getShopOffers().catch(() => []),
-      getProductOffers().catch(() => []),
-    ]).then(([shopee, shop, product]) => {
-      setShopeeOffers(shopee);
-      setShopOffers(shop);
-      setProductOffers(product);
-      setAffiliateLoading(false);
-    });
   }, []);
-
-  const loadMoreAffiliate = () => {
-    setAffiliateLoadingMore(true);
-    Promise.all([
-      getShopeeOffers(30).catch(() => []),
-      getShopOffers(30).catch(() => []),
-      getProductOffers(30).catch(() => []),
-    ]).then(([shopee, shop, product]) => {
-      if (shopee.length) setShopeeOffers(shopee);
-      if (shop.length) setShopOffers(shop);
-      if (product.length) setProductOffers(product);
-      setAffiliateLoadingMore(false);
-    });
-  };
 
   return (
     <div className="p-8">
@@ -134,105 +103,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 蝦皮聯盟行銷資料 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 平台促銷活動 */}
-        <AffiliateSection
-          title="🎪 平台促銷活動"
-          bgColor="bg-orange-50"
-          borderColor="border-orange-200"
-          accentColor="text-orange-600"
-          loading={affiliateLoading}
-          data={shopeeOffers}
-          onLoadMore={loadMoreAffiliate}
-          loadingMore={affiliateLoadingMore}
-          renderItem={(item) => (
-            <a
-              href={item.offerLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block p-3 rounded-lg hover:bg-orange-100 transition-colors active:scale-[0.98]"
-            >
-              <div className="font-medium text-gray-800 text-sm truncate">{item.offerName}</div>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-orange-600 font-semibold text-sm">佣金 {parseFloat(item.commissionRate || 0) * 100}%</span>
-                <span className="text-xs text-gray-400">
-                  {formatTimestamp(item.periodStartTime)} ~ {formatTimestamp(item.periodEndTime)}
-                </span>
-              </div>
-            </a>
-          )}
-        />
-
-        {/* 商店佣金優惠 */}
-        <AffiliateSection
-          title="🏪 商店佣金優惠"
-          bgColor="bg-amber-50"
-          borderColor="border-amber-200"
-          accentColor="text-amber-600"
-          loading={affiliateLoading}
-          data={shopOffers}
-          onLoadMore={loadMoreAffiliate}
-          loadingMore={affiliateLoadingMore}
-          renderItem={(item) => (
-            <a
-              href={item.offerLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block p-3 rounded-lg hover:bg-amber-100 transition-colors active:scale-[0.98]"
-            >
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-gray-800 text-sm truncate">{item.shopName}</span>
-                {(Array.isArray(item.shopType) ? item.shopType : []).includes(1) && <ShopBadge label="Mall" color="red" />}
-                {(Array.isArray(item.shopType) ? item.shopType : []).includes(2) && <ShopBadge label="Star" color="yellow" />}
-                {(Array.isArray(item.shopType) ? item.shopType : []).includes(4) && <ShopBadge label="Star+" color="purple" />}
-              </div>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-amber-600 font-semibold text-sm">佣金 {parseFloat(item.commissionRate || 0) * 100}%</span>
-                {parseFloat(item.ratingStar || 0) > 0 && (
-                  <span className="text-xs text-gray-400">⭐ {parseFloat(item.ratingStar).toFixed(1)}</span>
-                )}
-              </div>
-            </a>
-          )}
-        />
-
-        {/* 高佣金商品 */}
-        <AffiliateSection
-          title="💰 高佣金商品"
-          bgColor="bg-cyan-50"
-          borderColor="border-cyan-200"
-          accentColor="text-cyan-600"
-          loading={affiliateLoading}
-          data={productOffers}
-          onLoadMore={loadMoreAffiliate}
-          loadingMore={affiliateLoadingMore}
-          renderItem={(item) => (
-            <a
-              href={item.offerLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block p-3 rounded-lg hover:bg-cyan-100 transition-colors active:scale-[0.98]"
-            >
-              <div className="font-medium text-gray-800 text-sm truncate">{item.productName}</div>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-cyan-600 font-semibold text-sm">佣金 {parseFloat(item.commissionRate || 0) * 100}%</span>
-                <span className="text-xs text-gray-500">
-                  ${Math.round(parseFloat(item.priceMin || 0))}{parseFloat(item.priceMax || 0) > parseFloat(item.priceMin || 0) ? `~$${Math.round(parseFloat(item.priceMax))}` : ''}
-                </span>
-              </div>
-              <div className="flex items-center justify-between mt-0.5">
-                {parseFloat(item.commission || 0) > 0 && (
-                  <span className="text-xs text-green-600">預估 ${Math.round(parseFloat(item.commission))}</span>
-                )}
-                {(item.sales || 0) > 0 && (
-                  <span className="text-xs text-gray-400">銷量 {Number(item.sales).toLocaleString()}</span>
-                )}
-              </div>
-            </a>
-          )}
-        />
-      </div>
     </div>
   );
 }
@@ -256,69 +126,3 @@ function StatCard({ title, value, icon, color }) {
   );
 }
 
-function AffiliateSection({ title, bgColor, borderColor, accentColor, loading, data, renderItem, onLoadMore, loadingMore }) {
-  const [expanded, setExpanded] = useState(false);
-  const PREVIEW_COUNT = 5;
-  const hasMore = data && data.length > PREVIEW_COUNT;
-  const displayData = expanded ? data : (data || []).slice(0, PREVIEW_COUNT);
-
-  return (
-    <div className={`${bgColor} rounded-xl border ${borderColor} p-5`}>
-      <h3 className={`text-base font-semibold ${accentColor} mb-3`}>{title}</h3>
-      {loading ? (
-        <div className="flex items-center justify-center py-8">
-          <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-          <span className="ml-2 text-sm text-gray-500">載入中...</span>
-        </div>
-      ) : !data || data.length === 0 ? (
-        <div className="text-center py-8 text-sm text-gray-400">
-          暫無資料（API 未設定或無可用優惠）
-        </div>
-      ) : (
-        <>
-          <div className="space-y-1">
-            {displayData.map((item, idx) => (
-              <div key={idx}>{renderItem(item)}</div>
-            ))}
-          </div>
-          {hasMore && !expanded && (
-            <button
-              onClick={() => setExpanded(true)}
-              className="w-full mt-2 text-xs text-gray-500 hover:text-gray-700 py-1.5 active:scale-95 transition-all"
-            >
-              📋 展開全部（共 {data.length} 筆）
-            </button>
-          )}
-          {expanded && onLoadMore && (
-            <button
-              onClick={onLoadMore}
-              disabled={loadingMore}
-              className="w-full mt-2 text-xs text-gray-500 hover:text-gray-700 py-1.5 active:scale-95 transition-all disabled:opacity-50"
-            >
-              {loadingMore ? '載入中...' : '📦 載入更多'}
-            </button>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-function ShopBadge({ label, color }) {
-  const colors = {
-    red: 'bg-red-100 text-red-600',
-    yellow: 'bg-yellow-100 text-yellow-700',
-    purple: 'bg-purple-100 text-purple-600',
-  };
-  return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${colors[color]}`}>
-      {label}
-    </span>
-  );
-}
-
-function formatTimestamp(ts) {
-  if (!ts) return '';
-  const d = new Date(ts * 1000);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
