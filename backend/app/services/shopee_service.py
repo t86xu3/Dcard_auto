@@ -374,7 +374,7 @@ def extract_search_keywords(product_name: str, user_id: int = None) -> list[str]
         track_gemini_usage(response, model=model, user_id=user_id)
 
         text = response.text.strip()
-        logger.info(f"關鍵字提取原始回應: {repr(text)}")
+        logger.warning(f"關鍵字提取原始回應: {repr(text)}")  # warning 級別確保 Cloud Run 可見
 
         # 解析：先按換行分割
         raw_lines = [kw.strip() for kw in text.split("\n") if kw.strip()]
@@ -388,21 +388,33 @@ def extract_search_keywords(product_name: str, user_id: int = None) -> list[str]
             if cleaned:
                 keywords.append(cleaned)
 
-        # 如果只解析出 1 個且包含逗號/頓號，嘗試再分割
-        if len(keywords) == 1 and any(sep in keywords[0] for sep in [',', '，', '、']):
-            parts = re.split(r'[,，、]+', keywords[0])
-            keywords = [p.strip() for p in parts if p.strip()]
+        # 如果只解析出 1 個且包含逗號/頓號/空格，嘗試再分割
+        if len(keywords) == 1:
+            if any(sep in keywords[0] for sep in [',', '，', '、', ' ']):
+                parts = re.split(r'[,，、\s]+', keywords[0])
+                keywords = [p.strip() for p in parts if len(p.strip()) >= 2]
 
         if keywords:
             keywords = _extend_keyword_fragments(keywords[:3], product_name)
-            logger.info(f"關鍵字提取結果: {keywords}")
+
+        # 不足 3 個時用 fallback 補足
+        if len(keywords) < 3:
+            fallback_kws = _fallback_extract_keywords(product_name)
+            seen = set(keywords)
+            for fkw in fallback_kws:
+                if fkw not in seen and len(keywords) < 3:
+                    seen.add(fkw)
+                    keywords.append(fkw)
+
+        logger.warning(f"關鍵字提取最終結果: {keywords}")
+        if keywords:
             return keywords
     except Exception as e:
         logger.warning(f"關鍵字提取失敗: {e}")
 
     # Fallback：從商品名智能提取關鍵字
     fallback = _fallback_extract_keywords(product_name)
-    logger.info(f"關鍵字提取 fallback: {fallback}")
+    logger.warning(f"關鍵字提取 fallback: {fallback}")
     return fallback
 
 
