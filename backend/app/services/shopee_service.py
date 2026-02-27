@@ -221,7 +221,9 @@ class ShopeeService:
         # 關鍵字相關性過濾：拆分搜尋詞，確保商品名稱至少包含一個搜尋詞
         keyword_terms = []
         if keyword:
-            keyword_terms = [t.strip() for t in keyword.split() if len(t.strip()) >= 2]
+            # 移除 emoji 後再拆分，避免 emoji 干擾比對
+            clean_kw = _strip_emoji(keyword)
+            keyword_terms = [t.strip() for t in clean_kw.split() if len(t.strip()) >= 2]
 
         for _ in range(max_pages):
             variables = {**base_variables, "page": current_page}
@@ -398,8 +400,56 @@ def extract_search_keywords(product_name: str, user_id: int = None) -> list[str]
     except Exception as e:
         logger.warning(f"關鍵字提取失敗: {e}")
 
-    # Fallback：截取商品名前 10 字
-    return [product_name[:10]]
+    # Fallback：從商品名智能提取關鍵字
+    fallback = _fallback_extract_keywords(product_name)
+    logger.info(f"關鍵字提取 fallback: {fallback}")
+    return fallback
+
+
+def _strip_emoji(text: str) -> str:
+    """移除 emoji 字元"""
+    return re.sub(
+        r'[\U0001F300-\U0001F9FF\U00002600-\U000027BF\U0000FE00-\U0000FEFF'
+        r'\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002702-\U000027B0'
+        r'\U0000200D\U0000FE0F]+', '', text
+    )
+
+
+# 常見促銷/平台垃圾詞（不是產品品類）
+_JUNK_WORDS = {
+    '隔日到貨', '隔日配', '現貨', '現貨秒發', '台灣出貨', '台灣現貨',
+    '免運', '特惠免運', '蝦皮直營', '桃園有貨', '新貨', '秒發',
+    '台灣製造', '超值', '熱銷', '爆款', '批發', '箱購', '盒裝',
+    '限時', '特價', '優惠', '促銷', '出清',
+}
+
+
+def _fallback_extract_keywords(product_name: str) -> list[str]:
+    """LLM 失敗時的 fallback：從商品名智能提取關鍵字"""
+    # 1. 移除 emoji
+    cleaned = _strip_emoji(product_name)
+    # 2. 移除促銷/平台詞彙
+    for junk in _JUNK_WORDS:
+        cleaned = cleaned.replace(junk, ' ')
+    # 3. 按分隔符號拆分
+    terms = re.split(r'[/\s,、|｜()（）\[\]【】*➤]+', cleaned)
+    # 過濾：2-8 字、排除純數字/規格（如 300ml、6入、500g）
+    terms = [
+        t.strip() for t in terms
+        if 2 <= len(t.strip()) <= 8
+        and re.search(r'[\u4e00-\u9fff]', t.strip())  # 必須含中文字
+        and not re.search(r'\d+(ml|g|kg|入|包|片|顆|個|cm|mm)', t.strip(), re.IGNORECASE)  # 排除規格
+    ]
+    # 4. 去重，保持順序
+    seen = set()
+    unique = []
+    for t in terms:
+        if t not in seen:
+            seen.add(t)
+            unique.append(t)
+    # 5. 按長度降序排列（較長的詞通常更精確）
+    unique.sort(key=len, reverse=True)
+    return unique[:3] if unique else [product_name[:10]]
 
 
 def _extend_keyword_fragments(keywords: list[str], product_name: str) -> list[str]:
