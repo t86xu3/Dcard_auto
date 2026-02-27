@@ -465,11 +465,16 @@ def _extend_keyword_fragments(keywords: list[str], product_name: str) -> list[st
     seen = set()
     for kw in keywords:
         extended = kw
-        # 檢查關鍵字是否為某個商品名詞彙的前綴片段
+        # 檢查關鍵字是否為某個商品名詞彙的子字串片段
+        # 例：「嬰兒紙」在「好奇小森林嬰兒紙尿褲」中 → 補全為「嬰兒紙尿褲」
         for term in sorted(terms, key=len):  # 從短到長，取最精確的匹配
-            if term.startswith(kw) and len(term) > len(kw) and len(term) <= 8:
-                extended = term
-                break
+            idx = term.find(kw)
+            if idx >= 0 and len(term) > len(kw):
+                # 從關鍵字位置截取到詞彙結尾
+                candidate = term[idx:]
+                if len(candidate) <= 8:
+                    extended = candidate
+                    break
         if extended not in seen:
             seen.add(extended)
             validated.append(extended)
