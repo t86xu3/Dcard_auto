@@ -359,7 +359,10 @@ def extract_search_keywords(product_name: str, user_id: int = None) -> list[str]
                     "輸出：\n殺菌除濕機\n除濕機\n衛浴除濕機\n\n"
                     "範例4：\n"
                     "輸入：Twinko💖[HM231]➤獨家自訂款系列*質感陶瓷內層保溫杯735ml/保溫瓶/陶瓷保溫/隨行杯\n"
-                    "輸出：\n陶瓷保溫杯\n保溫瓶\n隨行杯"
+                    "輸出：\n陶瓷保溫杯\n保溫瓶\n隨行杯\n\n"
+                    "範例5：\n"
+                    "輸入：📌桌面增高架/螢幕增高架 鍵盤架 螢幕架 電腦增高架 墊高架 螢幕增高 電腦螢幕增高架\n"
+                    "輸出：\n螢幕增高架\n電腦增高架\n桌面增高架"
                 ),
                 temperature=0.1,
                 max_output_tokens=100,
@@ -370,12 +373,38 @@ def extract_search_keywords(product_name: str, user_id: int = None) -> list[str]
         text = response.text.strip()
         keywords = [kw.strip() for kw in text.split("\n") if kw.strip()]
         if keywords:
-            return keywords[:3]
+            keywords = _extend_keyword_fragments(keywords[:3], product_name)
+            return keywords
     except Exception as e:
         logger.warning(f"關鍵字提取失敗: {e}")
 
     # Fallback：截取商品名前 10 字
     return [product_name[:10]]
+
+
+def _extend_keyword_fragments(keywords: list[str], product_name: str) -> list[str]:
+    """後處理：如果關鍵字是商品名中某個完整詞的片段，自動補全
+
+    例如：「螢幕增」→ 在商品名找到「螢幕增高架」→ 補全為「螢幕增高架」
+    """
+    # 把商品名拆成獨立詞彙
+    terms = re.split(r'[/\s,、|｜()（）\[\]【】*➤💖🔥✨📌❤️]+', product_name)
+    terms = [t.strip() for t in terms if len(t.strip()) >= 3]
+
+    validated = []
+    seen = set()
+    for kw in keywords:
+        extended = kw
+        # 檢查關鍵字是否為某個商品名詞彙的前綴片段
+        for term in sorted(terms, key=len):  # 從短到長，取最精確的匹配
+            if term.startswith(kw) and len(term) > len(kw) and len(term) <= 8:
+                extended = term
+                break
+        if extended not in seen:
+            seen.add(extended)
+            validated.append(extended)
+
+    return validated if validated else keywords
 
 
 def calculate_competitor_score(item: dict, source_price: float = None) -> float:
