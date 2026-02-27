@@ -217,6 +217,11 @@ class ShopeeService:
         max_pages = 10  # 安全上限，避免無限迴圈
         seen_ids = set()  # 去重
 
+        # 關鍵字相關性過濾：拆分搜尋詞，確保商品名稱至少包含一個搜尋詞
+        keyword_terms = []
+        if keyword:
+            keyword_terms = [t.strip() for t in keyword.split() if len(t.strip()) >= 2]
+
         for _ in range(max_pages):
             variables = {**base_variables, "page": current_page}
             data = self._request(query, variables)
@@ -260,7 +265,13 @@ class ShopeeService:
                 # sellerCommissionRate 是小數（0.26 = 26%），用戶輸入百分比（5 = 5%）
                 item["_commissionPct"] = round(cr * 100, 2)
 
-                # 過濾
+                # 關鍵字相關性過濾（商品名稱必須包含至少一個搜尋詞）
+                if keyword_terms:
+                    product_name = item.get("productName", "")
+                    if not any(term in product_name for term in keyword_terms):
+                        continue
+
+                # 數值過濾
                 if min_commission_rate is not None and cr * 100 < min_commission_rate:
                     continue
                 if min_sales is not None and sales_val < min_sales:
