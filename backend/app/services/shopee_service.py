@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import math
+import re
 import time
 
 import requests
@@ -371,9 +372,28 @@ def extract_search_keywords(product_name: str, user_id: int = None) -> list[str]
         track_gemini_usage(response, model=model, user_id=user_id)
 
         text = response.text.strip()
-        keywords = [kw.strip() for kw in text.split("\n") if kw.strip()]
+        logger.info(f"關鍵字提取原始回應: {repr(text)}")
+
+        # 解析：先按換行分割
+        raw_lines = [kw.strip() for kw in text.split("\n") if kw.strip()]
+
+        # 清除編號前綴（1. 2. 3. 或 - * •）
+        keywords = []
+        for line in raw_lines:
+            cleaned = re.sub(r'^[\d]+[.、)）]\s*', '', line)
+            cleaned = re.sub(r'^[-*•]\s*', '', cleaned)
+            cleaned = cleaned.strip()
+            if cleaned:
+                keywords.append(cleaned)
+
+        # 如果只解析出 1 個且包含逗號/頓號，嘗試再分割
+        if len(keywords) == 1 and any(sep in keywords[0] for sep in [',', '，', '、']):
+            parts = re.split(r'[,，、]+', keywords[0])
+            keywords = [p.strip() for p in parts if p.strip()]
+
         if keywords:
             keywords = _extend_keyword_fragments(keywords[:3], product_name)
+            logger.info(f"關鍵字提取結果: {keywords}")
             return keywords
     except Exception as e:
         logger.warning(f"關鍵字提取失敗: {e}")
