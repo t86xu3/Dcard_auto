@@ -153,10 +153,11 @@ class KeywordResearchService:
         except (json.JSONDecodeError, TypeError):
             pass
 
-        # fallback: 從第一個商品名猜一個種子詞
-        fallback = product_names[0].split()[0] if product_names else "商品"
-        logger.warning(f"種子詞 LLM 解析失敗，fallback: [{fallback}]")
-        return [fallback]
+        # fallback: 用競品搜尋的 fallback 提取邏輯（避免抓到品牌名）
+        from app.services.shopee_service import _fallback_extract_keywords
+        fallback = _fallback_extract_keywords(product_names[0])
+        logger.warning(f"種子詞 LLM 解析失敗，fallback: {fallback}")
+        return fallback[:3] if fallback else [product_names[0][:6]]
 
     def _expand_autocomplete(self, seeds: list[str]) -> dict[str, list[str]]:
         """Google Autocomplete 展開（精簡版：中文修飾詞 + 高頻字母，並行請求）"""
@@ -294,11 +295,12 @@ class KeywordResearchService:
 6. secondary_keywords 提供 3-5 個
 7. long_tail_keywords 提供 5-10 個
 8. faq_questions 提供 5-8 個
-9. 年份請使用 {current_year}"""
+9. 年份請使用 {current_year}
+10. ⚠️ 所有 reason 欄位必須精簡，不超過 20 個中文字"""
 
         config = types.GenerateContentConfig(
             temperature=0.4,
-            max_output_tokens=4096,
+            max_output_tokens=8192,
             response_mime_type="application/json",
             http_options=types.HttpOptions(timeout=60_000),
         )
