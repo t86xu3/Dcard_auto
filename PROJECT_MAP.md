@@ -12,7 +12,7 @@
 | 後端框架 | FastAPI | latest | REST API |
 | ORM | SQLAlchemy | 2.x | 資料庫抽象 |
 | DB 遷移 | Alembic | latest | Schema 版本控制 |
-| 任務佇列 | Celery + Redis | latest | 非同步文章生成（已改用 threading.Thread） |
+| 任務佇列 | Celery + Redis | latest | 非同步任務（文章生成已改用 asyncio.to_thread 同步模式） |
 | 資料庫 | SQLite → PostgreSQL | - | 開發用 SQLite / 生產用 Supabase PostgreSQL |
 | LLM | Google Gemini API | 2.5 Flash/Pro, 3 Pro | 文章生成 + SEO 優化 |
 | LLM | Anthropic Claude API | Sonnet 4.5, Haiku 4.5 | 文章生成 + SEO 優化 |
@@ -117,7 +117,8 @@ Dcard_auto/
 │
 ├── docs/                      # 詳細設計文檔
 │   ├── IMPLEMENTATION_PLAN.md
-│   └── TECH_REFERENCE.md     # 完整技術參考手冊
+│   ├── TECH_REFERENCE.md     # 完整技術參考手冊
+│   └── RWD_MOBILE_PLAN.md   # 手機版 RWD 介面規劃（3 Phase）
 ├── firebase.json             # Firebase Hosting + Cloud Run rewrite
 ├── .firebaserc               # Firebase 專案設定
 ├── CLAUDE.md
@@ -139,7 +140,7 @@ Dcard_auto/
 | 認證 API | backend/app/api/auth.py | 註冊/登入/刷新 Token/取得用戶資訊 |
 | 管理員 API | backend/app/api/admin.py | 用戶列表/核准/停用/全站費用總覽 |
 | 商品 API | backend/app/api/products.py | 商品 CRUD + 聯盟行銷匯入 + 圖片下載（+認證+資料隔離）|
-| 文章生成 API | backend/app/api/articles.py | 非同步生成（背景執行緒）+ CRUD + SEO 優化（自動更新標題）（+認證+資料隔離）|
+| 文章生成 API | backend/app/api/articles.py | 同步生成（asyncio.to_thread）+ CRUD + SEO 優化（自動更新標題）（+認證+資料隔離）|
 | SEO 分析 API | backend/app/api/seo.py | SEO 評分 + 按文章 ID 分析並存入 DB（+認證）|
 | Prompt 範本 API | backend/app/api/prompts.py | 範本 CRUD + 設為預設（含內建範本可編輯/刪除）（+認證）|
 | LLM 服務 | backend/app/services/llm_service.py | 多供應商文章生成（Gemini + Claude，圖片失敗 fallback 純文字）|
@@ -195,7 +196,7 @@ Dcard_auto/
 - [x] 管理員頁面顯示 4 區塊系統提示詞（SYSTEM_INSTRUCTIONS + SEO + V1 + V2）
 - [x] SEO 優化強制使用 gemini-2.5-flash（節省成本）
 - [x] 瀏覽器分頁 favicon + 標題
-- [x] 非同步文章生成（threading.Thread + placeholder + 前端 5 秒輪詢）
+- [x] 文章生成同步化（asyncio.to_thread + 移除 --no-cpu-throttling 省費）
 - [x] SEO 優化自動更新標題（LLM 輸出解析 + DB 同步 + 前端 editTitle 同步）
 - [x] 文章編輯自動同步 content_with_images（PUT content 時自動重建）
 - [x] SEO 面板折疊（預設收合，點擊標題列展開）
@@ -224,7 +225,7 @@ Dcard_auto/
 - [x] 商品探索關鍵字相關性過濾 + 競品搜尋精準度優化
 - [x] SYSTEM_INSTRUCTIONS SEO 最佳化規則（關鍵字策略、FAQ、內容結構、可讀性）
 - [ ] 批量生成功能
-- [ ] 手機版 RWD 介面（響應式設計適配行動裝置）
+- [ ] 手機版 RWD 介面（規劃完成，見 `docs/RWD_MOBILE_PLAN.md`）
 - [x] 時區問題修正（前後端時間顯示一致）
 - [x] 公告功能（管理員發佈公告 + 儀表板顯示 + CRUD 管理）
 - [ ] TG 機器人整合（通知 / 操作自動化）
@@ -286,4 +287,5 @@ Dcard_auto/
 - DB 模型：backend/app/models/
 - Extension 設定：chrome-extension/manifest.json
 - 技術規格：docs/TECH_REFERENCE.md
+- RWD 規劃：docs/RWD_MOBILE_PLAN.md
 - 參考來源：/Users/angrydragon/project/shoppe_autovideo/chrome-extension/
