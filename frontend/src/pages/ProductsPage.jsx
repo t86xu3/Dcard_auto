@@ -528,7 +528,7 @@ export default function ProductsPage() {
                   }`}
                   title={!user?.is_approved ? '等待管理員核准' : ''}
                 >
-                  {!user?.is_approved ? '🔒 等待管理員核准' : generating ? '生成中...' : `✨ 生成${selected.length >= 2 ? '比較文' : '開箱文'} (${selected.length})`}
+                  {!user?.is_approved ? '🔒 等待管理員核准' : generating ? (keywordStrategy ? '🔍 SEO 策略生成中...（約 1-2 分鐘）' : '生成中...') : `✨ 生成${selected.length >= 2 ? '比較文' : '開箱文'} (${selected.length})`}
                 </button>
                 {keywordStrategy && (
                   <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
