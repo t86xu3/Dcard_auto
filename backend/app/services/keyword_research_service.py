@@ -96,16 +96,19 @@ class KeywordResearchService:
 
         context = (
             f"=== SEO 關鍵字策略（基於搜尋數據分析）===\n\n"
-            f"主關鍵字：{primary}（必須出現在標題和首段 100 字內）\n"
-            f"次要關鍵字：{secondary_text}\n"
-            f"長尾詞群（自然分散在文章中）：{long_tail_text}\n"
-            f"語義相關詞（豐富語義覆蓋）：{semantic_text}\n"
+            f"⚠️ 重要：以下關鍵字策略僅供參考方向，你必須用自然口語的方式融入文章。\n"
+            f"絕對禁止關鍵字堆砌！關鍵字密度必須控制在 1-2% 以內。\n"
+            f"標題必須在 20-35 字以內，不可超過。段落數控制在 8-25 段。\n\n"
+            f"主關鍵字：{primary}（出現在標題 + 首段 100 字內，全文自然出現 3-5 次即可）\n"
+            f"次要關鍵字（各出現 1-2 次就好）：{secondary_text}\n"
+            f"長尾詞群（挑 3-5 個自然帶入即可，不必全用）：{long_tail_text}\n"
+            f"語義相關詞（用同義詞豐富表達，不要刻意重複）：{semantic_text}\n"
         )
         if title_suggestion:
-            context += f"\n建議標題：{title_suggestion}\n"
+            context += f"\n建議標題方向（可參考但請控制在 20-35 字）：{title_suggestion}\n"
         if faq_text:
             context += (
-                f"\nFAQ 問題（必須使用以下問題，這些是真實使用者搜尋的問題）：\n"
+                f"\nFAQ 問題（使用以下問題，來自真實搜尋數據）：\n"
                 f"{faq_text}"
             )
         context += "\n=== 以下是商品資訊 ===\n"
