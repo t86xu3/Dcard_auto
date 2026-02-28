@@ -5,6 +5,7 @@ Google Autocomplete 展開 + LLM 策略生成
 import json
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 import requests
@@ -155,39 +156,33 @@ class KeywordResearchService:
         return [fallback]
 
     def _expand_autocomplete(self, seeds: list[str]) -> dict[str, list[str]]:
-        """Google Autocomplete A-Z + 中文修飾詞展開"""
+        """Google Autocomplete 展開（精簡版：中文修飾詞 + 高頻字母，並行請求）"""
         results = {}
+        # 高頻字母（台灣中文搜尋中最常觸發有意義建議的字母）
+        high_value_letters = "bcdmprs"
+        year = datetime.now().year
+
         for seed in seeds:
+            # 組裝所有查詢
+            queries = [seed]  # 基礎
+            queries += [f"{seed} {c}" for c in high_value_letters]
+            queries += [f"{seed} {m}" for m in CHINESE_MODIFIERS]
+            queries.append(f"{year} {seed} 推薦")
+
+            # 並行請求（max 5 workers，避免被 rate limit）
             suggestions = set()
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                futures = {
+                    executor.submit(self._fetch_autocomplete, q): q
+                    for q in queries
+                }
+                for future in as_completed(futures):
+                    try:
+                        items = future.result()
+                        suggestions.update(items)
+                    except Exception:
+                        pass
 
-            # 基礎查詢（不加後綴）
-            base = self._fetch_autocomplete(seed)
-            suggestions.update(base)
-
-            # A-Z 展開
-            for c in "abcdefghijklmnopqrstuvwxyz":
-                items = self._fetch_autocomplete(f"{seed} {c}")
-                suggestions.update(items)
-                time.sleep(self.REQUEST_DELAY)
-
-            # 數字 0-9 展開
-            for n in range(10):
-                items = self._fetch_autocomplete(f"{seed} {n}")
-                suggestions.update(items)
-                time.sleep(self.REQUEST_DELAY)
-
-            # 中文修飾詞展開
-            for modifier in CHINESE_MODIFIERS:
-                items = self._fetch_autocomplete(f"{seed} {modifier}")
-                suggestions.update(items)
-                time.sleep(self.REQUEST_DELAY)
-
-            # 年份展開
-            year = datetime.now().year
-            items = self._fetch_autocomplete(f"{year} {seed} 推薦")
-            suggestions.update(items)
-
-            # 去除種子詞自身
             suggestions.discard(seed)
             results[seed] = sorted(suggestions)
 
