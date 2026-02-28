@@ -295,7 +295,7 @@ class KeywordResearchService:
 
         config = types.GenerateContentConfig(
             temperature=0.4,
-            max_output_tokens=2000,
+            max_output_tokens=4096,
             response_mime_type="application/json",
             http_options=types.HttpOptions(timeout=60_000),
         )
@@ -307,12 +307,48 @@ class KeywordResearchService:
         )
         track_gemini_usage(response, model="gemini-2.5-flash", user_id=user_id)
 
+        raw = response.text or ""
+        strategy = self._parse_json_robust(raw)
+        if strategy is None:
+            logger.error(f"關鍵字策略 JSON 解析失敗\n原始回應: {raw[:800]}")
+            raise RuntimeError("關鍵字策略生成失敗：LLM 回傳非有效 JSON")
+        return strategy
+
+    @staticmethod
+    def _parse_json_robust(text: str) -> dict | None:
+        """容錯 JSON 解析：處理 LLM 常見的格式問題"""
+        import re
+        # 1. 直接解析
         try:
-            strategy = json.loads(response.text)
-            return strategy
-        except (json.JSONDecodeError, TypeError) as e:
-            logger.error(f"關鍵字策略 JSON 解析失敗: {e}\n原始回應: {response.text[:500]}")
-            raise RuntimeError(f"關鍵字策略生成失敗：LLM 回傳非有效 JSON") from e
+            return json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        # 2. 嘗試提取 JSON 區塊（去除 markdown code fence）
+        m = re.search(r'```(?:json)?\s*([\s\S]*?)```', text)
+        if m:
+            try:
+                return json.loads(m.group(1))
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        # 3. 修復 trailing comma（LLM 常見錯誤）
+        cleaned = re.sub(r',\s*([}\]])', r'\1', text)
+        try:
+            return json.loads(cleaned)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        # 4. 截斷的 JSON：找到最後一個完整的 } 並補齊
+        last_brace = text.rfind('}')
+        if last_brace > 0:
+            truncated = text[:last_brace + 1]
+            try:
+                return json.loads(truncated)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        return None
 
 
 # 模組層級單例
