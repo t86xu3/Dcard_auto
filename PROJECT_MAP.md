@@ -118,7 +118,8 @@ Dcard_auto/
 ├── docs/                      # 詳細設計文檔
 │   ├── IMPLEMENTATION_PLAN.md
 │   ├── TECH_REFERENCE.md     # 完整技術參考手冊
-│   └── RWD_MOBILE_PLAN.md   # 手機版 RWD 介面規劃（3 Phase）
+│   ├── RWD_MOBILE_PLAN.md   # 手機版 RWD 介面規劃（3 Phase）
+│   └── SEO_KEYWORD_RESEARCH_PLAN.md  # 長尾關鍵字 SEO 研究計畫（3 Phase）
 ├── firebase.json             # Firebase Hosting + Cloud Run rewrite
 ├── .firebaserc               # Firebase 專案設定
 ├── CLAUDE.md
@@ -229,6 +230,25 @@ Dcard_auto/
 - [x] 時區問題修正（前後端時間顯示一致）
 - [x] 公告功能（管理員發佈公告 + 儀表板顯示 + CRUD 管理）
 - [ ] TG 機器人整合（通知 / 操作自動化）
+
+### 長尾關鍵字 SEO 子專案（規劃完成，見 `docs/SEO_KEYWORD_RESEARCH_PLAN.md`）
+
+- [ ] Phase 1：基礎關鍵字研究
+  - [ ] Google Autocomplete A-Z 展開服務
+  - [ ] LLM 關鍵字策略 Prompt 設計 + JSON 結構化輸出
+  - [ ] KeywordResearch 資料模型 + Alembic 遷移
+  - [ ] `/api/keywords/research` API 端點
+  - [ ] 關鍵字上下文注入文章生成流程
+  - [ ] 前端 KeywordResearchPanel 元件
+  - [ ] SEO 評分增強（關鍵字匹配度）
+- [ ] Phase 2：SERP 分析與競爭度評估
+  - [ ] Serper.dev SERP 分析整合（PAA + Related Searches）
+  - [ ] 關鍵字難度免費評估（SERP 特徵分析法）
+  - [ ] FAQ 問題來源切換為 PAA 數據
+- [ ] Phase 3：追蹤與回饋迴路
+  - [ ] Google Search Console 排名追蹤
+  - [ ] 趨勢分析整合
+  - [ ] 效果回饋迴路（排名 → 策略調整）
 
 ### v2.3 - UI 圖標與點擊回饋（完成）
 
