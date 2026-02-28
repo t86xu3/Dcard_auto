@@ -134,13 +134,6 @@ class SeoService:
             for w in cn_matches:
                 if w not in keywords and w not in STOP_WORDS:
                     keywords.append(w)
-                    # 長詞漸進拆分（>4 字拆成子詞）
-                    if len(w) > 4:
-                        for start in range(len(w) - 1):
-                            for end in range(start + 2, min(start + 5, len(w) + 1)):
-                                sub = w[start:end]
-                                if 2 <= len(sub) <= 4 and sub not in keywords and sub not in STOP_WORDS:
-                                    keywords.append(sub)
 
         return keywords[:10]
 
@@ -229,11 +222,10 @@ class SeoService:
                 suggestion_texts.append(s)
 
         # 統計資訊
-        paragraphs = [p.strip() for p in content.split("\n\n") if p.strip()]
         stats = {
             "title_length": len(title),
             "content_length": len(content),
-            "paragraph_count": len(paragraphs),
+            "paragraph_count": self._count_logical_paragraphs(content),
             "image_count": image_count,
             "keyword_density": round(density_val, 2),
         }
@@ -300,8 +292,21 @@ class SeoService:
             })
             return max_score * 0.3, 0.0
 
-        # 正確公式：每個關鍵字的出現次數 * 該關鍵字長度，加總後除以總字數
-        keyword_chars = sum(content.count(kw) * len(kw) for kw in keywords)
+        # 最長匹配優先：避免重疊子串重複計算同一段文字
+        keywords_sorted = sorted(keywords, key=len, reverse=True)
+        counted = [False] * total_chars
+        keyword_chars = 0
+        for kw in keywords_sorted:
+            start = 0
+            while True:
+                pos = content.find(kw, start)
+                if pos == -1:
+                    break
+                if not any(counted[pos:pos + len(kw)]):
+                    keyword_chars += len(kw)
+                    for i in range(pos, pos + len(kw)):
+                        counted[i] = True
+                start = pos + 1
         density = (keyword_chars / total_chars) * 100
 
         if 1.0 <= density <= 2.0:
@@ -376,13 +381,52 @@ class SeoService:
 
         return round(score, 1)
 
+    @staticmethod
+    def _count_logical_paragraphs(content: str) -> int:
+        """智慧段落計數：過濾裝飾行，合併連續短行為邏輯段落"""
+        raw_blocks = [p.strip() for p in content.split("\n\n") if p.strip()]
+
+        # 過濾分隔線和純裝飾行
+        separator_re = re.compile(r'^[=\-─—\s]{3,}$')
+        meaningful = []
+        for block in raw_blocks:
+            # 跳過分隔線
+            if separator_re.match(block):
+                continue
+            # 跳過純 emoji/符號的短行（< 5 個非空白可見中文/英數字元）
+            text_chars = re.sub(r'[\s\U0001F300-\U0001F9FF\U00002600-\U000027BF\U0000FE00-\U0000FEFF]', '', block)
+            if len(text_chars) < 5:
+                continue
+            meaningful.append(block)
+
+        # 合併連續短行為邏輯段落（列表區塊視為一個段落）
+        logical_count = 0
+        consecutive_short = 0
+        for block in meaningful:
+            lines = block.split('\n')
+            # 整個 block 的所有行都 < 30 字 → 視為列表/短行區塊
+            if all(len(line.strip()) < 30 for line in lines):
+                consecutive_short += 1
+            else:
+                # 前面有累積的短行區塊，算一個邏輯段落
+                if consecutive_short > 0:
+                    logical_count += 1
+                    consecutive_short = 0
+                logical_count += 1
+
+        # 收尾：剩餘的短行區塊
+        if consecutive_short > 0:
+            logical_count += 1
+
+        return max(logical_count, 1)
+
     def _score_content_structure(self, content: str, suggestions: list) -> float:
         """內容結構評分：段落數量 + 長度控制 + 列表使用 + 分隔線"""
         max_score = self.WEIGHTS["content_structure"]
         score = 0.0
 
         paragraphs = [p.strip() for p in content.split("\n\n") if p.strip()]
-        para_count = len(paragraphs)
+        para_count = self._count_logical_paragraphs(content)
 
         # 段落數量（佔 35%）
         if 8 <= para_count <= 25:
