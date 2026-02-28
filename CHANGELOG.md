@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.5.0 (2026-03-01)
+
+SEO 長尾關鍵字研究 + 文章生成同步化 + SEO 分數修復。
+
+### 新功能
+- SEO 長尾關鍵字研究 Phase 1：Google Autocomplete A-Z 展開 + LLM 策略生成 + 注入文章生成
+- 前端 KeywordResearchPanel 元件（折疊式，整合商品頁）
+- `/api/keywords/research` + `/api/keywords/autocomplete` API 端點
+- 關鍵字研究結果可編輯（研究完成後手動調整關鍵字）
+- 生成按鈕旁顯示「SEO 策略已載入」徽章
+
+### 優化
+- 文章生成改同步模式（`asyncio.to_thread`），移除 `--no-cpu-throttling` 節省 Cloud Run 費用
+- 關鍵字策略注入 prompt 加入反堆砌約束，提升 SEO 分數
+- 帶 SEO 策略生成時顯示預估時間提示
+- Autocomplete 展開改並行 + 精簡，解決 Cloud Run 超時
+- 競品搜尋加入關鍵字相關性評分，防止無關商品排名靠前
+- 移除文章頁 SEO 優化按鈕（簡化介面）
+
+### 修復
+- SEO 分數低問題：標題過長 + 關鍵字密度過高 + 段落過多
+- 關鍵字策略 JSON 截斷 + `max_output_tokens` 提高至 4096
+- 關鍵字策略 JSON 解析加容錯處理
+- 種子詞 fallback 品牌名問題修正
+
+### 文檔
+- 新增 `docs/SEO_KEYWORD_RESEARCH_PLAN.md`（長尾關鍵字 SEO 研究計畫）
+- 新增 `docs/RWD_MOBILE_PLAN.md`（手機版 RWD 介面規劃）
+
 ## v1.4.0 (2026-02-28)
 
 競品搜尋精準度大幅提升 + 系統提示詞用戶控制 + 商品探索自動填滿。
