@@ -82,33 +82,39 @@ class KeywordResearchService:
         title_suggestion = strategy.get("title_suggestion", "")
         faq_questions = strategy.get("faq_questions", [])
 
+        # 限制數量，避免 LLM 試圖全部塞入
         secondary_text = "、".join(
-            kw["keyword"] if isinstance(kw, dict) else str(kw)
-            for kw in secondary
+            (kw["keyword"] if isinstance(kw, dict) else str(kw))
+            for kw in secondary[:3]
         )
-        long_tail_text = "、".join(long_tail)
-        semantic_text = "、".join(semantic)
+        long_tail_text = "、".join(long_tail[:5])
+        semantic_text = "、".join(semantic[:3])
 
         faq_text = ""
-        for i, faq in enumerate(faq_questions, 1):
+        for i, faq in enumerate(faq_questions[:5], 1):
             q = faq["question"] if isinstance(faq, dict) else str(faq)
             faq_text += f"Q{i}: {q}\n"
 
         context = (
-            f"=== SEO 關鍵字策略（基於搜尋數據分析）===\n\n"
-            f"⚠️ 重要：以下關鍵字策略僅供參考方向，你必須用自然口語的方式融入文章。\n"
-            f"絕對禁止關鍵字堆砌！關鍵字密度必須控制在 1-2% 以內。\n"
-            f"標題必須在 20-35 字以內，不可超過。段落數控制在 8-25 段。\n\n"
-            f"主關鍵字：{primary}（出現在標題 + 首段 100 字內，全文自然出現 3-5 次即可）\n"
-            f"次要關鍵字（各出現 1-2 次就好）：{secondary_text}\n"
-            f"長尾詞群（挑 3-5 個自然帶入即可，不必全用）：{long_tail_text}\n"
-            f"語義相關詞（用同義詞豐富表達，不要刻意重複）：{semantic_text}\n"
+            f"=== SEO 關鍵字策略（以下規則優先於其他指示）===\n\n"
+            f"🚨 硬性規則（違反任何一條都是失敗的文章）：\n"
+            f"  1. 標題長度：20-35 字，絕對不可超過 35 字\n"
+            f"  2. 關鍵字密度：1-2%，超過 2% 就是關鍵字堆砌\n"
+            f"  3. 段落數：8-25 段，超過 25 段就是結構鬆散\n"
+            f"  4. 首段前 100 字必須自然包含主關鍵字「{primary}」\n"
+            f"  5. 品牌名首次用全名，之後一律用簡稱\n\n"
+            f"主關鍵字：{primary}（全文出現 3-5 次即可，多了就是堆砌）\n"
+            f"次要關鍵字（各出現 1 次就好）：{secondary_text}\n"
+            f"長尾詞（挑 2-3 個帶入，不必全用）：{long_tail_text}\n"
+            f"語義相關詞（替換用，豐富表達）：{semantic_text}\n"
         )
         if title_suggestion:
-            context += f"\n建議標題方向（可參考但請控制在 20-35 字）：{title_suggestion}\n"
+            # 截斷過長的標題建議
+            title_hint = title_suggestion if len(title_suggestion) <= 35 else title_suggestion[:30] + "..."
+            context += f"\n標題參考方向（必須控制在 35 字內）：{title_hint}\n"
         if faq_text:
             context += (
-                f"\nFAQ 問題（使用以下問題，來自真實搜尋數據）：\n"
+                f"\nFAQ 問題（來自真實搜尋數據）：\n"
                 f"{faq_text}"
             )
         context += "\n=== 以下是商品資訊 ===\n"

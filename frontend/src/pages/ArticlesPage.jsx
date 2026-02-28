@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getArticles, getArticle, updateArticle, deleteArticle, batchDeleteArticles, optimizeSeo, copyArticle, analyzeSeo, analyzeSeoById, invalidateCache, fetchArticlesFresh } from '../api/client';
+import { getArticles, getArticle, updateArticle, deleteArticle, batchDeleteArticles, copyArticle, analyzeSeoById, invalidateCache, fetchArticlesFresh } from '../api/client';
 import SeoPanel from '../components/SeoPanel';
 import { useAuth } from '../contexts/AuthContext';
 import { useExtensionDetect } from '../hooks/useExtensionDetect';
@@ -120,11 +120,7 @@ export default function ArticlesPage() {
   const [editTitle, setEditTitle] = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
   const [seoResult, setSeoResult] = useState(null);
-  const [seoBeforeAnalysis, setSeoBeforeAnalysis] = useState(null);
-  const [seoOptimized, setSeoOptimized] = useState(false);
-  const [seoBeforeScore, setSeoBeforeScore] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [optimizing, setOptimizing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [pasting, setPasting] = useState(false);
   const [toast, setToast] = useState(null);
@@ -218,9 +214,6 @@ export default function ArticlesPage() {
       setEditContent(article.content || '');
       setEditTitle(article.title || '');
       setEditingTitle(false);
-      setSeoBeforeAnalysis(null);
-      setSeoOptimized(false);
-      setSeoBeforeScore(null);
 
       // 若已有 seo_suggestions 且含 breakdown，直接顯示
       const seoData = article.seo_suggestions;
@@ -290,40 +283,12 @@ export default function ArticlesPage() {
     setBatchDeleting(false);
   };
 
-  const handleOptimizeSeo = async () => {
-    if (!selectedArticle) return;
-    setOptimizing(true);
-    try {
-      const resp = await optimizeSeo(
-        selectedArticle.id,
-        localStorage.getItem('llmModel'),
-        localStorage.getItem('disableSeoPrompt') === 'true',
-      );
-      setSelectedArticle(resp.article);
-      setEditTitle(resp.article.title || '');
-      setEditContent(resp.article.content || '');
-      // 顯示優化後的完整分析
-      setSeoResult(resp.after_analysis || resp.article.seo_suggestions);
-      setSeoOptimized(true);
-      setSeoBeforeScore(resp.before_score);
-      setSeoBeforeAnalysis(resp.before_analysis || null);
-      invalidateCache('articles');
-      await loadArticles();
-    } catch (err) {
-      alert('SEO 優化失敗');
-    }
-    setOptimizing(false);
-  };
-
   const handleAnalyzeSeo = async () => {
     if (!selectedArticle) return;
     setAnalyzing(true);
     try {
       const result = await analyzeSeoById(selectedArticle.id);
       setSeoResult(result);
-      setSeoOptimized(false);
-      setSeoBeforeScore(null);
-      setSeoBeforeAnalysis(null);
     } catch (err) {
       alert('SEO 分析失敗');
     }
@@ -563,18 +528,8 @@ export default function ArticlesPage() {
                       {pasting ? '⏳ 開啟中...' : '📮 貼到 Dcard'}
                     </button>
                   )}
-                  <button onClick={handleAnalyzeSeo} disabled={analyzing || optimizing} className="px-3 py-1.5 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform">
+                  <button onClick={handleAnalyzeSeo} disabled={analyzing} className="px-3 py-1.5 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform">
                     {analyzing ? '分析中...' : '📊 SEO 分析'}
-                  </button>
-                  <button
-                    onClick={handleOptimizeSeo}
-                    disabled={optimizing || analyzing || !user?.is_approved}
-                    className={`px-3 py-1.5 text-sm text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform ${
-                      !user?.is_approved ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-600'
-                    }`}
-                    title={!user?.is_approved ? '等待管理員核准' : ''}
-                  >
-                    {!user?.is_approved ? '🔒 等待核准' : optimizing ? '優化中...' : '🚀 SEO 優化'}
                   </button>
                 </>
               )}
@@ -583,22 +538,12 @@ export default function ArticlesPage() {
               </button>
             </div>
 
-            {/* Optimizing Overlay */}
-            {optimizing && (
-              <div className="mb-4 p-4 bg-green-50 rounded-xl border border-green-200 flex items-center gap-3">
-                <div className="animate-spin h-5 w-5 border-2 border-green-500 border-t-transparent rounded-full" />
-                <span className="text-green-700 font-medium">SEO 優化中，請稍候（約 30-60 秒）...</span>
-              </div>
-            )}
-
             {/* SEO Panel */}
             {seoResult && (
               <div className="mb-4">
                 <SeoPanel
                   data={seoResult}
-                  optimized={seoOptimized}
-                  beforeScore={seoBeforeScore}
-                  beforeAnalysis={seoBeforeAnalysis}
+                  optimized={false}
                 />
               </div>
             )}
