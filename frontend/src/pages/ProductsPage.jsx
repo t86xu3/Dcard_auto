@@ -518,17 +518,24 @@ export default function ProductsPage() {
                 <span>🖼️ 附描述圖給 LLM</span>
               </label>
 
-              <button
-                onClick={handleGenerate}
-                disabled={generating || !user?.is_approved}
-                className={`px-4 py-2 text-white rounded-lg text-sm font-medium active:scale-95 transition-transform ${
-                  !user?.is_approved ? 'bg-gray-400 cursor-not-allowed' :
-                  generating ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
-                }`}
-                title={!user?.is_approved ? '等待管理員核准' : ''}
-              >
-                {!user?.is_approved ? '🔒 等待管理員核准' : generating ? '生成中...' : `✨ 生成${selected.length >= 2 ? '比較文' : '開箱文'} (${selected.length})`}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGenerate}
+                  disabled={generating || !user?.is_approved}
+                  className={`px-4 py-2 text-white rounded-lg text-sm font-medium active:scale-95 transition-transform ${
+                    !user?.is_approved ? 'bg-gray-400 cursor-not-allowed' :
+                    generating ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
+                  }`}
+                  title={!user?.is_approved ? '等待管理員核准' : ''}
+                >
+                  {!user?.is_approved ? '🔒 等待管理員核准' : generating ? '生成中...' : `✨ 生成${selected.length >= 2 ? '比較文' : '開箱文'} (${selected.length})`}
+                </button>
+                {keywordStrategy && (
+                  <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                    🔍 SEO 策略已載入
+                  </span>
+                )}
+              </div>
               <button
                 onClick={handleBatchDelete}
                 className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 active:scale-95 transition-transform"
