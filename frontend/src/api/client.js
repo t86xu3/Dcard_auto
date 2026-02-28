@@ -276,6 +276,13 @@ export const exploreProducts = (params = {}) => {
   return api.get(`/shopee/explore?${query.toString()}`).then(r => r.data);
 };
 
+// 關鍵字研究（不走快取，每次研究結果不同）
+export const researchKeywords = (productIds) =>
+  api.post('/keywords/research', { product_ids: productIds }, { timeout: 120000 }).then(r => r.data);
+
+export const autocompletePreview = (seed) =>
+  api.get('/keywords/autocomplete', { params: { seed }, timeout: 10000 }).then(r => r.data);
+
 // 不走快取的直接 fetch（輪詢用）
 export const fetchArticlesFresh = (skip = 0, limit = 50) =>
   api.get(`/articles?skip=${skip}&limit=${limit}`).then(r => r.data);

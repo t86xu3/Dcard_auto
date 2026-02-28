@@ -34,6 +34,7 @@ class ArticleGenerateRequest(BaseModel):
     image_sources: List[str] = ["description"]  # "main" / "description" / 兩者
     sub_id: Optional[str] = None  # 蝦皮聯盟行銷追蹤 Sub_id
     disable_system_instructions: bool = False  # 停用系統寫作指示
+    keyword_strategy: Optional[dict] = None  # 前端傳入的 SEO 關鍵字策略
 
 
 class ArticleUpdateRequest(BaseModel):
@@ -92,6 +93,7 @@ def _generate_article_background(
     include_images: bool,
     image_sources: List[str],
     disable_system_instructions: bool = False,
+    keyword_strategy: Optional[dict] = None,
 ):
     """背景執行緒：實際執行 LLM 文章生成"""
     import time as _time
@@ -122,6 +124,7 @@ def _generate_article_background(
                 include_images=include_images,
                 image_sources=image_sources,
                 disable_system_instructions=disable_system_instructions,
+                keyword_strategy=keyword_strategy,
             )
 
             # 自動 SEO 分析
@@ -244,6 +247,7 @@ async def generate_article(
         request.include_images,
         request.image_sources,
         request.disable_system_instructions,
+        request.keyword_strategy,
     )
 
     # 重新載入文章（_generate_article_background 使用獨立 session 更新）

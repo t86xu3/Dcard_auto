@@ -6,6 +6,7 @@ import { getSavedLinks, removeSavedLink, clearSavedLinks, markAsCopied } from '.
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import KeywordResearchPanel from '../components/KeywordResearchPanel';
 
 function SortableProductCard({ id, product, index, onRemove }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -63,6 +64,7 @@ export default function ProductsPage() {
   const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState(null); // { type: 'success'|'error', message }
   const [includeImages, setIncludeImages] = useState(false);
+  const [keywordStrategy, setKeywordStrategy] = useState(null);
   const [editingUrlId, setEditingUrlId] = useState(null);
   const [editingUrlValue, setEditingUrlValue] = useState('');
   const [showAffiliateModal, setShowAffiliateModal] = useState(false);
@@ -207,6 +209,9 @@ export default function ProductsPage() {
       if (localStorage.getItem('disableSystemInstructions') === 'true') {
         payload.disable_system_instructions = true;
       }
+      if (keywordStrategy) {
+        payload.keyword_strategy = keywordStrategy;
+      }
       await generateArticle(payload);
       showToast('success', '文章生成完成！可到文章管理頁查看');
     } catch (err) {
@@ -258,6 +263,7 @@ export default function ProductsPage() {
 
   const handleRemoveFromSelected = (id) => {
     setSelected(prev => prev.filter(x => x !== id));
+    setKeywordStrategy(null); // 商品變動時清除 stale 策略
   };
 
   const handleAffiliateImport = async () => {
@@ -710,6 +716,17 @@ export default function ProductsPage() {
             </SortableContext>
           </DndContext>
         </div>
+      )}
+
+      {/* SEO 關鍵字研究面板 */}
+      {selected.length > 0 && (
+        <KeywordResearchPanel
+          selectedProductIds={selected}
+          keywordStrategy={keywordStrategy}
+          onStrategyChange={setKeywordStrategy}
+          isApproved={user?.is_approved}
+          showToast={showToast}
+        />
       )}
 
       {loading ? (

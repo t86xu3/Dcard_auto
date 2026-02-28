@@ -169,6 +169,9 @@ Dcard_auto/
 | 公告 API | backend/app/api/announcements.py | 公告 CRUD + 啟用/停用（管理員 + 一般用戶讀取）|
 | 公告模型 | backend/app/models/announcement.py | 公告資料表（title/content/is_active/created_by）|
 | 管理員頁 | frontend/src/pages/AdminPage.jsx | 用戶列表 + 核准/停用 + 公告管理 + 系統提示詞檢視 |
+| 關鍵字研究服務 | backend/app/services/keyword_research_service.py | Autocomplete 展開 + LLM 策略生成（singleton）|
+| 關鍵字研究 API | backend/app/api/keywords.py | /research + /autocomplete 端點（需 approved user）|
+| 關鍵字研究面板 | frontend/src/components/KeywordResearchPanel.jsx | SEO 關鍵字研究 UI（折疊式，整合商品頁）|
 
 ## 開發進度
 
@@ -233,14 +236,13 @@ Dcard_auto/
 
 ### 長尾關鍵字 SEO 子專案（規劃完成，見 `docs/SEO_KEYWORD_RESEARCH_PLAN.md`）
 
-- [ ] Phase 1：基礎關鍵字研究
-  - [ ] Google Autocomplete A-Z 展開服務
-  - [ ] LLM 關鍵字策略 Prompt 設計 + JSON 結構化輸出
-  - [ ] KeywordResearch 資料模型 + Alembic 遷移
-  - [ ] `/api/keywords/research` API 端點
-  - [ ] 關鍵字上下文注入文章生成流程
-  - [ ] 前端 KeywordResearchPanel 元件
-  - [ ] SEO 評分增強（關鍵字匹配度）
+- [x] Phase 1：基礎關鍵字研究（不建 DB，前端 state 傳入）
+  - [x] Google Autocomplete A-Z 展開服務
+  - [x] LLM 關鍵字策略 Prompt 設計 + JSON 結構化輸出
+  - [x] `/api/keywords/research` + `/api/keywords/autocomplete` API 端點
+  - [x] 關鍵字上下文注入文章生成流程
+  - [x] 前端 KeywordResearchPanel 元件
+  - [ ] SEO 評分增強（關鍵字匹配度）— Phase 2 再做
 - [ ] Phase 2：SERP 分析與競爭度評估
   - [ ] Serper.dev SERP 分析整合（PAA + Related Searches）
   - [ ] 關鍵字難度免費評估（SERP 特徵分析法）

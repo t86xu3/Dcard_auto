@@ -238,7 +238,7 @@ class LLMService:
         error.retry_history = retry_history
         raise error
 
-    def generate_article(self, products, db: Session, article_type: str = "comparison", target_forum: str = "goodthings", prompt_template_id: Optional[int] = None, model: Optional[str] = None, user_id: Optional[int] = None, include_images: bool = False, image_sources: list[str] | None = None, disable_system_instructions: bool = False) -> dict:
+    def generate_article(self, products, db: Session, article_type: str = "comparison", target_forum: str = "goodthings", prompt_template_id: Optional[int] = None, model: Optional[str] = None, user_id: Optional[int] = None, include_images: bool = False, image_sources: list[str] | None = None, disable_system_instructions: bool = False, keyword_strategy: dict | None = None) -> dict:
         """生成文章"""
         product_ids = [p.id for p in products]
 
@@ -255,7 +255,15 @@ class LLMService:
         # 組合使用者訊息（商品資料），注入當前年份
         from datetime import datetime
         current_year = datetime.now().year
-        user_message = f"⚠️ 當前年份是 {current_year} 年，標題和文章中提到年份時必須使用 {current_year}。\n\n目標看板：{target_forum}\n\n以下是商品資料，請根據這些資訊撰寫文章：\n\n{products_info}"
+        year_reminder = f"⚠️ 當前年份是 {current_year} 年，標題和文章中提到年份時必須使用 {current_year}。\n\n目標看板：{target_forum}"
+
+        # 若有關鍵字策略，注入到商品資料之前
+        if keyword_strategy:
+            from app.services.keyword_research_service import keyword_research_service
+            keyword_context = keyword_research_service.format_keyword_context(keyword_strategy)
+            user_message = f"{year_reminder}\n\n{keyword_context}\n{products_info}"
+        else:
+            user_message = f"{year_reminder}\n\n以下是商品資料，請根據這些資訊撰寫文章：\n\n{products_info}"
 
         # 組合系統指示（程式碼層級）+ 使用者範本
         if disable_system_instructions:
