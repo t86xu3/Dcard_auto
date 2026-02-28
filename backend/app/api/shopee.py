@@ -62,9 +62,11 @@ def find_competitors(
                 seen_ids.add(item_id)
                 all_items.append(item)
 
-    # 3. 計算競品分數並排序
+    # 3. 計算競品分數並排序（帶關鍵字相關性）
     for item in all_items:
-        item["_competitorScore"] = calculate_competitor_score(item, source_price=price)
+        item["_competitorScore"] = calculate_competitor_score(
+            item, source_price=price, keywords=keywords
+        )
 
     all_items.sort(key=lambda x: x["_competitorScore"], reverse=True)
     top_items = all_items[:10]

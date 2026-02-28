@@ -346,10 +346,12 @@ def extract_search_keywords(product_name: str, user_id: int = None) -> list[str]
                     "3. 第三個關鍵字：替代品類詞或使用場景詞，如「洗衣凝膠」「沖泡飲品」「耳塞式耳機」\n\n"
                     "嚴格禁止（違反會導致搜尋結果完全錯誤）：\n"
                     "- ❌ 不完整的詞片段（「原味奶」「洗衣」「保溫」）→ 必須是完整名詞（「奶茶」「洗衣球」「保溫杯」）\n"
-                    "- ❌ 品牌名（立頓、P&G、Ariel、3M）\n"
-                    "- ❌ 型號/規格數字（4D、300ml、6入、735ml）\n"
-                    "- ❌ 促銷/平台文案（蝦皮直營、現貨、免運、秒發）\n"
-                    "- ❌ 單獨修飾詞（原味、日本、質感、智慧）\n\n"
+                    "- ❌ 品牌名（立頓、P&G、Ariel、3M、Tefal、法國特福）\n"
+                    "- ❌ 型號/規格數字（4D、300ml、6入、735ml、24CM、28CM）\n"
+                    "- ❌ 促銷/平台文案（蝦皮直營、蝦皮獨家、蝦皮限定、現貨、免運、秒發、獨家）\n"
+                    "- ❌ 單獨修飾詞（原味、日本、質感、智慧）\n"
+                    "- ❌ 顏色/外觀詞（英國藍、玫瑰金、櫻花粉、曜石黑、霧面、亮面）\n"
+                    "- ❌ 系列名/產品線名（戰神系列、經典系列）\n\n"
                     "格式：每行一個關鍵字，2-6 個中文字，不要編號，不要其他文字。\n\n"
                     "範例1：\n"
                     "輸入：【蝦皮直營】立頓 原味奶茶/巧克力奶茶/鮮漾奶綠/草莓奶茶 300mlX6入\n"
@@ -365,7 +367,10 @@ def extract_search_keywords(product_name: str, user_id: int = None) -> list[str]
                     "輸出：\n陶瓷保溫杯\n保溫瓶\n隨行杯\n\n"
                     "範例5：\n"
                     "輸入：📌桌面增高架/螢幕增高架 鍵盤架 螢幕架 電腦增高架 墊高架 螢幕增高 電腦螢幕增高架\n"
-                    "輸出：\n螢幕增高架\n電腦增高架\n桌面增高架"
+                    "輸出：\n螢幕增高架\n電腦增高架\n桌面增高架\n\n"
+                    "範例6：\n"
+                    "輸入：Tefal法國特福 鈦合金強化-藍調24CM不沾平底鍋 英國藍｜蝦皮獨家\n"
+                    "輸出：\n不沾平底鍋\n平底鍋\n煎鍋"
                 ),
                 temperature=0.1,
                 max_output_tokens=100,
@@ -430,9 +435,9 @@ def _strip_emoji(text: str) -> str:
 # 常見促銷/平台垃圾詞（不是產品品類）
 _JUNK_WORDS = {
     '隔日到貨', '隔日配', '現貨', '現貨秒發', '台灣出貨', '台灣現貨',
-    '免運', '特惠免運', '蝦皮直營', '桃園有貨', '新貨', '秒發',
+    '免運', '特惠免運', '蝦皮直營', '蝦皮獨家', '蝦皮限定', '桃園有貨', '新貨', '秒發',
     '台灣製造', '超值', '熱銷', '爆款', '批發', '箱購', '盒裝',
-    '限時', '特價', '優惠', '促銷', '出清',
+    '限時', '特價', '優惠', '促銷', '出清', '獨家', '限定',
 }
 
 
@@ -494,28 +499,46 @@ def _extend_keyword_fragments(keywords: list[str], product_name: str) -> list[st
     return validated if validated else keywords
 
 
-def calculate_competitor_score(item: dict, source_price: float = None) -> float:
-    """計算競品分數（0-100）"""
+def calculate_competitor_score(
+    item: dict, source_price: float = None, keywords: list[str] = None
+) -> float:
+    """計算競品分數（0-100）
+
+    權重分配：銷量 25% + 評分 20% + 佣金 20% + 價格相似度 15% + 關鍵字相關性 20%
+    """
     sales = item.get("_sales") or 0
     rating = item.get("_rating") or 0
     comm_pct = item.get("_commissionPct") or 0
     price = item.get("_price") or 0
 
-    # 銷量 30%：log10 映射（0-5 對應 0-100）
-    sales_score = min((math.log10(sales + 1) / 5) * 100, 100) * 0.3
+    # 銷量 25%：log10 映射（0-5 對應 0-100）
+    sales_score = min((math.log10(sales + 1) / 5) * 100, 100) * 0.25
 
-    # 評分 25%：3.5-5.0 映射
+    # 評分 20%：3.5-5.0 映射
     rating_clamped = max(rating - 3.5, 0)
-    rating_score = min((rating_clamped / 1.5) * 100, 100) * 0.25
+    rating_score = min((rating_clamped / 1.5) * 100, 100) * 0.20
 
-    # 佣金率 25%：0-30% 映射
-    comm_score = min((comm_pct / 30) * 100, 100) * 0.25
+    # 佣金率 20%：0-30% 映射
+    comm_score = min((comm_pct / 30) * 100, 100) * 0.20
 
-    # 價格相似度 20%
+    # 價格相似度 15%
     price_score = 0
     if source_price and source_price > 0 and price > 0:
-        price_score = (min(source_price, price) / max(source_price, price)) * 100 * 0.2
+        price_score = (min(source_price, price) / max(source_price, price)) * 100 * 0.15
     else:
-        price_score = 50 * 0.2  # 無法比較時給 50 分
+        price_score = 50 * 0.15  # 無法比較時給 50 分
 
-    return round(sales_score + rating_score + comm_score + price_score, 1)
+    # 關鍵字相關性 20%：商品名是否包含搜尋關鍵字
+    relevance_score = 0
+    if keywords:
+        item_name = item.get("productName") or ""
+        match_count = sum(1 for kw in keywords if kw in item_name)
+        if match_count > 0:
+            # 1 個匹配 = 50 分，2+ 個 = 100 分
+            relevance_score = min((match_count / len(keywords)) * 150, 100) * 0.20
+    else:
+        relevance_score = 50 * 0.20  # 無法比較時給 50 分
+
+    return round(
+        sales_score + rating_score + comm_score + price_score + relevance_score, 1
+    )
