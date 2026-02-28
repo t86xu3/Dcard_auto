@@ -208,7 +208,7 @@ export default function ProductsPage() {
         payload.disable_system_instructions = true;
       }
       await generateArticle(payload);
-      showToast('success', '文章生成中，可到文章管理頁查看進度');
+      showToast('success', '文章生成完成！可到文章管理頁查看');
     } catch (err) {
       showToast('error', '生成失敗: ' + (err.response?.data?.detail || err.message));
     }

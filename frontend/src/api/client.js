@@ -158,7 +158,7 @@ export const importAffiliateUrls = (urls) =>
 
 // 文章（帶快取）
 export const generateArticle = (data) =>
-  api.post('/articles/generate', data).then(r => r.data);
+  api.post('/articles/generate', data, { timeout: 180000 }).then(r => r.data);
 
 export const getArticles = (skip = 0, limit = 50) =>
   cachedGet(`articles:${skip}:${limit}`, () => api.get(`/articles?skip=${skip}&limit=${limit}`).then(r => r.data));

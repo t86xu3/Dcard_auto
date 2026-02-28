@@ -1,7 +1,7 @@
 """
 文章 API 路由
 """
-import threading
+import asyncio
 import logging
 import traceback
 from typing import List, Optional
@@ -201,7 +201,7 @@ async def generate_article(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_approved_user),
 ):
-    """生成文章（需已核准用戶）— 非同步：立即回傳 placeholder，背景生成"""
+    """生成文章（需已核准用戶）— 同步等待 LLM 生成完成後回傳"""
     from app.models.product import Product
 
     # 驗證 product_ids 屬於當前用戶（查詢後按前端順序重排）
@@ -231,25 +231,23 @@ async def generate_article(
     db.commit()
     db.refresh(article)
 
-    # 啟動背景執行緒
-    thread = threading.Thread(
-        target=_generate_article_background,
-        args=(
-            article.id,
-            request.product_ids,
-            request.article_type,
-            request.target_forum,
-            request.prompt_template_id,
-            request.model,
-            current_user.id,
-            request.include_images,
-            request.image_sources,
-            request.disable_system_instructions,
-        ),
-        daemon=True,
+    # 同步等待 LLM 生成（在執行緒池中執行，避免阻塞 event loop）
+    await asyncio.to_thread(
+        _generate_article_background,
+        article.id,
+        request.product_ids,
+        request.article_type,
+        request.target_forum,
+        request.prompt_template_id,
+        request.model,
+        current_user.id,
+        request.include_images,
+        request.image_sources,
+        request.disable_system_instructions,
     )
-    thread.start()
 
+    # 重新載入文章（_generate_article_background 使用獨立 session 更新）
+    db.refresh(article)
     return article
 
 
