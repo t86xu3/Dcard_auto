@@ -105,8 +105,8 @@ export default function SettingsPage() {
   const hasChanges = isNew || (selectedTemplate && (editName !== selectedTemplate.name || editContent !== selectedTemplate.content));
 
   return (
-    <div className="p-8 max-w-5xl">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">設定</h2>
+    <div className="p-4 md:p-8 max-w-5xl">
+      <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-6">設定</h2>
 
       {/* Extension */}
       <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
@@ -134,7 +134,7 @@ export default function SettingsPage() {
       {/* LLM */}
       <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">LLM 設定</h3>
-        <div className="flex gap-6">
+        <div className="flex flex-col md:flex-row gap-6">
           {/* 左側：模型選擇 */}
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-600 mb-1">模型</label>
@@ -156,7 +156,7 @@ export default function SettingsPage() {
           </div>
 
           {/* 右側：價格比較表 */}
-          <div className="w-96 shrink-0">
+          <div className="w-full md:w-96 shrink-0">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-gray-400 text-left">
@@ -268,9 +268,9 @@ export default function SettingsPage() {
         {loadingTemplates ? (
           <div className="text-center py-8 text-gray-400">載入中...</div>
         ) : (
-          <div className="flex gap-4" style={{ minHeight: '400px' }}>
+          <div className="flex flex-col md:flex-row gap-4" style={{ minHeight: '400px' }}>
             {/* 左側：範本列表（分組：內建 / 我的範本） */}
-            <div className="w-64 shrink-0 border-r border-gray-100 pr-4 overflow-y-auto">
+            <div className="w-full md:w-64 shrink-0 md:border-r border-b md:border-b-0 border-gray-100 pr-0 md:pr-4 pb-4 md:pb-0 max-h-48 md:max-h-none overflow-y-auto">
               {/* 內建範本 */}
               {templates.filter(t => t.is_builtin).length > 0 && (
                 <div className="mb-3">

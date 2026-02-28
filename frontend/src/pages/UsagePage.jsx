@@ -65,7 +65,7 @@ export default function UsagePage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[400px]">
+      <div className="p-4 md:p-8 flex items-center justify-center min-h-[400px]">
         <div className="text-gray-400">載入中...</div>
       </div>
     );
@@ -73,7 +73,7 @@ export default function UsagePage() {
 
   if (!data) {
     return (
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         <div className="text-center py-20 text-gray-400">
           <div className="text-5xl mb-4">📊</div>
           <p>無法載入用量資料</p>
@@ -86,9 +86,9 @@ export default function UsagePage() {
   const maxDailyCost = Math.max(...(history.map(h => h.daily_total_usd) || [0]), 0.001);
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-4 md:p-8 max-w-5xl">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">費用追蹤</h2>
+        <h2 className="text-xl md:text-2xl font-bold text-gray-800">費用追蹤</h2>
         {isAdmin && (
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
@@ -178,7 +178,7 @@ export default function UsagePage() {
       {history.length > 0 && (
         <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">30 天趨勢</h3>
-          <div className="flex items-end gap-1" style={{ height: '160px' }}>
+          <div className="flex items-end gap-px md:gap-1" style={{ height: '160px' }}>
             {history.slice(0, 30).reverse().map((day) => {
               const heightPct = Math.max((day.daily_total_usd / maxDailyCost) * 100, 2);
               const models = Object.keys(day.models);
@@ -244,7 +244,8 @@ export default function UsagePage() {
               </div>
             </div>
           </div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
             <thead className="bg-gray-50 text-gray-500 text-left">
               <tr>
                 <th className="p-3">用戶</th>
@@ -276,6 +277,7 @@ export default function UsagePage() {
               })}
             </tbody>
           </table>
+          </div>
           {/* 展開的模型明細 */}
           <div className="divide-y divide-gray-100 border-t border-gray-200">
             {data.by_user.map((u) => (
@@ -307,7 +309,8 @@ export default function UsagePage() {
           <div className="p-4 border-b border-gray-100">
             <h3 className="text-lg font-semibold text-gray-800">每日明細</h3>
           </div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[500px]">
             <thead className="bg-gray-50 text-gray-500 text-left">
               <tr>
                 <th className="p-3">日期</th>
@@ -341,6 +344,7 @@ export default function UsagePage() {
               )}
             </tbody>
           </table>
+          </div>
         </section>
       )}
     </div>

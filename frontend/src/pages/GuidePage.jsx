@@ -1,7 +1,7 @@
 export default function GuidePage() {
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">使用說明</h1>
+    <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
+      <h1 className="text-xl md:text-2xl font-bold text-gray-800">使用說明</h1>
       <p className="text-gray-500 text-sm">完整操作指南 — 從蝦皮擷取到 Dcard 發文的全流程</p>
 
       {/* 系統簡介 */}

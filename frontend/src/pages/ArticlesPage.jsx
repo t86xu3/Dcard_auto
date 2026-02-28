@@ -75,7 +75,7 @@ function ArticleImage({ src, alt }) {
       <img
         src={src}
         alt={alt}
-        className="max-w-md rounded-lg border border-gray-200"
+        className="max-w-full md:max-w-md rounded-lg border border-gray-200"
         loading="lazy"
       />
       <button
@@ -127,6 +127,7 @@ export default function ArticlesPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [batchDeleting, setBatchDeleting] = useState(false);
+  const [mobileShowDetail, setMobileShowDetail] = useState(false);
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -214,6 +215,7 @@ export default function ArticlesPage() {
       setEditContent(article.content || '');
       setEditTitle(article.title || '');
       setEditingTitle(false);
+      setMobileShowDetail(true);
 
       // 若已有 seo_suggestions 且含 breakdown，直接顯示
       const seoData = article.seo_suggestions;
@@ -371,7 +373,7 @@ export default function ArticlesPage() {
     <div className="flex h-full relative">
       {/* Toast 通知 */}
       {toast && (
-        <div className={`fixed top-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium transition-all ${
+        <div className={`fixed top-4 left-4 right-4 md:left-auto md:right-6 md:top-6 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium transition-all ${
           toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
         }`}>
           {toast.message}
@@ -379,7 +381,7 @@ export default function ArticlesPage() {
       )}
 
       {/* Article List */}
-      <div className="w-80 border-r border-gray-200 bg-white overflow-y-auto">
+      <div className={`w-full md:w-80 border-r border-gray-200 bg-white overflow-y-auto ${mobileShowDetail ? 'hidden md:block' : ''}`}>
         <div className="p-4 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-gray-800">文章管理</h2>
@@ -482,9 +484,16 @@ export default function ArticlesPage() {
       </div>
 
       {/* Article Detail */}
-      <div className="flex-1 overflow-y-auto">
+      <div className={`flex-1 overflow-y-auto ${mobileShowDetail ? '' : 'hidden md:block'}`}>
         {selectedArticle ? (
-          <div className="p-6">
+          <div className="p-4 md:p-6">
+            {/* 手機返回按鈕 */}
+            <button
+              onClick={() => setMobileShowDetail(false)}
+              className="md:hidden flex items-center gap-1 text-sm text-blue-500 mb-3 active:scale-95 transition-transform"
+            >
+              ← 返回列表
+            </button>
             {/* Title (editable) */}
             <div className="mb-3">
               {editingTitle ? (
@@ -513,11 +522,11 @@ export default function ArticlesPage() {
             </div>
 
             {/* Toolbar */}
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-4 flex-wrap">
               {selectedArticle.status !== 'failed' && (
                 <>
                   <button onClick={handleCopy} className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 active:scale-95 transition-transform">
-                    📋 複製
+                    📋 <span className="hidden md:inline">複製</span>
                   </button>
                   {extInstalled && (
                     <button
@@ -525,16 +534,16 @@ export default function ArticlesPage() {
                       disabled={pasting}
                       className="px-3 py-1.5 text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform"
                     >
-                      {pasting ? '⏳ 開啟中...' : '📮 貼到 Dcard'}
+                      {pasting ? '⏳' : '📮'} <span className="hidden md:inline">{pasting ? '開啟中...' : '貼到 Dcard'}</span>
                     </button>
                   )}
                   <button onClick={handleAnalyzeSeo} disabled={analyzing} className="px-3 py-1.5 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform">
-                    {analyzing ? '分析中...' : '📊 SEO 分析'}
+                    📊 <span className="hidden md:inline">{analyzing ? '分析中...' : 'SEO 分析'}</span>
                   </button>
                 </>
               )}
               <button onClick={() => handleDelete(selectedArticle.id)} className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 active:scale-95 transition-transform">
-                🗑️ 刪除
+                🗑️ <span className="hidden md:inline">刪除</span>
               </button>
             </div>
 
@@ -591,7 +600,7 @@ export default function ArticlesPage() {
 
             {/* Meta Info */}
             <div className="mt-4 p-4 bg-gray-50 rounded-xl text-sm text-gray-500">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div>類型: {typeLabels[selectedArticle.article_type]}</div>
                 <div className="flex items-center gap-2">
                   狀態:

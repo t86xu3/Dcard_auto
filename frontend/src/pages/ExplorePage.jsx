@@ -165,14 +165,14 @@ function CompetitorRow({ item, rank, sourcePrice, onSave, isSaved: saved }) {
     score >= 40 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600';
 
   return (
-    <div className="flex items-center gap-3 py-3 px-4 hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
+    <div className="flex items-center gap-2 md:gap-3 py-3 px-3 md:px-4 hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
       {/* 排名 */}
-      <div className="w-7 text-center font-bold text-gray-400 text-sm shrink-0">
+      <div className="w-6 md:w-7 text-center font-bold text-gray-400 text-sm shrink-0">
         {rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : `#${rank}`}
       </div>
 
       {/* 圖片 */}
-      <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+      <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
         {item.imageUrl ? (
           <img src={item.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.target.style.display = 'none'; }} />
         ) : (
@@ -180,19 +180,27 @@ function CompetitorRow({ item, rank, sourcePrice, onSave, isSaved: saved }) {
         )}
       </div>
 
-      {/* 名稱 */}
+      {/* 名稱 + 手機上顯示價格/佣金/銷量 */}
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-gray-800 truncate" title={item.productName}>
           {item.productName}
         </div>
-        <div className="flex items-center gap-2 mt-0.5">
+        {/* 手機：數據一行 */}
+        <div className="flex items-center gap-2 mt-0.5 md:hidden text-xs">
+          <span className="font-bold text-red-600">${price > 0 ? Math.round(price).toLocaleString() : '—'}</span>
+          <span className="text-amber-600">{commPct}%</span>
+          <span className="text-gray-500">{sales.toLocaleString()}銷</span>
+          {rating > 0 && <span className="text-gray-500">⭐{rating.toFixed(1)}</span>}
+        </div>
+        {/* 桌面：店名 */}
+        <div className="hidden md:flex items-center gap-2 mt-0.5">
           {item.shopName && <span className="text-xs text-gray-400 truncate max-w-[120px]">{item.shopName}</span>}
           {item.shopType && <ShopBadge shopType={item.shopType} />}
         </div>
       </div>
 
-      {/* 價格 */}
-      <div className="text-right shrink-0 w-24">
+      {/* 價格 - 桌面 */}
+      <div className="hidden md:block text-right shrink-0 w-24">
         <div className="text-sm font-bold text-red-600">
           ${price > 0 ? Math.round(price).toLocaleString() : '—'}
         </div>
@@ -203,20 +211,20 @@ function CompetitorRow({ item, rank, sourcePrice, onSave, isSaved: saved }) {
         )}
       </div>
 
-      {/* 佣金率 */}
-      <div className="text-center shrink-0 w-16">
+      {/* 佣金率 - 桌面 */}
+      <div className="hidden md:block text-center shrink-0 w-16">
         <div className="text-xs text-gray-500">佣金</div>
         <div className="text-sm font-medium text-amber-600">{commPct}%</div>
       </div>
 
-      {/* 銷量 */}
-      <div className="text-center shrink-0 w-16">
+      {/* 銷量 - 桌面 */}
+      <div className="hidden md:block text-center shrink-0 w-16">
         <div className="text-xs text-gray-500">銷量</div>
         <div className="text-sm font-medium text-gray-700">{sales.toLocaleString()}</div>
       </div>
 
-      {/* 評分 */}
-      <div className="text-center shrink-0 w-14">
+      {/* 評分 - 桌面 */}
+      <div className="hidden md:block text-center shrink-0 w-14">
         <div className="text-xs text-gray-500">評分</div>
         <div className="text-sm font-medium text-gray-700">{rating > 0 ? rating.toFixed(1) : '—'}</div>
       </div>
@@ -262,7 +270,7 @@ function CompetitorModal({ isOpen, onClose, sourceItem, data, loading, onSave, s
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-[95vw] max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-[95vw] max-w-4xl max-h-[85vh] flex flex-col mx-2 md:mx-0" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="p-5 border-b border-gray-200">
           <div className="flex items-center justify-between mb-3">
@@ -476,11 +484,11 @@ export default function ExplorePage() {
   const currentTab = TABS.find(t => t.key === activeTab);
 
   return (
-    <div className="p-8 max-w-7xl">
+    <div className="p-4 md:p-8 max-w-7xl">
       {/* 標題列 */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">🔍 商品探索</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-gray-800">🔍 商品探索</h2>
           {searched && (
             <p className="text-sm text-gray-500 mt-1">
               API 回傳 {stats.before} 筆，過濾後 {stats.after} 筆
@@ -490,12 +498,12 @@ export default function ExplorePage() {
       </div>
 
       {/* Tab 列 */}
-      <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
+      <div className="flex bg-gray-100 rounded-lg p-1 mb-6 overflow-x-auto">
         {TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => handleTabChange(tab.key)}
-            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all active:scale-95 ${
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all active:scale-95 whitespace-nowrap ${
               activeTab === tab.key
                 ? 'bg-white text-gray-800 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
@@ -553,7 +561,7 @@ export default function ExplorePage() {
         )}
 
         {(isCustom || showAdvanced) && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-100">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-100">
             <div>
               <label className="block text-xs text-gray-500 mb-1">排序方式</label>
               <select
@@ -657,7 +665,7 @@ export default function ExplorePage() {
       ) : (
         <>
           {/* 商品卡片網格 */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {items.map((item, idx) => (
               <ProductCard
                 key={`${item.itemId}-${idx}`}

@@ -25,8 +25,8 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="p-8">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">儀表板</h2>
+    <div className="p-4 md:p-8">
+      <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-6">儀表板</h2>
 
       {/* 公告區塊 */}
       {announcements.length > 0 && (

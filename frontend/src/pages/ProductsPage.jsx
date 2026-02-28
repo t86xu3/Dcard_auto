@@ -443,6 +443,25 @@ export default function ProductsPage() {
     return null;
   };
 
+  // 工具列溢出選單
+  const [toolbarMoreOpen, setToolbarMoreOpen] = useState(false);
+  const toolbarMoreRef = useRef(null);
+
+  useEffect(() => {
+    if (!toolbarMoreOpen) return;
+    const handler = (e) => {
+      if (toolbarMoreRef.current && !toolbarMoreRef.current.contains(e.target)) {
+        setToolbarMoreOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+  }, [toolbarMoreOpen]);
+
   // 建立 id → product 的查找表
   const productsMap = {};
   for (const p of products) {
@@ -450,10 +469,10 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="p-8 relative">
+    <div className="p-4 md:p-8 relative">
       {/* Toast 通知 */}
       {toast && (
-        <div className={`fixed top-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium transition-all ${
+        <div className={`fixed top-4 left-4 right-4 md:left-auto md:right-6 md:top-6 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium transition-all ${
           toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
         }`}>
           {toast.message}
@@ -461,87 +480,137 @@ export default function ProductsPage() {
       )}
 
       <div className="flex items-center justify-between mb-6 flex-wrap gap-y-3">
-        <h2 className="text-2xl font-bold text-gray-800">商品管理</h2>
-        <div className="flex gap-3 flex-wrap items-center">
+        <h2 className="text-xl md:text-2xl font-bold text-gray-800">商品管理</h2>
+        <div className="flex gap-2 md:gap-3 flex-wrap items-center">
+          {/* 常駐按鈕 */}
           <button
             onClick={() => { invalidateCache('products'); loadProducts(); }}
             className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 active:scale-95 transition-transform"
             title="重新整理"
           >
-            🔄 重新整理
+            🔄 <span className="hidden md:inline">重新整理</span>
           </button>
           <button
             onClick={() => { setShowAffiliateModal(true); setAffiliateResult(null); setAffiliateUrls(''); }}
-            className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 active:scale-95 transition-transform"
+            className="px-3 md:px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 active:scale-95 transition-transform"
           >
-            🔗 匯入聯盟行銷網址
+            🔗 <span className="hidden md:inline">匯入聯盟行銷網址</span><span className="md:hidden">匯入</span>
           </button>
           {/* 一鍵擷取 / 停止按鈕 */}
           {isInstalled && placeholderCount > 0 && !batchCapturing && (
             <button
               onClick={handleBatchCapture}
-              className="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 active:scale-95 transition-transform"
+              className="px-3 md:px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 active:scale-95 transition-transform"
             >
-              🚀 一鍵擷取 ({placeholderCount})
+              🚀 <span className="hidden md:inline">一鍵擷取</span> ({placeholderCount})
             </button>
           )}
           {batchCapturing && (
             <button
               onClick={handleStopCapture}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 active:scale-95 transition-transform"
+              className="px-3 md:px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 active:scale-95 transition-transform"
             >
-              ⏹️ 停止擷取
+              ⏹️ <span className="hidden md:inline">停止擷取</span>
             </button>
           )}
           {selected.length > 0 && (
             <>
-              {promptTemplates.length > 0 && (
-                <select
-                  value={selectedPromptId || ''}
-                  onChange={(e) => setSelectedPromptId(e.target.value ? Number(e.target.value) : null)}
-                  className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                >
-                  {promptTemplates.map(t => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}{t.is_default ? ' (預設)' : ''}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <label className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-pointer hover:bg-gray-50">
-                <input
-                  type="checkbox"
-                  checked={includeImages}
-                  onChange={(e) => setIncludeImages(e.target.checked)}
-                  className="rounded"
-                />
-                <span>🖼️ 附描述圖給 LLM</span>
-              </label>
-
+              {/* 生成按鈕 — 常駐 */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleGenerate}
                   disabled={generating || !user?.is_approved}
-                  className={`px-4 py-2 text-white rounded-lg text-sm font-medium active:scale-95 transition-transform ${
+                  className={`px-3 md:px-4 py-2 text-white rounded-lg text-sm font-medium active:scale-95 transition-transform ${
                     !user?.is_approved ? 'bg-gray-400 cursor-not-allowed' :
                     generating ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
                   }`}
                   title={!user?.is_approved ? '等待管理員核准' : ''}
                 >
-                  {!user?.is_approved ? '🔒 等待管理員核准' : generating ? (keywordStrategy ? '🔍 SEO 策略生成中...（約 1-2 分鐘）' : '生成中...') : `✨ 生成${selected.length >= 2 ? '比較文' : '開箱文'} (${selected.length})`}
+                  {!user?.is_approved ? '🔒 等待管理員核准' : generating ? (keywordStrategy ? '🔍 SEO 策略生成中...' : '生成中...') : `✨ 生成${selected.length >= 2 ? '比較文' : '開箱文'} (${selected.length})`}
                 </button>
                 {keywordStrategy && (
-                  <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                  <span className="hidden md:inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
                     🔍 SEO 策略已載入
                   </span>
                 )}
               </div>
-              <button
-                onClick={handleBatchDelete}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 active:scale-95 transition-transform"
-              >
-                🗑️ 刪除 ({selected.length})
-              </button>
+
+              {/* 桌面：直接顯示範本、附圖、刪除 */}
+              <div className="hidden md:contents">
+                {promptTemplates.length > 0 && (
+                  <select
+                    value={selectedPromptId || ''}
+                    onChange={(e) => setSelectedPromptId(e.target.value ? Number(e.target.value) : null)}
+                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  >
+                    {promptTemplates.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}{t.is_default ? ' (預設)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <label className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-pointer hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={includeImages}
+                    onChange={(e) => setIncludeImages(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span>🖼️ 附描述圖給 LLM</span>
+                </label>
+                <button
+                  onClick={handleBatchDelete}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 active:scale-95 transition-transform"
+                >
+                  🗑️ 刪除 ({selected.length})
+                </button>
+              </div>
+
+              {/* 手機：更多按鈕 */}
+              <div className="relative md:hidden" ref={toolbarMoreRef}>
+                <button
+                  onClick={() => setToolbarMoreOpen(!toolbarMoreOpen)}
+                  className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 active:scale-95 transition-transform"
+                >
+                  ⋯
+                </button>
+                {toolbarMoreOpen && (
+                  <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
+                    {promptTemplates.length > 0 && (
+                      <div className="px-3 py-2">
+                        <label className="block text-xs text-gray-500 mb-1">範本</label>
+                        <select
+                          value={selectedPromptId || ''}
+                          onChange={(e) => setSelectedPromptId(e.target.value ? Number(e.target.value) : null)}
+                          className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm"
+                        >
+                          {promptTemplates.map(t => (
+                            <option key={t.id} value={t.id}>
+                              {t.name}{t.is_default ? ' (預設)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <label className="flex items-center gap-2 px-3 py-2.5 text-sm cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={includeImages}
+                        onChange={(e) => setIncludeImages(e.target.checked)}
+                        className="rounded"
+                      />
+                      <span>🖼️ 附描述圖給 LLM</span>
+                    </label>
+                    <button
+                      onClick={() => { handleBatchDelete(); setToolbarMoreOpen(false); }}
+                      className="w-full text-left px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 active:scale-95 transition-transform"
+                    >
+                      🗑️ 刪除所選 ({selected.length})
+                    </button>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>
@@ -709,7 +778,7 @@ export default function ProductsPage() {
           </div>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={selected} strategy={horizontalListSortingStrategy}>
-              <div className="flex gap-4 overflow-x-auto pt-3 pb-2 px-1">
+              <div className="flex flex-wrap md:flex-nowrap gap-3 md:gap-4 overflow-x-auto pt-3 pb-2 px-1">
                 {selected.map((id, index) => (
                   <SortableProductCard
                     key={id}
@@ -745,138 +814,80 @@ export default function ProductsPage() {
           <p className="text-sm mt-2">請使用 Chrome Extension 擷取蝦皮商品</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-left">
-              <tr>
-                <th className="p-3 w-10">
-                  <input
-                    type="checkbox"
-                    checked={selected.length === selectableProducts.length && selectableProducts.length > 0}
-                    onChange={selectAll}
-                    className="rounded"
-                  />
-                </th>
-                <th className="p-3">商品</th>
-                <th className="p-3 w-24">價格</th>
-                <th className="p-3 w-20">評分</th>
-                <th className="p-3 w-20">銷量</th>
-                <th className="p-3 w-32">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map(product => {
-                const isPlaceholder = product.name === '待擷取';
-                const captureStatus = isPlaceholder ? getCaptureStatus(product.id) : null;
-                return (
-                <tr key={product.id} className={`border-t border-gray-100 ${isPlaceholder ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-gray-50'}`}>
-                  <td className="p-3">
+        <>
+          {/* 手機卡片列表 */}
+          <div className="md:hidden space-y-3">
+            {/* 全選 */}
+            <div className="flex items-center gap-2 px-1">
+              <input
+                type="checkbox"
+                checked={selected.length === selectableProducts.length && selectableProducts.length > 0}
+                onChange={selectAll}
+                className="rounded"
+              />
+              <span className="text-xs text-gray-500">全選 ({selectableProducts.length})</span>
+            </div>
+            {products.map(product => {
+              const isPlaceholder = product.name === '待擷取';
+              const captureStatus = isPlaceholder ? getCaptureStatus(product.id) : null;
+              return (
+                <div
+                  key={product.id}
+                  className={`bg-white rounded-xl border p-3 ${
+                    isPlaceholder ? 'border-amber-200 bg-amber-50' :
+                    selected.includes(product.id) ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
                     <input
                       type="checkbox"
                       checked={selected.includes(product.id)}
                       onChange={() => toggleSelect(product.id)}
                       disabled={isPlaceholder}
-                      className={`rounded ${isPlaceholder ? 'opacity-30 cursor-not-allowed' : ''}`}
+                      className={`rounded mt-1 shrink-0 ${isPlaceholder ? 'opacity-30 cursor-not-allowed' : ''}`}
                     />
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-3">
-                      {isPlaceholder ? (
-                        <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center text-2xl">📦</div>
-                      ) : product.images?.[0] ? (
-                        <img
-                          src={product.images[0]}
-                          alt=""
-                          className="w-12 h-12 rounded-lg object-cover bg-gray-100"
-                        />
-                      ) : null}
-                      <div className="min-w-0">
-                        <div className={`font-medium truncate max-w-xs ${isPlaceholder ? 'text-amber-700' : 'text-gray-800'}`}>
-                          {isPlaceholder ? '⏳ 待擷取' : product.name}
-                        </div>
-                        {isPlaceholder ? (
-                          product.affiliate_url && (
-                            <div className="text-xs text-amber-600 truncate max-w-[200px]" title={product.affiliate_url}>
-                              🔗 {product.affiliate_url}
-                            </div>
-                          )
-                        ) : (
-                          <>
-                            <div className="text-xs text-gray-400">{product.shop_name}</div>
-                            {editingUrlId === product.id ? (
-                              <div className="flex items-center gap-1.5 mt-1">
-                                <input
-                                  type="text"
-                                  value={editingUrlValue}
-                                  onChange={(e) => setEditingUrlValue(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleSaveUrl(product.id);
-                                    if (e.key === 'Escape') cancelEditUrl();
-                                  }}
-                                  placeholder="https://shopee.tw/..."
-                                  className="flex-1 text-xs px-2 py-1 border border-gray-300 rounded focus:outline-none focus:border-blue-400 min-w-0"
-                                  autoFocus
-                                />
-                                <button
-                                  onClick={() => handleSaveUrl(product.id)}
-                                  className="text-xs text-green-600 hover:text-green-700 whitespace-nowrap active:scale-95 transition-transform inline-block"
-                                >
-                                  💾 儲存
-                                </button>
-                                <button
-                                  onClick={cancelEditUrl}
-                                  className="text-xs text-gray-400 hover:text-gray-600 whitespace-nowrap active:scale-95 transition-transform inline-block"
-                                >
-                                  ✕ 取消
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1 mt-0.5">
-                                {product.affiliate_url ? (
-                                  <a
-                                    href={product.affiliate_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-green-600 hover:text-green-700 truncate max-w-[200px]"
-                                    title={product.affiliate_url}
-                                  >
-                                    🔗 {product.affiliate_url.replace(/^https?:\/\//, '').slice(0, 30)}
-                                  </a>
-                                ) : product.product_url ? (
-                                  <a
-                                    href={product.product_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-blue-400 hover:text-blue-600 truncate max-w-[200px]"
-                                    title={product.product_url}
-                                  >
-                                    {product.product_url.replace(/^https?:\/\//, '').slice(0, 35)}...
-                                  </a>
-                                ) : null}
-                                <button
-                                  onClick={() => startEditUrl(product)}
-                                  className="text-xs text-gray-400 hover:text-gray-600 active:scale-95 transition-transform inline-block"
-                                  title="編輯連結"
-                                >
-                                  ✏️
-                                </button>
-                              </div>
-                            )}
-                          </>
-                        )}
+                    {isPlaceholder ? (
+                      <div className="w-14 h-14 rounded-lg bg-amber-100 flex items-center justify-center text-2xl shrink-0">📦</div>
+                    ) : product.images?.[0] ? (
+                      <img src={product.images[0]} alt="" className="w-14 h-14 rounded-lg object-cover bg-gray-100 shrink-0" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center text-xl text-gray-300 shrink-0">📦</div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className={`font-medium text-sm truncate ${isPlaceholder ? 'text-amber-700' : 'text-gray-800'}`}>
+                        {isPlaceholder ? '⏳ 待擷取' : product.name}
                       </div>
+                      {isPlaceholder ? (
+                        product.affiliate_url && (
+                          <div className="text-xs text-amber-600 truncate mt-0.5" title={product.affiliate_url}>
+                            🔗 {product.affiliate_url}
+                          </div>
+                        )
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-3 mt-1 text-xs">
+                            <span className="font-medium text-blue-600">${product.price?.toLocaleString() || 'N/A'}</span>
+                            {product.rating > 0 && <span className="text-yellow-500">⭐ {product.rating.toFixed(1)}</span>}
+                            {product.sold > 0 && <span className="text-gray-500">📦 {product.sold.toLocaleString()}</span>}
+                          </div>
+                          {(product.affiliate_url || product.product_url) && (
+                            <div className="mt-1">
+                              <a
+                                href={product.affiliate_url || product.product_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`text-xs truncate block ${product.affiliate_url ? 'text-green-600' : 'text-blue-400'}`}
+                              >
+                                🔗 {(product.affiliate_url || product.product_url).replace(/^https?:\/\//, '').slice(0, 35)}
+                              </a>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
-                  </td>
-                  <td className="p-3 font-medium text-blue-600">
-                    {isPlaceholder ? <span className="text-gray-400">-</span> : `$${product.price?.toLocaleString() || 'N/A'}`}
-                  </td>
-                  <td className="p-3 text-yellow-500">
-                    {isPlaceholder ? <span className="text-gray-400">-</span> : product.rating ? `⭐ ${product.rating.toFixed(1)}` : '-'}
-                  </td>
-                  <td className="p-3 text-gray-600">
-                    {isPlaceholder ? <span className="text-gray-400">-</span> : product.sold?.toLocaleString() || '-'}
-                  </td>
-                  <td className="p-3">
+                  </div>
+                  {/* 操作列 */}
+                  <div className="flex items-center gap-2 mt-2 ml-7">
                     {isPlaceholder ? (
                       captureStatus ? (
                         <span className={`text-xs font-medium ${captureStatus.color} ${captureStatus.animate ? 'animate-pulse' : ''}`}>
@@ -885,41 +896,216 @@ export default function ProductsPage() {
                       ) : (
                         <button
                           onClick={() => window.open(product.product_url, '_blank')}
-                          className="text-xs text-amber-600 hover:text-amber-800 font-medium active:scale-95 transition-transform inline-block"
+                          className="text-xs text-amber-600 hover:text-amber-800 font-medium active:scale-95 transition-transform"
                         >
                           🔗 前往擷取
                         </button>
                       )
                     ) : (
-                      <div className="flex gap-2">
+                      <>
+                        <button
+                          onClick={() => startEditUrl(product)}
+                          className="text-xs text-gray-500 hover:text-gray-700 active:scale-95 transition-transform"
+                        >
+                          ✏️ 編輯連結
+                        </button>
                         <button
                           onClick={() => handleDownloadImages(product.id)}
-                          className="text-xs text-blue-500 hover:underline active:scale-95 transition-transform inline-block"
-                          title="下載圖片"
+                          className="text-xs text-blue-500 active:scale-95 transition-transform"
                         >
                           📥 圖片
                         </button>
                         <button
                           onClick={() => handleDelete(product.id)}
-                          className="text-xs text-red-500 hover:underline active:scale-95 transition-transform inline-block"
+                          className="text-xs text-red-500 active:scale-95 transition-transform"
                         >
                           🗑️ 刪除
                         </button>
-                      </div>
+                      </>
                     )}
-                  </td>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 桌面表格 */}
+          <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 text-left">
+                <tr>
+                  <th className="p-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={selected.length === selectableProducts.length && selectableProducts.length > 0}
+                      onChange={selectAll}
+                      className="rounded"
+                    />
+                  </th>
+                  <th className="p-3">商品</th>
+                  <th className="p-3 w-24">價格</th>
+                  <th className="p-3 w-20">評分</th>
+                  <th className="p-3 w-20">銷量</th>
+                  <th className="p-3 w-32">操作</th>
                 </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {products.map(product => {
+                  const isPlaceholder = product.name === '待擷取';
+                  const captureStatus = isPlaceholder ? getCaptureStatus(product.id) : null;
+                  return (
+                  <tr key={product.id} className={`border-t border-gray-100 ${isPlaceholder ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-gray-50'}`}>
+                    <td className="p-3">
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(product.id)}
+                        onChange={() => toggleSelect(product.id)}
+                        disabled={isPlaceholder}
+                        className={`rounded ${isPlaceholder ? 'opacity-30 cursor-not-allowed' : ''}`}
+                      />
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-3">
+                        {isPlaceholder ? (
+                          <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center text-2xl">📦</div>
+                        ) : product.images?.[0] ? (
+                          <img
+                            src={product.images[0]}
+                            alt=""
+                            className="w-12 h-12 rounded-lg object-cover bg-gray-100"
+                          />
+                        ) : null}
+                        <div className="min-w-0">
+                          <div className={`font-medium truncate max-w-xs ${isPlaceholder ? 'text-amber-700' : 'text-gray-800'}`}>
+                            {isPlaceholder ? '⏳ 待擷取' : product.name}
+                          </div>
+                          {isPlaceholder ? (
+                            product.affiliate_url && (
+                              <div className="text-xs text-amber-600 truncate max-w-[200px]" title={product.affiliate_url}>
+                                🔗 {product.affiliate_url}
+                              </div>
+                            )
+                          ) : (
+                            <>
+                              <div className="text-xs text-gray-400">{product.shop_name}</div>
+                              {editingUrlId === product.id ? (
+                                <div className="flex items-center gap-1.5 mt-1">
+                                  <input
+                                    type="text"
+                                    value={editingUrlValue}
+                                    onChange={(e) => setEditingUrlValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSaveUrl(product.id);
+                                      if (e.key === 'Escape') cancelEditUrl();
+                                    }}
+                                    placeholder="https://shopee.tw/..."
+                                    className="flex-1 text-xs px-2 py-1 border border-gray-300 rounded focus:outline-none focus:border-blue-400 min-w-0"
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={() => handleSaveUrl(product.id)}
+                                    className="text-xs text-green-600 hover:text-green-700 whitespace-nowrap active:scale-95 transition-transform inline-block"
+                                  >
+                                    💾 儲存
+                                  </button>
+                                  <button
+                                    onClick={cancelEditUrl}
+                                    className="text-xs text-gray-400 hover:text-gray-600 whitespace-nowrap active:scale-95 transition-transform inline-block"
+                                  >
+                                    ✕ 取消
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  {product.affiliate_url ? (
+                                    <a
+                                      href={product.affiliate_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-green-600 hover:text-green-700 truncate max-w-[200px]"
+                                      title={product.affiliate_url}
+                                    >
+                                      🔗 {product.affiliate_url.replace(/^https?:\/\//, '').slice(0, 30)}
+                                    </a>
+                                  ) : product.product_url ? (
+                                    <a
+                                      href={product.product_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-blue-400 hover:text-blue-600 truncate max-w-[200px]"
+                                      title={product.product_url}
+                                    >
+                                      {product.product_url.replace(/^https?:\/\//, '').slice(0, 35)}...
+                                    </a>
+                                  ) : null}
+                                  <button
+                                    onClick={() => startEditUrl(product)}
+                                    className="text-xs text-gray-400 hover:text-gray-600 active:scale-95 transition-transform inline-block"
+                                    title="編輯連結"
+                                  >
+                                    ✏️
+                                  </button>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-3 font-medium text-blue-600">
+                      {isPlaceholder ? <span className="text-gray-400">-</span> : `$${product.price?.toLocaleString() || 'N/A'}`}
+                    </td>
+                    <td className="p-3 text-yellow-500">
+                      {isPlaceholder ? <span className="text-gray-400">-</span> : product.rating ? `⭐ ${product.rating.toFixed(1)}` : '-'}
+                    </td>
+                    <td className="p-3 text-gray-600">
+                      {isPlaceholder ? <span className="text-gray-400">-</span> : product.sold?.toLocaleString() || '-'}
+                    </td>
+                    <td className="p-3">
+                      {isPlaceholder ? (
+                        captureStatus ? (
+                          <span className={`text-xs font-medium ${captureStatus.color} ${captureStatus.animate ? 'animate-pulse' : ''}`}>
+                            {captureStatus.label}
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => window.open(product.product_url, '_blank')}
+                            className="text-xs text-amber-600 hover:text-amber-800 font-medium active:scale-95 transition-transform inline-block"
+                          >
+                            🔗 前往擷取
+                          </button>
+                        )
+                      ) : (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleDownloadImages(product.id)}
+                            className="text-xs text-blue-500 hover:underline active:scale-95 transition-transform inline-block"
+                            title="下載圖片"
+                          >
+                            📥 圖片
+                          </button>
+                          <button
+                            onClick={() => handleDelete(product.id)}
+                            className="text-xs text-red-500 hover:underline active:scale-95 transition-transform inline-block"
+                          >
+                            🗑️ 刪除
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Affiliate URL Import Modal */}
       {showAffiliateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 md:p-4 z-50">
+          <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl mx-2 md:mx-0">
             <div className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <h2 className="text-lg font-bold">🔗 匯入聯盟行銷網址</h2>
