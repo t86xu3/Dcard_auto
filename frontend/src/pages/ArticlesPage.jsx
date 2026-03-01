@@ -123,6 +123,7 @@ export default function ArticlesPage() {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [pasting, setPasting] = useState(false);
+  const [pastingVocus, setPastingVocus] = useState(false);
   const [toast, setToast] = useState(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -344,6 +345,34 @@ export default function ArticlesPage() {
     }
   };
 
+  const handlePasteToVocus = async () => {
+    if (!selectedArticle || !extensionId) return;
+    setPastingVocus(true);
+    try {
+      chrome.runtime.sendMessage(extensionId, {
+        type: 'PASTE_ARTICLE_TO_VOCUS',
+        data: {
+          articleId: selectedArticle.id,
+          accessToken: localStorage.getItem('accessToken'),
+        }
+      }, async (response) => {
+        setPastingVocus(false);
+        if (chrome.runtime.lastError) {
+          showToast('error', `Extension 連線失敗: ${chrome.runtime.lastError.message}`);
+          return;
+        }
+        if (response?.success) {
+          showToast('success', '已開啟方格子，自動貼上中...');
+        } else {
+          showToast('error', response?.error || '貼到方格子失敗');
+        }
+      });
+    } catch (err) {
+      setPastingVocus(false);
+      showToast('error', `貼到方格子失敗: ${err.message}`);
+    }
+  };
+
   const statusColors = {
     generating: 'bg-orange-100 text-orange-600 animate-pulse',
     failed: 'bg-red-100 text-red-600',
@@ -529,13 +558,22 @@ export default function ArticlesPage() {
                     📋 <span className="hidden md:inline">複製</span>
                   </button>
                   {extInstalled && (
-                    <button
-                      onClick={handlePasteToDcard}
-                      disabled={pasting}
-                      className="px-3 py-1.5 text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform"
-                    >
-                      {pasting ? '⏳' : '📮'} <span className="hidden md:inline">{pasting ? '開啟中...' : '貼到 Dcard'}</span>
-                    </button>
+                    <>
+                      <button
+                        onClick={handlePasteToDcard}
+                        disabled={pasting}
+                        className="px-3 py-1.5 text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform"
+                      >
+                        {pasting ? '⏳' : '📮'} <span className="hidden md:inline">{pasting ? '開啟中...' : '貼到 Dcard'}</span>
+                      </button>
+                      <button
+                        onClick={handlePasteToVocus}
+                        disabled={pastingVocus}
+                        className="px-3 py-1.5 text-sm bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform"
+                      >
+                        {pastingVocus ? '⏳' : '✏️'} <span className="hidden md:inline">{pastingVocus ? '開啟中...' : '貼到方格子'}</span>
+                      </button>
+                    </>
                   )}
                   <button onClick={handleAnalyzeSeo} disabled={analyzing} className="px-3 py-1.5 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform">
                     📊 <span className="hidden md:inline">{analyzing ? '分析中...' : 'SEO 分析'}</span>

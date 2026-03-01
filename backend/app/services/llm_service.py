@@ -311,6 +311,9 @@ class LLMService:
                 new_error.retry_history = e.retry_history
             raise new_error from e
 
+        # 保存原始 Markdown 版本（方格子需要標題層級結構 → 自動目錄 → SEO）
+        raw_markdown = generated_text
+
         # 清除 Markdown 語法（Dcard 不支援）
         generated_text = strip_markdown(generated_text)
 
@@ -335,9 +338,15 @@ class LLMService:
         content = re.sub(r'\{\{IMAGE:[^}]*\}\}', '', content)
         content_with_images = re.sub(r'\{\{IMAGE:[^}]*\}\}', '', content_with_images)
 
+        # 解析 Markdown 版本的標題和內容（保留 Markdown 語法）
+        _, content_markdown = self._parse_title_content(raw_markdown, products, article_type)
+        # 清除殘留的 {{IMAGE:...}} 標記
+        content_markdown = re.sub(r'\{\{IMAGE:[^}]*\}\}', '', content_markdown)
+
         return {
             "title": title,
             "content": content,
+            "content_markdown": content_markdown,
             "content_with_images": content_with_images,
             "image_map": image_map,
         }

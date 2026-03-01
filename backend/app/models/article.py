@@ -15,7 +15,8 @@ class Article(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     title = Column(String(500), nullable=False)
-    content = Column(Text)  # 純文字內容
+    content = Column(Text)  # 純文字內容（已去除 Markdown，供 Dcard 使用）
+    content_markdown = Column(Text)  # 原始 Markdown 內容（保留標題/粗體/列表，供方格子使用）
     content_with_images = Column(Text)  # 含圖片標記的內容
     article_type = Column(String(20), default="comparison")  # comparison / review / seo
     target_forum = Column(String(50), default="goodthings")

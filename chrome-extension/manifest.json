@@ -27,6 +27,8 @@
         "https://shopee.tw/*",
         "https://*.shopee.tw/*",
         "https://www.dcard.tw/*",
+        "https://vocus.cc/*",
+        "https://creator.vocus.cc/*",
         "https://down-tw.img.susercontent.com/*",
         "http://localhost:*/*",
         "http://127.0.0.1:*/*",
@@ -53,6 +55,16 @@
             ],
             "js": [
                 "content-dcard.js"
+            ],
+            "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "https://vocus.cc/*",
+                "https://creator.vocus.cc/*"
+            ],
+            "js": [
+                "content-vocus.js"
             ],
             "run_at": "document_end"
         },

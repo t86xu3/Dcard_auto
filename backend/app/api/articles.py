@@ -139,6 +139,7 @@ def _generate_article_background(
             if article:
                 article.title = result["title"]
                 article.content = result["content"]
+                article.content_markdown = result.get("content_markdown")
                 article.content_with_images = result["content_with_images"]
                 article.image_map = result.get("image_map")
                 article.seo_score = seo_result["score"]
@@ -500,6 +501,60 @@ async def copy_article(
         "plain_content": plain_content,
         "paste_content": paste_content,
         "forum": article.target_forum,
+        "image_positions": image_positions,
+    }
+
+
+@router.get("/{article_id}/copy-vocus")
+async def copy_article_vocus(
+    article_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """取得方格子格式化內容（保留 Markdown 標題結構，供 SEO 目錄生成）"""
+    article = db.query(Article).filter(Article.id == article_id, Article.user_id == current_user.id).first()
+    if not article:
+        raise HTTPException(status_code=404, detail="文章不存在")
+
+    import re
+
+    # 優先使用 content_markdown（保留 H2/H3 標題結構）
+    # fallback 到 content（已去除 Markdown 的純文字版本）
+    markdown_content = article.content_markdown or article.content or ""
+
+    # 建立 URL → marker 反查表
+    url_to_marker = {}
+    if article.image_map:
+        url_to_marker = {url: marker for marker, url in article.image_map.items()}
+
+    # 從含圖片的版本抽取圖片位置
+    cwi = article.content_with_images or ""
+    image_positions = []
+    paste_content = markdown_content
+    img_index = 0
+
+    if url_to_marker and cwi:
+        for match in re.finditer(r'!\[.*?\]\((.*?)\)', cwi):
+            url = match.group(1)
+            marker = url_to_marker.get(url)
+            if marker:
+                img_index += 1
+                image_positions.append({"marker": marker, "url": url, "index": img_index})
+
+        # 在 Markdown 內容中插入圖片標記
+        if image_positions and article.content_markdown:
+            # content_markdown 沒有圖片標記，需要對照 content_with_images 的位置插入
+            # 簡化策略：圖片附在文末（方格子支援拖拽重排）
+            paste_content = markdown_content
+            for img in image_positions:
+                paste_content += f"\n\n📷圖{img['index']}"
+
+    return {
+        "title": article.title,
+        "content": article.content or "",
+        "content_markdown": markdown_content,
+        "plain_content": markdown_content,
+        "paste_content": paste_content,
         "image_positions": image_positions,
     }
 

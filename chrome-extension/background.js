@@ -54,6 +54,14 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
         return true;
     }
 
+    // 從 Web UI 觸發「貼到方格子」
+    if (message.type === 'PASTE_ARTICLE_TO_VOCUS') {
+        handlePasteArticleToVocus(message.data).then(result => {
+            sendResponse(result);
+        });
+        return true;
+    }
+
     // 批量擷取：啟動
     if (message.type === 'BATCH_CAPTURE_START') {
         startBatchCapture(message.data).then(result => {
@@ -576,6 +584,106 @@ async function handlePasteArticleToDcard(data) {
         // 4. 傳送文章到 content-dcard.js
         await chrome.tabs.sendMessage(dcardTab.id, {
             type: 'AUTO_PASTE_ARTICLE',
+            data: articleData
+        });
+
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 從 Web UI 觸發的方格子自動貼文流程：
+ * 1. 透過後端 API 取得文章資料（含 Markdown 版本）
+ * 2. 找到或開啟方格子編輯器頁面
+ * 3. 等待頁面載入完成
+ * 4. 轉發 AUTO_PASTE_ARTICLE_VOCUS 給 content-vocus.js
+ */
+async function handlePasteArticleToVocus(data) {
+    try {
+        const { articleId, accessToken } = data;
+
+        // 1. 取得文章 copy 資料
+        const headers = { 'Content-Type': 'application/json' };
+        const token = accessToken || authToken;
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        // 使用 vocus 格式端點（若存在），否則 fallback 到一般 copy
+        let articleData;
+        try {
+            const resp = await fetch(`${API_BASE_URL}/articles/${articleId}/copy-vocus`, { headers });
+            if (resp.ok) {
+                articleData = await resp.json();
+            }
+        } catch (e) {
+            // 忽略，fallback
+        }
+
+        if (!articleData) {
+            const response = await fetch(`${API_BASE_URL}/articles/${articleId}/copy`, { headers });
+            if (!response.ok) {
+                const err = await response.text();
+                return { success: false, error: `取得文章失敗: ${err}` };
+            }
+            articleData = await response.json();
+        }
+
+        // 2. 找到或開啟方格子編輯器
+        let vocusTab = null;
+
+        // 先找已開啟的方格子編輯器（new-editor 頁面）
+        const editorTabs = await chrome.tabs.query({ url: 'https://vocus.cc/new-editor*' });
+        if (editorTabs.length > 0) {
+            vocusTab = editorTabs[0];
+            await chrome.tabs.update(vocusTab.id, { active: true });
+            // 編輯器已存在，直接傳送
+            await new Promise(r => setTimeout(r, 1000));
+            await chrome.tabs.sendMessage(vocusTab.id, {
+                type: 'AUTO_PASTE_ARTICLE_VOCUS',
+                data: articleData
+            });
+            return { success: true };
+        }
+
+        // 沒有已開啟的編輯器 → 開啟 creatordesk，由 content script 自動點「文章」
+        const deskTabs = await chrome.tabs.query({ url: 'https://vocus.cc/creatordesk*' });
+        if (deskTabs.length > 0) {
+            vocusTab = deskTabs[0];
+            await chrome.tabs.update(vocusTab.id, { active: true });
+        } else {
+            vocusTab = await chrome.tabs.create({
+                url: 'https://vocus.cc/creatordesk',
+                active: true,
+            });
+        }
+
+        // 3. 等待頁面載入
+        const waitForTab = (tabId) => new Promise((resolve) => {
+            const check = (updatedTabId, changeInfo) => {
+                if (updatedTabId === tabId && changeInfo.status === 'complete') {
+                    chrome.tabs.onUpdated.removeListener(check);
+                    resolve();
+                }
+            };
+            chrome.tabs.onUpdated.addListener(check);
+            chrome.tabs.get(tabId, (tab) => {
+                if (tab.status === 'complete') {
+                    chrome.tabs.onUpdated.removeListener(check);
+                    resolve();
+                }
+            });
+        });
+
+        await waitForTab(vocusTab.id);
+        await new Promise(r => setTimeout(r, 1500));
+
+        // 4. 傳送文章資料到 content script
+        //    content script 會：① 自動點「文章」按鈕 ② 等待編輯器出現 ③ 自動貼文
+        await chrome.tabs.sendMessage(vocusTab.id, {
+            type: 'AUTO_PASTE_ARTICLE_VOCUS',
             data: articleData
         });
 
