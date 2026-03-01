@@ -518,36 +518,49 @@ async def copy_article_vocus(
 
     import re
 
-    # 優先使用 content_markdown（保留 H2/H3 標題結構）
+    # 優先使用 content_markdown（保留 H2/H3 標題結構 → 方格子目錄 SEO）
     # fallback 到 content（已去除 Markdown 的純文字版本）
     markdown_content = article.content_markdown or article.content or ""
 
-    # 建立 URL → marker 反查表
-    url_to_marker = {}
-    if article.image_map:
-        url_to_marker = {url: marker for marker, url in article.image_map.items()}
-
-    # 從含圖片的版本抽取圖片位置
-    cwi = article.content_with_images or ""
     image_positions = []
     paste_content = markdown_content
     img_index = 0
 
-    if url_to_marker and cwi:
-        for match in re.finditer(r'!\[.*?\]\((.*?)\)', cwi):
-            url = match.group(1)
-            marker = url_to_marker.get(url)
-            if marker:
-                img_index += 1
-                image_positions.append({"marker": marker, "url": url, "index": img_index})
+    # 檢查 content_markdown 是否已有內嵌圖片（新版文章）
+    has_inline_images = bool(re.search(r'!\[.*?\]\(https?://.*?\)', markdown_content))
 
-        # 在 Markdown 內容中插入圖片標記
-        if image_positions and article.content_markdown:
-            # content_markdown 沒有圖片標記，需要對照 content_with_images 的位置插入
-            # 簡化策略：圖片附在文末（方格子支援拖拽重排）
-            paste_content = markdown_content
-            for img in image_positions:
-                paste_content += f"\n\n📷圖{img['index']}"
+    if has_inline_images:
+        # 新版：content_markdown 已有 ![商品圖片](url) 在正確位置
+        # 提取圖片 URL 並替換為 📷圖N 標記
+        def replace_with_marker(match):
+            nonlocal img_index
+            img_index += 1
+            image_positions.append({"url": match.group(1), "index": img_index})
+            return f"\n📷圖{img_index}\n"
+
+        paste_content = re.sub(
+            r'\n*!\[.*?\]\((https?://.*?)\)\n*',
+            replace_with_marker,
+            markdown_content
+        )
+    else:
+        # 舊版文章：content_markdown 無圖片，從 content_with_images 提取
+        url_to_marker = {}
+        if article.image_map:
+            url_to_marker = {url: marker for marker, url in article.image_map.items()}
+
+        cwi = article.content_with_images or ""
+        if url_to_marker and cwi:
+            for match in re.finditer(r'!\[.*?\]\((.*?)\)', cwi):
+                url = match.group(1)
+                if url_to_marker.get(url):
+                    img_index += 1
+                    image_positions.append({"url": url, "index": img_index})
+
+            # 舊版 fallback：圖片附在文末（無法精確定位）
+            if image_positions:
+                for img in image_positions:
+                    paste_content += f"\n\n📷圖{img['index']}"
 
     return {
         "title": article.title,

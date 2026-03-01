@@ -340,7 +340,13 @@ class LLMService:
 
         # 解析 Markdown 版本的標題和內容（保留 Markdown 語法）
         _, content_markdown = self._parse_title_content(raw_markdown, products, article_type)
-        # 清除殘留的 {{IMAGE:...}} 標記
+        # 替換 {{IMAGE:...}} 標記為 Markdown 圖片語法（方格子支援圖片內嵌）
+        for marker, img_url in image_map.items():
+            content_markdown = content_markdown.replace(
+                f"{{{{{marker}}}}}",
+                f"\n\n![商品圖片]({img_url})\n\n"
+            )
+        # 清除殘留的 {{IMAGE:...}} 標記（LLM 自創的不存在索引）
         content_markdown = re.sub(r'\{\{IMAGE:[^}]*\}\}', '', content_markdown)
 
         return {

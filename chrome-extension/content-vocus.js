@@ -183,15 +183,19 @@
         continue;
       }
 
-      // 分隔線
-      if (/^---+$/.test(line.trim())) {
+      // 分隔線（--- 或 ===）
+      if (/^(-{3,}|={3,})$/.test(line.trim())) {
         htmlLines.push('<hr>');
         continue;
       }
 
-      // 空行
+      // 空行 — 使用 Lexical 標準的空段落格式（裸 <br> 會被忽略或造成問題）
       if (line.trim() === '') {
-        htmlLines.push('<br>');
+        // 避免連續多個空段落
+        const last = htmlLines[htmlLines.length - 1];
+        if (last !== '<p><br></p>') {
+          htmlLines.push('<p><br></p>');
+        }
         continue;
       }
 
@@ -330,8 +334,9 @@
         // Markdown → HTML，讓 Lexical 解析標題層級
         const html = markdownToHtml(content);
         dt.setData('text/html', html);
-        dt.setData('text/plain', content); // fallback
-        console.log(`${LOG_PREFIX} 使用 HTML 格式貼上（保留標題結構）`);
+        dt.setData('text/plain', content); // fallback（Lexical HTML 解析可能失敗）
+        console.log(`${LOG_PREFIX} 使用 HTML 格式貼上（保留標題結構 → 目錄 SEO）`);
+        console.log(`${LOG_PREFIX} HTML 預覽 (前 500 字):`, html.slice(0, 500));
       } else {
         dt.setData('text/plain', content);
       }
@@ -379,7 +384,7 @@
     if (isMarkdown) {
       const html = markdownToHtml(text);
       dt.setData('text/html', html);
-      dt.setData('text/plain', text);
+      dt.setData('text/plain', text); // fallback
     } else {
       dt.setData('text/plain', text);
     }
@@ -633,7 +638,7 @@
         editor,
         paste_content,
         image_positions,
-        false, // 圖片交錯模式用純文字（標記格式）
+        isMarkdown, // 有 Markdown 時用 HTML 格式（保留 H2/H3 → 目錄 SEO）
       );
       removeProgressPanel();
 
@@ -939,8 +944,18 @@
 
     if (message.type === 'AUTO_PASTE_ARTICLE_VOCUS') {
       pendingArticle = message.data;
-      // 根據當前頁面決定流程：creatordesk → 先點「文章」 / new-editor → 直接貼
-      navigateToEditorAndPaste(message.data);
+      autoPasteArticle(message.data);
+      sendResponse({ success: true });
+      return true;
+    }
+
+    if (message.type === 'CLICK_VOCUS_ARTICLE_BUTTON') {
+      // 從 creatordesk 頁面點「文章」按鈕（會開新分頁）
+      clickArticleButton().then((clicked) => {
+        if (!clicked) {
+          showToast('找不到「文章」按鈕，請手動點擊', 'error');
+        }
+      });
       sendResponse({ success: true });
       return true;
     }
@@ -959,8 +974,31 @@
 
   console.log(`${LOG_PREFIX} 內容腳本已載入: ${window.location.href}`);
 
-  // 如果在編輯器頁面，延遲偵測
-  if (/vocus\.cc\/(new-editor|editor|create|draft)/i.test(window.location.href)) {
-    setTimeout(detectAndReport, 2000);
+  const isEditorPage = /vocus\.cc\/new-editor/i.test(window.location.href);
+
+  if (isEditorPage) {
+    // 在編輯器頁面：檢查 storage 是否有待貼文章（從 creatordesk 點「文章」開新分頁的情境）
+    chrome.storage.local.get('pendingVocusArticle', async (data) => {
+      if (data.pendingVocusArticle) {
+        console.log(`${LOG_PREFIX} 從 storage 讀取到待貼文章，等待編輯器...`);
+        // 清除 storage，避免重複貼
+        await chrome.storage.local.remove('pendingVocusArticle');
+        pendingArticle = data.pendingVocusArticle;
+
+        // 等待 Lexical 編輯器出現
+        const editor = await waitForElement(EDITOR_SELECTORS, 15000);
+        if (editor) {
+          console.log(`${LOG_PREFIX} 編輯器已就緒，開始自動貼文`);
+          await autoPasteArticle(pendingArticle);
+        } else {
+          console.warn(`${LOG_PREFIX} 等待編輯器超時`);
+          showToast('編輯器載入超時，請使用浮動面板手動貼上', 'error');
+          showPasteHelper();
+        }
+      } else {
+        // 沒有待貼文章，僅偵測編輯器
+        setTimeout(detectAndReport, 2000);
+      }
+    });
   }
 })();

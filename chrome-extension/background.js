@@ -631,16 +631,17 @@ async function handlePasteArticleToVocus(data) {
             articleData = await response.json();
         }
 
-        // 2. 找到或開啟方格子編輯器
-        let vocusTab = null;
+        // 2. 暫存文章資料（點「文章」會開新分頁，content script 在新分頁讀取）
+        await chrome.storage.local.set({ pendingVocusArticle: articleData });
 
-        // 先找已開啟的方格子編輯器（new-editor 頁面）
+        // 3. 找到或開啟方格子編輯器
+        // 先找已開啟的 new-editor 分頁
         const editorTabs = await chrome.tabs.query({ url: 'https://vocus.cc/new-editor*' });
         if (editorTabs.length > 0) {
-            vocusTab = editorTabs[0];
+            const vocusTab = editorTabs[0];
             await chrome.tabs.update(vocusTab.id, { active: true });
-            // 編輯器已存在，直接傳送
             await new Promise(r => setTimeout(r, 1000));
+            // 直接傳送給已開啟的編輯器
             await chrome.tabs.sendMessage(vocusTab.id, {
                 type: 'AUTO_PASTE_ARTICLE_VOCUS',
                 data: articleData
@@ -648,7 +649,9 @@ async function handlePasteArticleToVocus(data) {
             return { success: true };
         }
 
-        // 沒有已開啟的編輯器 → 開啟 creatordesk，由 content script 自動點「文章」
+        // 沒有編輯器 → 開啟 creatordesk，content script 會自動點「文章」
+        // 點「文章」會開新分頁(new-editor)，新分頁的 content script 從 storage 讀取資料
+        let vocusTab = null;
         const deskTabs = await chrome.tabs.query({ url: 'https://vocus.cc/creatordesk*' });
         if (deskTabs.length > 0) {
             vocusTab = deskTabs[0];
@@ -660,7 +663,7 @@ async function handlePasteArticleToVocus(data) {
             });
         }
 
-        // 3. 等待頁面載入
+        // 等待頁面載入
         const waitForTab = (tabId) => new Promise((resolve) => {
             const check = (updatedTabId, changeInfo) => {
                 if (updatedTabId === tabId && changeInfo.status === 'complete') {
@@ -680,11 +683,9 @@ async function handlePasteArticleToVocus(data) {
         await waitForTab(vocusTab.id);
         await new Promise(r => setTimeout(r, 1500));
 
-        // 4. 傳送文章資料到 content script
-        //    content script 會：① 自動點「文章」按鈕 ② 等待編輯器出現 ③ 自動貼文
+        // 通知 content script 點「文章」按鈕
         await chrome.tabs.sendMessage(vocusTab.id, {
-            type: 'AUTO_PASTE_ARTICLE_VOCUS',
-            data: articleData
+            type: 'CLICK_VOCUS_ARTICLE_BUTTON',
         });
 
         return { success: true };
