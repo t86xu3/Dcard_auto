@@ -8,7 +8,30 @@ export function getSavedLinks() {
   }
 }
 
-export function addSavedLink(item) {
+/**
+ * 生成用戶專屬聯盟導購連結
+ * 有 affiliate_id → 組裝 s.shopee.tw/an_redir 格式
+ * 無 affiliate_id → fallback 到原始 offerLink
+ */
+export function generateAffiliateLink(item, affiliateSettings) {
+  const originalLink = item.offerLink || item.productLink || '';
+  if (!affiliateSettings?.affiliate_id) return originalLink;
+
+  // 取得商品原始連結（非聯盟連結）作為 origin_link
+  const originLink = item.productLink || item.offerLink || '';
+  if (!originLink) return originalLink;
+
+  const params = new URLSearchParams({
+    origin_link: originLink,
+    affiliate_id: affiliateSettings.affiliate_id,
+  });
+  if (affiliateSettings.sub_id) {
+    params.set('sub_id', affiliateSettings.sub_id);
+  }
+  return `https://s.shopee.tw/an_redir?${params.toString()}`;
+}
+
+export function addSavedLink(item, affiliateSettings) {
   const links = getSavedLinks();
   const id = String(item.itemId || item.id);
   if (links.some(l => l.id === id)) return false;
@@ -16,7 +39,7 @@ export function addSavedLink(item) {
   links.push({
     id,
     productName: item.productName || item.name || '',
-    link: item.offerLink || item.productLink || '',
+    link: generateAffiliateLink(item, affiliateSettings),
     imageUrl: item.imageUrl || '',
     price: item._price || item.priceMin || '',
     savedAt: new Date().toISOString(),

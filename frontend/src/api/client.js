@@ -283,6 +283,10 @@ export const researchKeywords = (productIds) =>
 export const autocompletePreview = (seed) =>
   api.get('/keywords/autocomplete', { params: { seed }, timeout: 10000 }).then(r => r.data);
 
+// 用戶個人設定
+export const updateProfile = (data) =>
+  api.patch('/auth/me', data).then(r => r.data);
+
 // 不走快取的直接 fetch（輪詢用）
 export const fetchArticlesFresh = (skip = 0, limit = 50) =>
   api.get(`/articles?skip=${skip}&limit=${limit}`).then(r => r.data);

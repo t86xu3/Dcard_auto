@@ -1,6 +1,7 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { exploreProducts, findCompetitors } from '../api/client';
 import { addSavedLink } from '../utils/savedLinks';
+import { useAuth } from '../contexts/AuthContext';
 
 const TABS = [
   {
@@ -343,6 +344,12 @@ function CompetitorModal({ isOpen, onClose, sourceItem, data, loading, onSave, s
 function round2(n) { return Math.round(n * 100) / 100; }
 
 export default function ExplorePage() {
+  const { user } = useAuth();
+  const affiliateSettings = useMemo(() => ({
+    affiliate_id: user?.shopee_affiliate_id || '',
+    sub_id: user?.default_sub_id || '',
+  }), [user?.shopee_affiliate_id, user?.default_sub_id]);
+
   const [activeTab, setActiveTab] = useState('hot');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -361,11 +368,11 @@ export default function ExplorePage() {
   });
 
   const handleSaveLink = useCallback((item) => {
-    const added = addSavedLink(item);
+    const added = addSavedLink(item, affiliateSettings);
     if (added) {
       setSavedIds(prev => new Set(prev).add(String(item.itemId || item.id)));
     }
-  }, []);
+  }, [affiliateSettings]);
 
   // 競品 Modal 狀態
   const [competitorModal, setCompetitorModal] = useState({
@@ -516,6 +523,14 @@ export default function ExplorePage() {
 
       {/* Tab 描述 */}
       <p className="text-sm text-gray-400 mb-4">{currentTab.desc}</p>
+
+      {/* 未設定聯盟 ID 提示 */}
+      {!user?.shopee_affiliate_id && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 flex items-center gap-2 text-sm text-amber-700">
+          <span>⚠️</span>
+          <span>尚未設定蝦皮聯盟 ID，儲存的連結將使用預設追蹤連結。前往<a href="/settings" className="text-amber-800 font-medium underline hover:text-amber-900 mx-1">設定頁</a>填入你的 Affiliate ID。</span>
+        </div>
+      )}
 
       {/* 篩選面板 */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">

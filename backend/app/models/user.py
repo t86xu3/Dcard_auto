@@ -20,6 +20,8 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     is_approved = Column(Boolean, default=False)
     created_at = Column(DateTime, default=taipei_now)
+    shopee_affiliate_id = Column(String(100), nullable=True)
+    default_sub_id = Column(String(100), nullable=True)
 
     def __repr__(self):
         return f"<User {self.id}: {self.username}>"

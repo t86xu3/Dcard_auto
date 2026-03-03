@@ -1,12 +1,46 @@
 import { useState, useEffect } from 'react';
 import { useExtensionDetect } from '../hooks/useExtensionDetect';
-import { getPrompts, createPrompt, updatePrompt, deletePrompt, setDefaultPrompt, invalidateCache } from '../api/client';
+import { getPrompts, createPrompt, updatePrompt, deletePrompt, setDefaultPrompt, updateProfile, invalidateCache } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function SettingsPage() {
   const { status, extensionInfo, extensionId, retry } = useExtensionDetect();
-  const { user } = useAuth();
+  const { user, fetchUser } = useAuth();
   const [llmModel, setLlmModel] = useState(() => localStorage.getItem('llmModel') || 'gemini-2.5-flash');
+
+  // 蝦皮聯盟設定 — 用 user key 重置表單
+  const userAffiliateId = user?.shopee_affiliate_id || '';
+  const userSubId = user?.default_sub_id || '';
+  const [affiliateId, setAffiliateId] = useState(userAffiliateId);
+  const [subId, setSubId] = useState(userSubId);
+  const [affiliateSaving, setAffiliateSaving] = useState(false);
+  const [affiliateSaved, setAffiliateSaved] = useState(false);
+  const [prevUserKey, setPrevUserKey] = useState(`${userAffiliateId}|${userSubId}`);
+
+  const currentUserKey = `${userAffiliateId}|${userSubId}`;
+  if (currentUserKey !== prevUserKey) {
+    setPrevUserKey(currentUserKey);
+    setAffiliateId(userAffiliateId);
+    setSubId(userSubId);
+  }
+
+  const affiliateChanged = user && (
+    (affiliateId || '') !== (user.shopee_affiliate_id || '') ||
+    (subId || '') !== (user.default_sub_id || '')
+  );
+
+  const handleSaveAffiliate = async () => {
+    setAffiliateSaving(true);
+    try {
+      await updateProfile({ shopee_affiliate_id: affiliateId, default_sub_id: subId });
+      await fetchUser();
+      setAffiliateSaved(true);
+      setTimeout(() => setAffiliateSaved(false), 2000);
+    } catch (err) {
+      alert('儲存失敗: ' + (err.response?.data?.detail || err.message));
+    }
+    setAffiliateSaving(false);
+  };
 
   const handleModelChange = (value) => {
     setLlmModel(value);
@@ -129,6 +163,48 @@ export default function SettingsPage() {
             <div>ID: {extensionId}</div>
           </div>
         )}
+      </section>
+
+      {/* 蝦皮聯盟設定 */}
+      <section className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">🛒 蝦皮聯盟設定</h3>
+        <p className="text-xs text-gray-400 mb-4">填入你的蝦皮聯盟行銷 ID，商品探索「存連結」時會自動生成你的專屬導購連結，佣金歸你。</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Affiliate ID</label>
+            <input
+              type="text"
+              value={affiliateId}
+              onChange={e => setAffiliateId(e.target.value.trim())}
+              placeholder="例: 17012345678"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Sub ID（選填）</label>
+            <input
+              type="text"
+              value={subId}
+              onChange={e => setSubId(e.target.value.trim())}
+              placeholder="追蹤用標記，例: dcard"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSaveAffiliate}
+            disabled={affiliateSaving || !affiliateChanged}
+            className={`px-4 py-2 rounded-lg text-sm font-medium active:scale-95 transition-all ${
+              affiliateChanged
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            {affiliateSaving ? '儲存中...' : '💾 儲存'}
+          </button>
+          {affiliateSaved && <span className="text-sm text-green-600">✓ 已儲存</span>}
+        </div>
       </section>
 
       {/* LLM */}

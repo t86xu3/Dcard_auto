@@ -26,6 +26,8 @@ class AdminUserResponse(BaseModel):
     is_admin: bool
     is_approved: bool
     created_at: datetime
+    shopee_affiliate_id: Optional[str] = None
+    default_sub_id: Optional[str] = None
 
     class Config:
         from_attributes = True

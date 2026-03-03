@@ -54,9 +54,16 @@ class UserResponse(BaseModel):
     is_admin: bool
     is_approved: bool
     created_at: Optional[datetime] = None
+    shopee_affiliate_id: Optional[str] = None
+    default_sub_id: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class UpdateProfileRequest(BaseModel):
+    shopee_affiliate_id: Optional[str] = None
+    default_sub_id: Optional[str] = None
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -124,4 +131,20 @@ async def refresh_token(request: RefreshRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     """取得當前用戶資訊"""
+    return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_me(
+    request: UpdateProfileRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """更新當前用戶個人設定（蝦皮聯盟 ID 等）"""
+    if request.shopee_affiliate_id is not None:
+        current_user.shopee_affiliate_id = request.shopee_affiliate_id or None
+    if request.default_sub_id is not None:
+        current_user.default_sub_id = request.default_sub_id or None
+    db.commit()
+    db.refresh(current_user)
     return current_user
