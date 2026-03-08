@@ -544,23 +544,36 @@ async def copy_article_vocus(
             markdown_content
         )
     else:
-        # 舊版文章：content_markdown 無圖片，從 content_with_images 提取
-        url_to_marker = {}
-        if article.image_map:
-            url_to_marker = {url: marker for marker, url in article.image_map.items()}
-
+        # 舊版文章：content_markdown 無圖片
+        # 使用 content_with_images 作為 base（圖片 ![](url) 標記在正確位置）
         cwi = article.content_with_images or ""
-        if url_to_marker and cwi:
-            for match in re.finditer(r'!\[.*?\]\((.*?)\)', cwi):
-                url = match.group(1)
-                if url_to_marker.get(url):
-                    img_index += 1
-                    image_positions.append({"url": url, "index": img_index})
+        has_cwi_images = bool(re.search(r'!\[.*?\]\(https?://.*?\)', cwi))
 
-            # 舊版 fallback：圖片附在文末（無法精確定位）
-            if image_positions:
-                for img in image_positions:
-                    paste_content += f"\n\n📷圖{img['index']}"
+        if has_cwi_images:
+            # content_with_images 有圖片標記 → 原地替換為 📷圖N（保留位置）
+            def replace_cwi_marker(match):
+                nonlocal img_index
+                img_index += 1
+                image_positions.append({"url": match.group(1), "index": img_index})
+                return f"\n📷圖{img_index}\n"
+
+            paste_content = re.sub(
+                r'\n*!\[.*?\]\((https?://.*?)\)\n*',
+                replace_cwi_marker,
+                cwi
+            )
+        else:
+            # 完全無圖片資訊，嘗試從 image_map 提取附在文末
+            if article.image_map:
+                url_to_marker = {url: marker for marker, url in article.image_map.items()}
+                for match in re.finditer(r'!\[.*?\]\((.*?)\)', cwi):
+                    url = match.group(1)
+                    if url_to_marker.get(url):
+                        img_index += 1
+                        image_positions.append({"url": url, "index": img_index})
+                if image_positions:
+                    for img in image_positions:
+                        paste_content += f"\n\n📷圖{img['index']}"
 
     return {
         "title": article.title,

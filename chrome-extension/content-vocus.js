@@ -245,35 +245,47 @@
   // ── 逐段建構（文字+圖片交替插入）──
 
   /**
-   * 用方格子原生 Markdown 快捷鍵建立標題
-   * 行首輸入 `## ` + 空格 → 自動轉為 H2 標題節點
+   * 用 HTML paste 建立標題（<h2>text</h2>）
+   * Lexical 的 $generateNodesFromDOM 會解析 <h2> 標籤建立 HeadingNode
+   * 比 execCommand 模擬打字更可靠
    */
   async function typeMarkdownHeading(editor, level, headingText) {
     editor.focus();
     moveCursorToEnd(editor);
-    await randomDelay(100, 200);
+    await randomDelay(200, 400);
 
-    // 輸入 heading prefix（例如 "## "）觸發方格子 Markdown 快捷鍵
-    const prefix = '#'.repeat(level) + ' ';
-    document.execCommand('insertText', false, prefix);
-    await randomDelay(400, 600); // 等待 Markdown 快捷鍵處理
+    const tag = `h${level}`;
+    const html = `<${tag}>${escapeHtml(headingText)}</${tag}>`;
 
-    // 輸入標題文字（進入已轉換的 heading 節點中）
-    document.execCommand('insertText', false, headingText);
-    await randomDelay(200, 300);
-
-    // Enter 結束 heading，回到普通段落
+    const dt = new DataTransfer();
+    dt.setData('text/html', html);
+    dt.setData('text/plain', headingText); // fallback
     editor.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'Enter',
-        code: 'Enter',
-        keyCode: 13,
+      new ClipboardEvent('paste', {
         bubbles: true,
         cancelable: true,
-        composed: true,
+        clipboardData: dt,
       }),
     );
-    await randomDelay(150, 250);
+    await randomDelay(500, 800);
+  }
+
+  /** 貼上一段 HTML（用於 heading、分隔線等需要特殊格式的元素） */
+  async function pasteHtmlFragment(editor, html) {
+    editor.focus();
+    moveCursorToEnd(editor);
+    await randomDelay(200, 400);
+
+    const dt = new DataTransfer();
+    dt.setData('text/html', html);
+    editor.dispatchEvent(
+      new ClipboardEvent('paste', {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: dt,
+      }),
+    );
+    await randomDelay(400, 600);
   }
 
   /** 批量貼上一段純文字（不含 heading） */
@@ -305,9 +317,11 @@
     if (!text.trim()) return true;
 
     const lines = text.split('\n');
-    const hasHeadings = lines.some((l) => /^#{1,3}\s+.+$/.test(l));
+    const hasSpecialLines = lines.some(
+      (l) => /^#{1,3}\s+.+$/.test(l) || /^(-{3,}|={3,})$/.test(l.trim()),
+    );
 
-    if (!hasHeadings) {
+    if (!hasSpecialLines) {
       // 無標題：直接批量貼上（最快）
       editor.focus();
       moveCursorToEnd(editor);
@@ -326,19 +340,28 @@
       return true;
     }
 
-    // 有標題：逐行處理，heading 用 Markdown 快捷鍵，其他批量貼上
+    // 有標題/分隔線：逐行處理，heading 用 HTML paste，其他批量貼上
     let buffer = [];
 
     for (const line of lines) {
-      const match = line.match(/^(#{1,3})\s+(.+)$/);
-      if (match) {
+      const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+      const isSeparator = /^(-{3,}|={3,})$/.test(line.trim());
+
+      if (headingMatch) {
         // 先 flush 累積的普通文字
         if (buffer.length > 0) {
           await flushTextBuffer(editor, buffer);
           buffer = [];
         }
-        // 用 Markdown 快捷鍵建立 heading
-        await typeMarkdownHeading(editor, match[1].length, match[2]);
+        // 用 HTML paste 建立 heading
+        await typeMarkdownHeading(editor, headingMatch[1].length, headingMatch[2]);
+      } else if (isSeparator) {
+        if (buffer.length > 0) {
+          await flushTextBuffer(editor, buffer);
+          buffer = [];
+        }
+        // 用 HTML paste 建立分隔線
+        await pasteHtmlFragment(editor, '<hr>');
       } else {
         buffer.push(line);
       }
