@@ -526,12 +526,12 @@ async def copy_article_vocus(
     paste_content = markdown_content
     img_index = 0
 
+    # ── 圖片提取 ──
     # 檢查 content_markdown 是否已有內嵌圖片（新版文章）
     has_inline_images = bool(re.search(r'!\[.*?\]\(https?://.*?\)', markdown_content))
 
     if has_inline_images:
         # 新版：content_markdown 已有 ![商品圖片](url) 在正確位置
-        # 提取圖片 URL 並替換為 📷圖N 標記
         def replace_with_marker(match):
             nonlocal img_index
             img_index += 1
@@ -544,13 +544,11 @@ async def copy_article_vocus(
             markdown_content
         )
     else:
-        # 舊版文章：content_markdown 無圖片
-        # 使用 content_with_images 作為 base（圖片 ![](url) 標記在正確位置）
+        # 嘗試從 content_with_images 提取（圖片在正確位置）
         cwi = article.content_with_images or ""
         has_cwi_images = bool(re.search(r'!\[.*?\]\(https?://.*?\)', cwi))
 
         if has_cwi_images:
-            # content_with_images 有圖片標記 → 原地替換為 📷圖N（保留位置）
             def replace_cwi_marker(match):
                 nonlocal img_index
                 img_index += 1
@@ -562,18 +560,19 @@ async def copy_article_vocus(
                 replace_cwi_marker,
                 cwi
             )
-        else:
-            # 完全無圖片資訊，嘗試從 image_map 提取附在文末
-            if article.image_map:
-                url_to_marker = {url: marker for marker, url in article.image_map.items()}
-                for match in re.finditer(r'!\[.*?\]\((.*?)\)', cwi):
-                    url = match.group(1)
-                    if url_to_marker.get(url):
-                        img_index += 1
-                        image_positions.append({"url": url, "index": img_index})
-                if image_positions:
-                    for img in image_positions:
-                        paste_content += f"\n\n📷圖{img['index']}"
+        elif article.image_map:
+            # 從 image_map 提取圖片 URL，均勻分佈在文中（不再附在文末）
+            for marker, url in article.image_map.items():
+                img_index += 1
+                image_positions.append({"url": url, "index": img_index})
+
+            if image_positions:
+                paste_content = _distribute_images_evenly(paste_content, image_positions)
+
+    # ── 舊文章 heading 重建（content_markdown 無 ## 時）──
+    has_md_headings = bool(re.search(r'^#{1,3}\s+', markdown_content, re.MULTILINE))
+    if not has_md_headings:
+        paste_content = _reconstruct_headings(paste_content)
 
     return {
         "title": article.title,
@@ -583,6 +582,81 @@ async def copy_article_vocus(
         "paste_content": paste_content,
         "image_positions": image_positions,
     }
+
+
+def _distribute_images_evenly(text: str, image_positions: list) -> str:
+    """將圖片標記均勻分佈在文章段落之間（用於無法精確定位圖片的舊文章）"""
+    import re
+    paragraphs = [p for p in re.split(r'\n{2,}', text) if p.strip()]
+    n_images = len(image_positions)
+    n_paras = len(paragraphs)
+
+    if n_images == 0 or n_paras <= 1:
+        # fallback: 附在文末
+        for img in image_positions:
+            text += f"\n\n📷圖{img['index']}"
+        return text
+
+    # 計算插入間隔（均勻分佈）
+    interval = max(1, n_paras // (n_images + 1))
+    result = []
+    img_idx = 0
+
+    for i, para in enumerate(paragraphs):
+        result.append(para)
+        if img_idx < n_images and (i + 1) % interval == 0 and i < n_paras - 1:
+            result.append(f"📷圖{image_positions[img_idx]['index']}")
+            img_idx += 1
+
+    # 剩餘未插入的圖片附在最後
+    while img_idx < n_images:
+        result.append(f"📷圖{image_positions[img_idx]['index']}")
+        img_idx += 1
+
+    return "\n\n".join(result)
+
+
+def _reconstruct_headings(text: str) -> str:
+    """為舊文章（無 ## heading）重建 Markdown 標題結構
+    規則：=== 分隔線後的短行 → ## H2，emoji 開頭的短獨立行 → ### H3"""
+    import re
+    # 常見 heading emoji
+    heading_emojis = r'[\U0001F300-\U0001F9FF\u2600-\u26FF\u2700-\u27BF]'
+
+    lines = text.split('\n')
+    result = []
+    prev_was_separator = False
+    prev_was_empty = False
+
+    for line in lines:
+        stripped = line.strip()
+
+        # 偵測分隔線
+        if re.match(r'^(-{3,}|={3,})$', stripped):
+            prev_was_separator = True
+            result.append(stripped)
+            continue
+
+        # 分隔線後的非空短行 → H2
+        if prev_was_separator and stripped and len(stripped) < 80:
+            result.append(f'## {stripped}')
+            prev_was_separator = False
+            prev_was_empty = False
+            continue
+
+        # emoji 開頭 + 短行 + 前後有空行 → H3（子標題）
+        if (prev_was_empty and stripped and len(stripped) < 60
+                and re.match(heading_emojis, stripped)):
+            result.append(f'### {stripped}')
+            prev_was_separator = False
+            prev_was_empty = False
+            continue
+
+        prev_was_separator = False
+        prev_was_empty = (stripped == '')
+        result.append(line)
+
+    return '\n'.join(result)
 
 
 @router.get("/{article_id}/images")
