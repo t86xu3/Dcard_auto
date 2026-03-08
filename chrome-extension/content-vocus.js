@@ -4,7 +4,8 @@
  * 執行環境：vocus.cc / creator.vocus.cc 頁面
  * 編輯器框架：Lexical（與 Dcard 相同）
  * 關鍵差異：方格子支援 Markdown / H2 H3 標題 → 自動生成目錄 → SEO 加分
- *          因此貼文時使用 text/html 格式，保留標題層級結構
+ *          貼文時用 execCommand('insertText') 模擬打字 ## 觸發 Markdown 快捷鍵
+ *          圖片採 Dcard 同款逐段建構（text/plain + ClipboardEvent 圖片），確保位置正確
  */
 
 (() => {
@@ -116,116 +117,6 @@
     setTimeout(() => toast.remove(), 4000);
   }
 
-  // ── Markdown → HTML 轉換（輕量版，僅處理 SEO 關鍵元素）──
-
-  function markdownToHtml(md) {
-    if (!md) return '';
-
-    const lines = md.split('\n');
-    const htmlLines = [];
-    let inList = false;
-    let listType = null; // 'ul' or 'ol'
-
-    for (let i = 0; i < lines.length; i++) {
-      let line = lines[i];
-
-      // 結束列表
-      if (inList && !/^(\s*[-*]\s|^\s*\d+\.\s)/.test(line)) {
-        htmlLines.push(listType === 'ol' ? '</ol>' : '</ul>');
-        inList = false;
-        listType = null;
-      }
-
-      // H2
-      if (/^## (.+)$/.test(line)) {
-        const text = line.replace(/^## /, '');
-        htmlLines.push(`<h2>${inlineFormat(text)}</h2>`);
-        continue;
-      }
-
-      // H3
-      if (/^### (.+)$/.test(line)) {
-        const text = line.replace(/^### /, '');
-        htmlLines.push(`<h3>${inlineFormat(text)}</h3>`);
-        continue;
-      }
-
-      // H1（標題通常由標題欄位處理，但以防萬一）
-      if (/^# (.+)$/.test(line)) {
-        const text = line.replace(/^# /, '');
-        htmlLines.push(`<h1>${inlineFormat(text)}</h1>`);
-        continue;
-      }
-
-      // 無序列表
-      if (/^\s*[-*]\s+(.+)$/.test(line)) {
-        if (!inList || listType !== 'ul') {
-          if (inList) htmlLines.push(listType === 'ol' ? '</ol>' : '</ul>');
-          htmlLines.push('<ul>');
-          inList = true;
-          listType = 'ul';
-        }
-        const text = line.replace(/^\s*[-*]\s+/, '');
-        htmlLines.push(`<li>${inlineFormat(text)}</li>`);
-        continue;
-      }
-
-      // 有序列表
-      if (/^\s*\d+\.\s+(.+)$/.test(line)) {
-        if (!inList || listType !== 'ol') {
-          if (inList) htmlLines.push(listType === 'ol' ? '</ol>' : '</ul>');
-          htmlLines.push('<ol>');
-          inList = true;
-          listType = 'ol';
-        }
-        const text = line.replace(/^\s*\d+\.\s+/, '');
-        htmlLines.push(`<li>${inlineFormat(text)}</li>`);
-        continue;
-      }
-
-      // 分隔線（--- 或 ===）
-      if (/^(-{3,}|={3,})$/.test(line.trim())) {
-        htmlLines.push('<hr>');
-        continue;
-      }
-
-      // 空行 — 使用 Lexical 標準的空段落格式（裸 <br> 會被忽略或造成問題）
-      if (line.trim() === '') {
-        // 避免連續多個空段落
-        const last = htmlLines[htmlLines.length - 1];
-        if (last !== '<p><br></p>') {
-          htmlLines.push('<p><br></p>');
-        }
-        continue;
-      }
-
-      // 一般段落
-      htmlLines.push(`<p>${inlineFormat(line)}</p>`);
-    }
-
-    // 結束未關閉的列表
-    if (inList) {
-      htmlLines.push(listType === 'ol' ? '</ol>' : '</ul>');
-    }
-
-    return htmlLines.join('\n');
-  }
-
-  /** 行內格式：粗體、斜體、行內碼、連結 */
-  function inlineFormat(text) {
-    return text
-      // 粗體 **text** or __text__
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/__(.+?)__/g, '<strong>$1</strong>')
-      // 斜體 *text* or _text_
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/_(.+?)_/g, '<em>$1</em>')
-      // 行內碼 `code`
-      .replace(/`(.+?)`/g, '<code>$1</code>')
-      // 連結 [text](url)
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-  }
-
   // ── Lexical 操作 ──
 
   function moveCursorToEnd(editor) {
@@ -319,36 +210,16 @@
     return false;
   }
 
-  // ── 內容貼上（HTML 格式，保留 H2/H3 標題層級）──
+  // ── 內容貼上（使用 Markdown 快捷鍵建立標題）──
 
-  async function pasteContent(editor, content, isMarkdown = false) {
+  async function pasteContent(editor, content) {
     const beforeLen = (editor.textContent || '').length;
 
-    editor.focus();
-    await new Promise((r) => setTimeout(r, 300));
-
     try {
-      const dt = new DataTransfer();
+      // 使用智能貼上：heading 用 Markdown 快捷鍵，其他用 text/plain
+      await pasteTextSegment(editor, content);
 
-      if (isMarkdown) {
-        // Markdown → HTML，讓 Lexical 解析標題層級
-        const html = markdownToHtml(content);
-        dt.setData('text/html', html);
-        dt.setData('text/plain', content); // fallback（Lexical HTML 解析可能失敗）
-        console.log(`${LOG_PREFIX} 使用 HTML 格式貼上（保留標題結構 → 目錄 SEO）`);
-        console.log(`${LOG_PREFIX} HTML 預覽 (前 500 字):`, html.slice(0, 500));
-      } else {
-        dt.setData('text/plain', content);
-      }
-
-      const pasteEvent = new ClipboardEvent('paste', {
-        bubbles: true,
-        cancelable: true,
-        clipboardData: dt,
-      });
-      editor.dispatchEvent(pasteEvent);
-
-      await new Promise((r) => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 1000));
       const afterLen = (editor.textContent || '').length;
       if (afterLen > beforeLen + 10) {
         await reconcileLexicalState(editor);
@@ -356,7 +227,7 @@
         return true;
       }
     } catch (e) {
-      console.warn(`${LOG_PREFIX} ClipboardEvent 失敗:`, e);
+      console.warn(`${LOG_PREFIX} pasteContent 失敗:`, e);
     }
 
     // Fallback: 寫入剪貼簿讓使用者手動 Ctrl+V
@@ -373,29 +244,111 @@
 
   // ── 逐段建構（文字+圖片交替插入）──
 
-  async function pasteTextSegment(editor, text, isMarkdown = false) {
-    if (!text.trim()) return true;
+  /**
+   * 用方格子原生 Markdown 快捷鍵建立標題
+   * 行首輸入 `## ` + 空格 → 自動轉為 H2 標題節點
+   */
+  async function typeMarkdownHeading(editor, level, headingText) {
+    editor.focus();
+    moveCursorToEnd(editor);
+    await randomDelay(100, 200);
+
+    // 輸入 heading prefix（例如 "## "）觸發方格子 Markdown 快捷鍵
+    const prefix = '#'.repeat(level) + ' ';
+    document.execCommand('insertText', false, prefix);
+    await randomDelay(400, 600); // 等待 Markdown 快捷鍵處理
+
+    // 輸入標題文字（進入已轉換的 heading 節點中）
+    document.execCommand('insertText', false, headingText);
+    await randomDelay(200, 300);
+
+    // Enter 結束 heading，回到普通段落
+    editor.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        keyCode: 13,
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+      }),
+    );
+    await randomDelay(150, 250);
+  }
+
+  /** 批量貼上一段純文字（不含 heading） */
+  async function flushTextBuffer(editor, lines) {
+    const text = lines.join('\n');
+    if (!text.trim()) return;
 
     editor.focus();
     moveCursorToEnd(editor);
-    await randomDelay(300, 500);
+    await randomDelay(100, 200);
 
     const dt = new DataTransfer();
-    if (isMarkdown) {
-      const html = markdownToHtml(text);
-      dt.setData('text/html', html);
-      dt.setData('text/plain', text); // fallback
-    } else {
-      dt.setData('text/plain', text);
-    }
-    const pasteEvent = new ClipboardEvent('paste', {
-      bubbles: true,
-      cancelable: true,
-      clipboardData: dt,
-    });
-    editor.dispatchEvent(pasteEvent);
+    dt.setData('text/plain', text);
+    editor.dispatchEvent(
+      new ClipboardEvent('paste', {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: dt,
+      }),
+    );
+    await randomDelay(800, 1200);
+  }
 
-    await randomDelay(1000, 1800);
+  /**
+   * 智能貼上文字段：偵測 Markdown heading，用方格子原生快捷鍵建立標題
+   * 一般文字用 text/plain 批量貼上（快速且游標定位可靠，與 Dcard 一致）
+   */
+  async function pasteTextSegment(editor, text) {
+    if (!text.trim()) return true;
+
+    const lines = text.split('\n');
+    const hasHeadings = lines.some((l) => /^#{1,3}\s+.+$/.test(l));
+
+    if (!hasHeadings) {
+      // 無標題：直接批量貼上（最快）
+      editor.focus();
+      moveCursorToEnd(editor);
+      await randomDelay(300, 500);
+
+      const dt = new DataTransfer();
+      dt.setData('text/plain', text);
+      editor.dispatchEvent(
+        new ClipboardEvent('paste', {
+          bubbles: true,
+          cancelable: true,
+          clipboardData: dt,
+        }),
+      );
+      await randomDelay(1000, 1800);
+      return true;
+    }
+
+    // 有標題：逐行處理，heading 用 Markdown 快捷鍵，其他批量貼上
+    let buffer = [];
+
+    for (const line of lines) {
+      const match = line.match(/^(#{1,3})\s+(.+)$/);
+      if (match) {
+        // 先 flush 累積的普通文字
+        if (buffer.length > 0) {
+          await flushTextBuffer(editor, buffer);
+          buffer = [];
+        }
+        // 用 Markdown 快捷鍵建立 heading
+        await typeMarkdownHeading(editor, match[1].length, match[2]);
+      } else {
+        buffer.push(line);
+      }
+    }
+
+    // flush 剩餘的普通文字
+    if (buffer.length > 0) {
+      await flushTextBuffer(editor, buffer);
+    }
+
     return true;
   }
 
@@ -494,7 +447,6 @@
     editor,
     pasteContent,
     imagePositions,
-    isMarkdown = false,
   ) {
     const imageMap = {};
     for (const img of imagePositions) {
@@ -522,7 +474,8 @@
           else failImages++;
         }
       } else if (segment.trim()) {
-        await pasteTextSegment(editor, segment, isMarkdown);
+        // 逐段建構時強制 text/plain（與 Dcard 一致），確保圖片插入在正確位置
+        await pasteTextSegment(editor, segment, false);
       }
     }
 
@@ -597,15 +550,11 @@
     } = articleData;
     const hasImages = image_positions && image_positions.length > 0;
 
-    // 判斷是否有 Markdown 內容（優先使用）
-    const hasMarkdown = !!content_markdown;
-    const textContent = hasMarkdown
-      ? content_markdown
-      : paste_content || plain_content || content || '';
-    const isMarkdown = hasMarkdown;
+    // 優先使用 content_markdown（保留 ## heading 語法）
+    const textContent = content_markdown || paste_content || plain_content || content || '';
 
     console.log(
-      `${LOG_PREFIX} 開始自動貼文 (Markdown: ${isMarkdown}, 圖片: ${hasImages ? image_positions.length : 0})`,
+      `${LOG_PREFIX} 開始自動貼文 (Markdown: ${!!content_markdown}, 圖片: ${hasImages ? image_positions.length : 0})`,
     );
 
     // 等待編輯器
@@ -638,7 +587,6 @@
         editor,
         paste_content,
         image_positions,
-        isMarkdown, // 有 Markdown 時用 HTML 格式（保留 H2/H3 → 目錄 SEO）
       );
       removeProgressPanel();
 
@@ -652,10 +600,10 @@
         showToast('部分內容插入失敗', 'error');
       }
     } else {
-      // 無圖片：直接貼內容（優先 Markdown → HTML 保留標題結構）
+      // 無圖片：用 Markdown 快捷鍵建立標題 + text/plain 貼一般文字
       let contentOk = false;
       try {
-        contentOk = await pasteContent(editor, textContent, isMarkdown);
+        contentOk = await pasteContent(editor, textContent);
       } catch (e) {
         console.error(`${LOG_PREFIX} 貼上內文失敗:`, e);
       }
